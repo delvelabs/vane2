@@ -9,74 +9,43 @@ class Vane:
     def __init__(self):
         self.hammertime = HammerTime(retry_count=3)
         self.config_hammertime()
-        self.json_output = {}
         self.database = None
         self.output_manager = OutputManager()
 
     def config_hammertime(self):
-        try:
-            self.hammertime.heuristics.add_multiple([IgnoreLargeBody()])
-        except AttributeError:  # An AttributeError is raised when more than one HammerTime instance is created, just ignore it for now.
-            pass
+        self.hammertime.heuristics.add_multiple([IgnoreLargeBody()])
 
     async def do_request(self, url):
-        self._log_message("sending request to %s" % url)
         self.hammertime.request(url)
 
         success = False
         async for entry in self.hammertime.successful_requests():
             success = True
 
-        if success:
-            self._log_message("request successful")
-        else:
-            self._log_message("request failed")
-
         await self.hammertime.close()
-
-    # TODO
-    async def import_openwebvulndatabase(self, database_path, export_path):
-        """Import data from openwebvulndb and repackage it in a more compact database."""
-        pass
-
-    # TODO
-    def get_wordpress_version(self, url):
-        pass
-
-    # TODO
-    def list_plugins(self, url):
-        pass
-
-    # TODO
-    def list_themes(self, url):
-        pass
-
-    # TODO
-    def find_vulnerabilities(self, plugins, themes, wordpress_version):
-        pass
 
     async def scan_target(self, url):
         self._load_database()
 
-        self._log_message("scanning %s" % url)
+        self.output_manager.log_message("scanning %s" % url)
 
-        wordpress_version = self.get_wordpress_version(url)
-        plugins = self.list_plugins(url)
-        themes = self.list_themes(url)
-        vulnerabilities = self.find_vulnerabilities(plugins, themes, wordpress_version)
+        wordpress_version = "1.2"
+        plugins = ["plugin0", "plugin1"]
+        themes = ["theme0", "theme1"]
+        vulnerabilities = []
 
-        self.json_output["wordpress_version"] = wordpress_version
-        self.json_output["plugins"] = plugins
-        self.json_output["themes"] = themes
-        self.json_output["vulnerabilities"] = vulnerabilities
+        self.output_manager.set_wordpress_version(wordpress_version)
+        self.output_manager.set_plugins(plugins)
+        self.output_manager.set_themes(themes)
+        self.output_manager.set_vulnerabilities(vulnerabilities)
 
-        self._log_message("scan done")
+        self.output_manager.log_message("scan done")
 
     # TODO
     def _load_database(self):
         # load database
         if self.database is not None:
-            self.json_output["database_version"] = self.database.get_version()
+            self.output_manager.set_vuln_database_version(self.database.get_version())
 
     def perfom_action(self, action="request", url=None, database_path=None):
         if action == "request":
@@ -87,20 +56,38 @@ class Vane:
             self.hammertime.loop.run_until_complete(self.scan_target(url))
         elif action == "import_data":
             pass
-        self.output_manager.json(self.json_output)
-
-    def _log_message(self, message):
-        """Print a message to the general log in the json output."""
-        if "general_log" not in self.json_output:
-            self.json_output["general_log"] = []
-        self.json_output["general_log"].append(message)
+        self.output_manager.flush()
 
 
 class OutputManager:
 
-    # TODO add if necessary.
-    def log(self, message):
-        pass
+    def __init__(self, output_format="json"):
+        self.output_format = output_format
+        self.data = {}
 
-    def json(self, data):
-        print(json.dumps(data, indent=4))
+    def log_message(self, message):
+        if "general_log" not in self.data:
+            self.data["general_log"] = []
+        self.data["general_log"].append(message)
+
+    def _format(self, data):
+        if self.output_format == "json":
+            return json.dumps(data, indent=4)
+
+    def set_wordpress_version(self, version):
+        self.data["wordpress_version"] = version
+
+    def set_vuln_database_version(self, version):
+        self.data["vuln_database_version"] = version
+
+    def set_plugins(self, plugins):
+        self.data["plugins"] = plugins
+
+    def set_themes(self, themes):
+        self.data["themes"] = themes
+
+    def set_vulnerabilities(self, vulnerabilities):
+        self.data["vulnerabilities"] = vulnerabilities
+
+    def flush(self):
+        print(self._format(self.data))
