@@ -3,6 +3,7 @@ import re
 
 
 plugins_url = re.compile("https?://www\.[^.]+\.[^/]+/wp-content/plugins/")
+plugin_in_comment = re.compile("This site [\w\s]+ plugin")
 
 
 class PassivePluginsFinder:
@@ -34,6 +35,13 @@ class PassivePluginsFinder:
             elif self._is_plugin_url(attribute_value):
                 plugins.append(self._get_plugin_name_from_plugins_url(attribute_value))
         return plugins
+
+    def find_plugin_in_comment(self, comment):
+        if plugin_in_comment.match(comment):
+            beginning = re.match("This site [\w\s]+ the ", comment)
+            end = re.search(" plugin", comment)
+            plugin_name = comment[beginning.end():end.start()]
+            return plugin_name.lower()
 
     def is_plugin(self, plugin_name):
         for plugin in self.plugins_database.get_plugins():
