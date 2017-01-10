@@ -1,7 +1,5 @@
 from argparse import ArgumentParser
-from .vanecore import Vane
-
-from os.path import join, dirname
+from .core import Vane
 
 parser = ArgumentParser(description="vane 2.0")
 parser.add_argument("action")

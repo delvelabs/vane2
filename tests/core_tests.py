@@ -1,6 +1,6 @@
 from unittest import TestCase
 from unittest.mock import MagicMock
-from vane.vanecore import Vane
+from vane.core import Vane
 
 
 class TestVane(TestCase):
