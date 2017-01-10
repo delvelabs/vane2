@@ -35,9 +35,9 @@ class Vane:
         vulnerabilities = []
 
         self.output_manager.set_wordpress_version(wordpress_version)
-        self.output_manager.set_plugins(plugins)
-        self.output_manager.set_themes(themes)
-        self.output_manager.set_vulnerabilities(vulnerabilities)
+        self.output_manager.add_plugin(plugins)
+        self.output_manager.add_theme(themes)
+        self.output_manager.add_vulnerability(vulnerabilities)
 
         self.output_manager.log_message("scan done")
 
@@ -66,9 +66,7 @@ class OutputManager:
         self.data = {}
 
     def log_message(self, message):
-        if "general_log" not in self.data:
-            self.data["general_log"] = []
-        self.data["general_log"].append(message)
+        self._add_data("general_log", message)
 
     def _format(self, data):
         if self.output_format == "json":
@@ -80,14 +78,22 @@ class OutputManager:
     def set_vuln_database_version(self, version):
         self.data["vuln_database_version"] = version
 
-    def set_plugins(self, plugins):
-        self.data["plugins"] = plugins
+    def add_plugin(self, plugin):
+        self._add_data("plugins", plugin)
 
-    def set_themes(self, themes):
-        self.data["themes"] = themes
+    def add_theme(self, theme):
+        self._add_data("themes", theme)
 
-    def set_vulnerabilities(self, vulnerabilities):
-        self.data["vulnerabilities"] = vulnerabilities
+    def add_vulnerability(self, vulnerability):
+        self._add_data("vulnerabilities", vulnerability)
 
     def flush(self):
         print(self._format(self.data))
+
+    def _add_data(self, key, value):
+        if key not in self.data:
+            self.data[key] = []
+        if isinstance(value, list):
+            self.data[key].extend(value)
+        else:
+            self.data[key].append(value)
