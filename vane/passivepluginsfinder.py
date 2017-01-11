@@ -2,8 +2,9 @@ from lxml import etree
 import re
 
 
-plugins_url = re.compile("https?://www\.[^.]+\.[^/]+/wp-content/plugins/")
-plugin_in_comment = re.compile("This site [\w\s]+ plugin")
+plugins_url = re.compile("https?://([^.]+(\.|/))+wp-content/plugins/")
+plugin_in_comment = re.compile("(\w+\s)+plugin")
+plugin_author_in_comment = re.compile("([\w]+\s)+by ([\w]+\s)+plugin")
 
 
 class PassivePluginsFinder:
@@ -37,11 +38,23 @@ class PassivePluginsFinder:
         return plugins
 
     def find_plugin_in_comment(self, comment):
-        if plugin_in_comment.match(comment):
-            beginning = re.match("This site [\w\s]+ the ", comment)
-            end = re.search(" plugin", comment)
-            plugin_name = comment[beginning.end():end.start()]
-            return plugin_name.lower()
+        comment = comment.lower()
+        if plugin_in_comment.search(comment):
+            if plugin_author_in_comment.search(comment):
+                end = re.search(" by", comment)
+            else:
+                end = re.search(" plugin", comment)
+            comment = comment[:end.start()]
+            beginning = re.search("((\s|^)[\w-]+){1,3}$", comment)  # The plugin's name is probably in the three words before the 'plugin' word.
+            plugin_name = comment[beginning.start():]
+            if re.search("the ", plugin_name):  # If there is a 'the' in the name, remove it.
+                plugin_name = plugin_name[re.search("the ", plugin_name).end():]
+            official_plugin_name = self._contains_plugin_name(plugin_name)
+            if official_plugin_name is not None:
+                return official_plugin_name
+            else:
+                return plugin_name.strip()
+        return self._contains_plugin_name(comment)
 
     def is_plugin(self, plugin_name):
         for plugin in self.plugins_database.get_plugins():
@@ -57,6 +70,12 @@ class PassivePluginsFinder:
     def plugin_names_equal(self, name0, name1):
         return self._remove_hyphens(self._normalize_plugin_names(name0)) == \
                self._remove_hyphens(self._normalize_plugin_names(name1))
+
+    def _contains_plugin_name(self, string):
+        stripped_string = re.sub('\W', '', string)
+        for plugin in self.plugins_database.get_plugins():
+            if self._remove_hyphens(plugin) in stripped_string:
+                return plugin
 
     def _remove_hyphens(self, name):
         return re.sub("-", "", name)
