@@ -15,19 +15,16 @@ class Vane:
     def config_hammertime(self):
         self.hammertime.heuristics.add_multiple([IgnoreLargeBody()])
 
-    async def do_request(self, url):
-        self.hammertime.request(url)
+    async def scan_target(self, url):
+        self._load_database()
+        self.output_manager.log_message("scanning %s" % url)
 
+        self.hammertime.request(url)
         success = False
         async for entry in self.hammertime.successful_requests():
             success = True
 
         await self.hammertime.close()
-
-    async def scan_target(self, url):
-        self._load_database()
-
-        self.output_manager.log_message("scanning %s" % url)
 
         self.output_manager.log_message("scan done")
 
@@ -37,12 +34,10 @@ class Vane:
         if self.database is not None:
             self.output_manager.set_vuln_database_version(self.database.get_version())
 
-    def perfom_action(self, action="request", url=None, database_path=None):
-        if action == "request":
+    def perfom_action(self, action="scan", url=None, database_path=None):
+        if action == "scan":
             if url is None:
                 raise ValueError("Target url required.")
-            self.hammertime.loop.run_until_complete(self.do_request(url))
-        elif action == "scan":
             self.hammertime.loop.run_until_complete(self.scan_target(url))
         elif action == "import_data":
             pass

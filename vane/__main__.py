@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 from .core import Vane
 
-actions_available = ["request", "scan", "import_data"]
+actions_available = ["scan", "import_data"]
 
 parser = ArgumentParser(description="vane 2.0")
 parser.add_argument("action", choices=actions_available)

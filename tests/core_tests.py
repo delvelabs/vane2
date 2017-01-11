@@ -12,15 +12,15 @@ class TestVane(TestCase):
     def setUp(self):
         self.vane.output_manager = MagicMock()
 
-    def test_perform_action_raise_exception_if_no_url_and_action_is_request(self):
+    def test_perform_action_raise_exception_if_no_url_and_action_is_scan(self):
         with self.assertRaises(ValueError):
-            self.vane.perfom_action(action="request")
+            self.vane.perfom_action(action="scan")
 
     def test_perform_action_flush_output(self):
         hammertime = self.vane.hammertime
         self.vane.hammertime = MagicMock()
 
-        self.vane.perfom_action(url="test")
+        self.vane.perfom_action(action="scan", url="test")
 
         self.vane.output_manager.flush.assert_called_once_with()
 
