@@ -29,16 +29,6 @@ class Vane:
 
         self.output_manager.log_message("scanning %s" % url)
 
-        wordpress_version = "1.2"
-        plugins = ["plugin0", "plugin1"]
-        themes = ["theme0", "theme1"]
-        vulnerabilities = []
-
-        self.output_manager.set_wordpress_version(wordpress_version)
-        self.output_manager.add_plugin(plugins)
-        self.output_manager.add_theme(themes)
-        self.output_manager.add_vulnerability(vulnerabilities)
-
         self.output_manager.log_message("scan done")
 
     # TODO
@@ -52,7 +42,7 @@ class Vane:
             if url is None:
                 raise ValueError("Target url required.")
             self.hammertime.loop.run_until_complete(self.do_request(url))
-        elif action == "complete_scan":
+        elif action == "scan":
             self.hammertime.loop.run_until_complete(self.scan_target(url))
         elif action == "import_data":
             pass

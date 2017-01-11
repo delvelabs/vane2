@@ -12,9 +12,9 @@ class TestVane(TestCase):
     def setUp(self):
         self.vane.output_manager = MagicMock()
 
-    def test_perform_action_raise_exception_if_no_url(self):
+    def test_perform_action_raise_exception_if_no_url_and_action_is_request(self):
         with self.assertRaises(ValueError):
-            self.vane.perfom_action()
+            self.vane.perfom_action(action="request")
 
     def test_perform_action_flush_output(self):
         hammertime = self.vane.hammertime
@@ -26,19 +26,11 @@ class TestVane(TestCase):
 
         self.vane.hammertime = hammertime
 
-    def test_perform_action_output_target_information_if_action_is_complete_scan(self):
-        self.vane.perfom_action(action="complete_scan", url="website_with_wordpress")
-
-        self.assertTrue(self.vane.output_manager.set_wordpress_version.called)
-        self.assertTrue(self.vane.output_manager.add_plugin.called)
-        self.assertTrue(self.vane.output_manager.add_theme.called)
-        self.assertTrue(self.vane.output_manager.add_vulnerability.called)
-
     def test_perform_action_output_database_version(self):
         self.vane.database = MagicMock()
         self.vane.database.get_version.return_value = "1.2"
 
-        self.vane.perfom_action(action="complete_scan", url="test")
+        self.vane.perfom_action(action="scan", url="test")
 
         self.vane.output_manager.set_vuln_database_version.assert_called_once_with(self.vane.database.get_version.return_value)
 
