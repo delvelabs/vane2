@@ -11,7 +11,7 @@ class TestPassivePluginsFinder(TestCase):
         self.plugin_finder.set_plugins_database(MagicMock())
 
     def test_find_plugins_in_elements_find_plugin_references_in_page_source(self):
-        sample_page0 = join(dirname(__file__), "samples/delvelabs_homepage.html")
+        sample_page0 = join(dirname(__file__), "samples/delvelabs.html")
         sample_page1 = join(dirname(__file__), "samples/starwars.html")
         sample_page2 = join(dirname(__file__), "samples/playstation.html")
         sample_page3 = join(dirname(__file__), "samples/bata.html")
@@ -21,10 +21,10 @@ class TestPassivePluginsFinder(TestCase):
                                                      "lift-search", "jetpack", "audio-player", "captcha",
                                                      "validated-field-for-acf"]
 
-        plugins_in_page0 = self.plugin_finder.find_plugins_in_elements(sample_page0)
-        plugins_in_page1 = self.plugin_finder.find_plugins_in_elements(sample_page1)
-        plugins_in_page2 = self.plugin_finder.find_plugins_in_elements(sample_page2)
-        plugins_in_page3 = self.plugin_finder.find_plugins_in_elements(sample_page3)
+        plugins_in_page0 = self.plugin_finder._find_plugins_in_elements(sample_page0)
+        plugins_in_page1 = self.plugin_finder._find_plugins_in_elements(sample_page1)
+        plugins_in_page2 = self.plugin_finder._find_plugins_in_elements(sample_page2)
+        plugins_in_page3 = self.plugin_finder._find_plugins_in_elements(sample_page3)
 
         self.assertIn("disqus-comment-system", plugins_in_page0)
         self.assertIn("mobile-navigation", plugins_in_page0)
@@ -52,13 +52,13 @@ class TestPassivePluginsFinder(TestCase):
         sample_page = join(dirname(__file__), "samples/comment.html")
         self.plugin_finder.plugins_database.get_plugins.return_value = ["w3-total-cache"]
 
-        self.assertIn("w3-total-cache", self.plugin_finder.find_plugins_in_comments(sample_page))
+        self.assertIn("w3-total-cache", self.plugin_finder._find_plugins_in_comments(sample_page))
 
     def test_find_plugins_in_comments_parse_comments_outside_html_closing_tag(self):
         sample_page = join(dirname(__file__), "samples/timeinc.html")
         self.plugin_finder.plugins_database.get_plugins.return_value = ["wp-super-cache"]
 
-        plugins = self.plugin_finder.find_plugins_in_comments(sample_page)
+        plugins = self.plugin_finder._find_plugins_in_comments(sample_page)
 
         self.assertEqual(["wp-super-cache"], plugins)
 
@@ -66,21 +66,21 @@ class TestPassivePluginsFinder(TestCase):
         name0 = "Mobile-Navigation"
         name1 = "mobile-navigation"
 
-        self.assertTrue(self.plugin_finder.plugin_names_equal(name0, name1))
+        self.assertTrue(self.plugin_finder._plugin_names_equal(name0, name1))
 
     def test_plugin_names_equal_ignore_whitespace(self):
         name0 = "mobile navigation"
         name1 = "mobile-navigation"
 
-        self.assertTrue(self.plugin_finder.plugin_names_equal(name0, name1))
+        self.assertTrue(self.plugin_finder._plugin_names_equal(name0, name1))
 
     def test_plugin_names_equal_ignore_hyphens(self):
         name0 = "mobilenavigation"
         name1 = "mobile-navigation"
 
-        self.assertTrue(self.plugin_finder.plugin_names_equal(name0, name1))
+        self.assertTrue(self.plugin_finder._plugin_names_equal(name0, name1))
 
-    def test_search_in_comment_text_find_plugin_name_in_comment(self):
+    def test_get_plugin_name_in_comment_text_find_plugin_name_in_comment(self):
         plugin_name0 = "google analytics"
         plugin_name1 = "yoast seo"
         plugin_name2 = "wp-parsely"
@@ -106,6 +106,16 @@ class TestPassivePluginsFinder(TestCase):
         self.assertEqual(self.plugin_finder._get_plugin_name_from_comment_text(comment3), plugin_name1)
         self.assertEqual(self.plugin_finder._get_plugin_name_from_comment_text(comment5), plugin_name4)
         self.assertEqual(self.plugin_finder._get_plugin_name_from_comment_text(comment6), plugin_name5)
+
+    def test_get_plugin_name_from_comment_text_find_plugin_in_url_contained_in_comment(self):
+        comment_with_url = "[if lte IE 8]><link rel='stylesheet' id='jetpack-carousel-ie8fix-css'  \
+                            href='http://s1.wp.com/wp-content/mu-plugins/carousel/jetpack-carousel-ie8fix.css?m=14126188\
+                            25h&#038;ver=20121024' type='text/css' media='all' /><![endif]"
+        self.plugin_finder.plugins_database.get_plugins.return_value = ["carousel"]
+
+        plugin_name = self.plugin_finder._get_plugin_name_from_comment_text(comment_with_url)
+
+        self.assertEqual(plugin_name, "carousel")
 
     def test_get_plugin_name_from_plugin_url_return_none_if_no_match_in_plugin_database(self):
         self.plugin_finder.plugins_database.get_plugins.return_value = ["w3-total-cache"]
