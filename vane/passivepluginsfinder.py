@@ -5,6 +5,7 @@ import re
 plugins_url = re.compile("(https?:)?//([\w%-]+(\.|/))+wp-content/(mu-)?plugins/")
 plugin_in_comment = re.compile("(\w+\s)+plugin")
 plugin_author_in_comment = re.compile("([\w]+\s)+by ([\w]+\s)+plugin")
+comment_after_document = re.compile("</html>.*<!--.*-->$", re.DOTALL)
 
 
 class PassivePluginsFinder:
@@ -31,9 +32,10 @@ class PassivePluginsFinder:
         plugins = []
         element_tree_iterator = etree.iterparse(html_page, html=True, events=("comment",))
         for event, comment_element in element_tree_iterator:
-            plugin_name = self._search_in_comment_text(comment_element.text)
+            plugin_name = self._get_plugin_name_from_comment_text(comment_element.text)
             if plugin_name is not None:
                 plugins.append(plugin_name)
+        plugins.extend(self._check_for_comments_at_document_end(html_page))
         return self._remove_duplicates(plugins)
 
     def _search_in_element_attributes(self, element):
@@ -46,23 +48,31 @@ class PassivePluginsFinder:
                 plugins.append(self._get_plugin_name_from_url(attribute_value))
         return plugins
 
-    def _search_in_comment_text(self, comment):
+    def _get_plugin_name_from_comment_text(self, comment):
         comment = comment.lower()
         if plugin_in_comment.search(comment):
-            return self._get_plugin_name_from_comment(comment)
+            if plugin_author_in_comment.search(comment):  # Ex: Google Analytics by MonsterInsights plugin
+                end = re.search(" by", comment)
+            else:
+                end = re.search(" plugin", comment)
+            comment = comment[:end.start()]
+            # The plugin's name is probably in the three words before the 'plugin' word.
+            beginning = re.search("((\s|^)[\w-]+){1,3}$", comment)
+            possible_plugin_name = comment[beginning.start():]
+            return self._find_plugin_name_in_string(possible_plugin_name)
         # if no 'plugin' keyword found in comment, just try to find a plugin name in the comment.
         return self._find_plugin_name_in_string(comment)
 
-    def _get_plugin_name_from_comment(self, comment):
-        if plugin_author_in_comment.search(comment):  # Ex: Google Analytics by MonsterInsights plugin
-            end = re.search(" by", comment)
-        else:
-            end = re.search(" plugin", comment)
-        comment = comment[:end.start()]
-        # The plugin's name is probably in the three words before the 'plugin' word.
-        beginning = re.search("((\s|^)[\w-]+){1,3}$", comment)
-        possible_plugin_name = comment[beginning.start():]
-        return self._find_plugin_name_in_string(possible_plugin_name)
+    def _check_for_comments_at_document_end(self, html_page):
+        plugins = []
+        with open(html_page, "r") as fp:
+            page_content = fp.read()
+            for comment in comment_after_document.findall(page_content):
+                print(comment)
+                plugin_name = self._get_plugin_name_from_comment_text(comment)
+                if plugin_name is not None:
+                    plugins.append(plugin_name)
+        return plugins
 
     def is_plugin(self, plugin_name):
         return self.get_official_plugin_name_from_database(plugin_name) is not None
@@ -77,9 +87,12 @@ class PassivePluginsFinder:
 
     def _find_plugin_name_in_string(self, string):
         stripped_string = self.strip_name(string)
+        longest_match = ""
         for plugin in self.plugins_database.get_plugins():
             if self.strip_name(plugin) in stripped_string:
-                return plugin
+                if len(plugin) > len(longest_match):
+                    longest_match = plugin
+        return longest_match if len(longest_match) > 0 else None
 
     def strip_name(self, name):
         name = name.lower()
