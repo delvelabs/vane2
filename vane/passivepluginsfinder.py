@@ -2,7 +2,7 @@ from lxml import etree
 import re
 
 
-plugins_url = re.compile("https?://([^.]+(\.|/))+wp-content/plugins/")
+plugins_url = re.compile("https?://([\w%-]+(\.|/))+wp-content/plugins/")
 plugin_in_comment = re.compile("(\w+\s)+plugin")
 plugin_author_in_comment = re.compile("([\w]+\s)+by ([\w]+\s)+plugin")
 
@@ -16,79 +16,83 @@ class PassivePluginsFinder:
         self.plugins_database = database
 
     def list_plugins(self, html_page):
-        plugins = []
-        html_tree_iterator = etree.iterparse(html_page, html=True)
-        plugins.extend(self._search_elements(html_tree_iterator))
+        plugins = self.find_plugins_in_elements(html_page)
+        plugins.extend(self.find_plugins_in_comments(html_page))
         return plugins
 
-    def _search_elements(self, html_tree_iterator):
+    def find_plugins_in_elements(self, html_page):
         plugins = []
-        for action, element in html_tree_iterator:
+        element_tree_iterator = etree.iterparse(html_page, html=True)
+        for event, element in element_tree_iterator:
             plugins.extend(self._search_in_element_attributes(element))
-        return plugins
+        return self._remove_duplicates(plugins)
+
+    def find_plugins_in_comments(self, html_page):
+        plugins = []
+        element_tree_iterator = etree.iterparse(html_page, html=True, events=("comment",))
+        for event, comment_element in element_tree_iterator:
+            plugin_name = self._search_in_comment_text(comment_element.text)
+            if plugin_name is not None:
+                plugins.append(plugin_name)
+        return self._remove_duplicates(plugins)
 
     def _search_in_element_attributes(self, element):
         plugins = []
         for attribute_name, attribute_value in element.items():
             if "plugin" in attribute_name:
                 if self.is_plugin(attribute_value):
-                    plugins.append(self.get_official_plugin_name(attribute_value))
+                    plugins.append(self.get_official_plugin_name_from_database(attribute_value))
             elif self._is_plugin_url(attribute_value):
-                plugins.append(self._get_plugin_name_from_plugins_url(attribute_value))
+                plugins.append(self._get_plugin_name_from_url(attribute_value))
         return plugins
 
-    def find_plugin_in_comment(self, comment):
+    def _search_in_comment_text(self, comment):
         comment = comment.lower()
         if plugin_in_comment.search(comment):
-            if plugin_author_in_comment.search(comment):
-                end = re.search(" by", comment)
-            else:
-                end = re.search(" plugin", comment)
-            comment = comment[:end.start()]
-            beginning = re.search("((\s|^)[\w-]+){1,3}$", comment)  # The plugin's name is probably in the three words before the 'plugin' word.
-            plugin_name = comment[beginning.start():]
-            if re.search("the ", plugin_name):  # If there is a 'the' in the name, remove it.
-                plugin_name = plugin_name[re.search("the ", plugin_name).end():]
-            official_plugin_name = self._contains_plugin_name(plugin_name)
-            if official_plugin_name is not None:
-                return official_plugin_name
-            else:
-                return plugin_name.strip()
-        return self._contains_plugin_name(comment)
+            return self._get_plugin_name_from_comment(comment)
+        # if no 'plugin' keyword found in comment, just try to find a plugin name in the comment.
+        return self._find_plugin_name_in_string(comment)
+
+    def _get_plugin_name_from_comment(self, comment):
+        if plugin_author_in_comment.search(comment):  # Ex: Google Analytics by MonsterInsights plugin
+            end = re.search(" by", comment)
+        else:
+            end = re.search(" plugin", comment)
+        comment = comment[:end.start()]
+        # The plugin's name is probably in the three words before the 'plugin' word.
+        beginning = re.search("((\s|^)[\w-]+){1,3}$", comment)
+        possible_plugin_name = comment[beginning.start():]
+        return self._find_plugin_name_in_string(possible_plugin_name)
 
     def is_plugin(self, plugin_name):
-        for plugin in self.plugins_database.get_plugins():
-            if self.plugin_names_equal(plugin, plugin_name):
-                return True
-        return False
+        return self.get_official_plugin_name_from_database(plugin_name) is not None
 
-    def get_official_plugin_name(self, plugin_name):
+    def get_official_plugin_name_from_database(self, plugin_name):
         for plugin in self.plugins_database.get_plugins():
             if self.plugin_names_equal(plugin, plugin_name):
                 return plugin
 
     def plugin_names_equal(self, name0, name1):
-        return self._remove_hyphens(self._normalize_plugin_names(name0)) == \
-               self._remove_hyphens(self._normalize_plugin_names(name1))
+        return self.strip_name(name0) == self.strip_name(name1)
 
-    def _contains_plugin_name(self, string):
-        stripped_string = re.sub('\W', '', string)
+    def _find_plugin_name_in_string(self, string):
+        stripped_string = self.strip_name(string)
         for plugin in self.plugins_database.get_plugins():
-            if self._remove_hyphens(plugin) in stripped_string:
+            if self.strip_name(plugin) in stripped_string:
                 return plugin
 
-    def _remove_hyphens(self, name):
-        return re.sub("-", "", name)
-
-    def _normalize_plugin_names(self, name):
-        normalized_name = name.lower()
-        return re.sub(" ", "-", normalized_name)
+    def strip_name(self, name):
+        name = name.lower()
+        return re.sub('\W', '', name)
 
     def _is_plugin_url(self, url):
-        return plugins_url.search(url)
+        if plugins_url.search(url):
+            return self._get_plugin_name_from_url(url) is not None
 
-    def _get_plugin_name_from_plugins_url(self, url):
+    def _get_plugin_name_from_url(self, url):
         plugin_name = plugins_url.sub("", url)
-        plugin_name = re.match("[^/]+", plugin_name).group(0)
-        return plugin_name
+        plugin_name = re.match("[^/]+", plugin_name).group()
+        return self.get_official_plugin_name_from_database(plugin_name)
 
+    def _remove_duplicates(self, plugin_list):
+        return list(set(plugin_list))
