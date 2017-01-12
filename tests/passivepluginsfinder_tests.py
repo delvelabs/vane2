@@ -10,17 +10,20 @@ class TestPassivePluginsFinder(TestCase):
         sample_page0 = join(dirname(__file__), "samples/delvelabs_homepage.html")
         sample_page1 = join(dirname(__file__), "samples/starwars.html")
         sample_page2 = join(dirname(__file__), "samples/playstation.html")
+        sample_page3 = join(dirname(__file__), "samples/bata.html")
         plugins_finder = PassivePluginsFinder()
         plugins_database = MagicMock()
         plugins_database.get_plugins.return_value = ["disqus-comment-system", "mobile-navigation", "cyclone-slider-2",
                                                      "sitepress-multilingual-cms", "wp-jquery-lightbox", "panopress",
                                                      "yet-another-related-posts-plugin", "wp-polls", "wp-postratings",
-                                                     "lift-search", "jetpack", "audio-player"]
+                                                     "lift-search", "jetpack", "audio-player", "captcha",
+                                                     "validated-field-for-acf"]
         plugins_finder.set_plugins_database(plugins_database)
 
         plugins_in_page0 = plugins_finder.find_plugins_in_elements(sample_page0)
         plugins_in_page1 = plugins_finder.find_plugins_in_elements(sample_page1)
         plugins_in_page2 = plugins_finder.find_plugins_in_elements(sample_page2)
+        plugins_in_page3 = plugins_finder.find_plugins_in_elements(sample_page3)
 
         self.assertIn("disqus-comment-system", plugins_in_page0)
         self.assertIn("mobile-navigation", plugins_in_page0)
@@ -39,6 +42,10 @@ class TestPassivePluginsFinder(TestCase):
         self.assertIn("jetpack", plugins_in_page2)
         self.assertIn("audio-player", plugins_in_page2)
         self.assertEqual(len(plugins_in_page2), 5)
+
+        self.assertIn("captcha", plugins_in_page3)
+        self.assertIn("validated-field-for-acf", plugins_in_page3)
+        self.assertEqual(len(plugins_in_page3), 2)
 
     def test_find_plugins_in_comments_find_in_page_source_comments(self):
         sample_page = join(dirname(__file__), "samples/comment.html")
@@ -135,3 +142,12 @@ class TestPassivePluginsFinder(TestCase):
         plugin_url = "http://www.mywebsite.com/wp-content/plugins/some-plugin/somefilename.php"
 
         self.assertFalse(plugins_finder._is_plugin_url(plugin_url))
+
+    def test_get_plugin_url_find_plugin_in_mu_plugins_directory(self):
+        url = "https://s1.wp.com/wp-content/mu-plugins/carousel/jetpack-carousel.css?m=1481571546h&cssminify=yes"
+        plugins_finder = PassivePluginsFinder()
+        plugins_database = MagicMock()
+        plugins_database.get_plugins.return_value = ["carousel"]
+        plugins_finder.set_plugins_database(plugins_database)
+
+        self.assertEqual(plugins_finder._get_plugin_name_from_url(url), "carousel")

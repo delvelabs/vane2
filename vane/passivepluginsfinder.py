@@ -2,7 +2,7 @@ from lxml import etree
 import re
 
 
-plugins_url = re.compile("https?://([\w%-]+(\.|/))+wp-content/plugins/")
+plugins_url = re.compile("(https?:)?//([\w%-]+(\.|/))+wp-content/(mu-)?plugins/")
 plugin_in_comment = re.compile("(\w+\s)+plugin")
 plugin_author_in_comment = re.compile("([\w]+\s)+by ([\w]+\s)+plugin")
 
