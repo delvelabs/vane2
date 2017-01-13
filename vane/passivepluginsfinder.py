@@ -1,8 +1,10 @@
 from lxml import etree
 import re
+from vane.plugin import Plugin
 
 
-plugins_url = re.compile("(https?:)?//([\w%-]+(\.|/))+wp-content/(mu-)?plugins/")
+plugin_url = re.compile("(https?:)?//([\w%-]+(\.|/))+wp-content/(mu-)?plugins/")
+relative_plugin_url = re.compile("/wp-content/(mu-)?plugins/")
 plugin_in_comment = re.compile("(\w+\s)+plugin")
 plugin_author_in_comment = re.compile("([\w]+\s)+by ([\w]+\s)+plugin")
 comment_after_document = re.compile("</html>.*<!--.*-->$", re.DOTALL)
@@ -28,27 +30,29 @@ class PassivePluginsFinder:
             plugins.extend(self._search_in_element_attributes(element))
         return self._remove_duplicates(plugins)
 
+    def _search_in_element_attributes(self, element):
+        plugins = []
+        for attribute_name, attribute_value in element.items():
+            if self._contains_plugin_url(attribute_value):
+                plugin = Plugin(self._get_plugin_url_from_string(attribute_value))
+                plugins.append(plugin)
+        return plugins
+
     def _find_plugins_in_comments(self, html_page):
         plugins = []
         element_tree_iterator = etree.iterparse(html_page, html=True, events=("comment",))
         for event, comment_element in element_tree_iterator:
-            plugin_name = self._get_plugin_name_from_comment_text(comment_element.text)
-            if plugin_name is not None:
-                plugins.append(plugin_name)
+            if self._contains_plugin_url(comment_element.text):
+                plugin = Plugin(self._get_plugin_url_from_string(comment_element.text))
+                plugins.append(plugin)
+            else:
+                plugin_name = self._find_existing_plugin_name_in_comment(comment_element.text)
+                if plugin_name is not None:
+                    plugins.append(Plugin.from_name(plugin_name))
         plugins.extend(self._check_for_comments_at_document_end(html_page))
         return self._remove_duplicates(plugins)
 
-    def _search_in_element_attributes(self, element):
-        plugins = []
-        for attribute_name, attribute_value in element.items():
-            if "plugin" in attribute_name:
-                if self._is_plugin(attribute_value):
-                    plugins.append(self._get_official_plugin_name_from_database(attribute_value))
-            elif self._is_plugin_url(attribute_value):
-                plugins.append(self._get_plugin_name_from_url(attribute_value))
-        return plugins
-
-    def _get_plugin_name_from_comment_text(self, comment):
+    def _find_existing_plugin_name_in_comment(self, comment):
         comment = comment.lower()
         if plugin_in_comment.search(comment):
             if plugin_author_in_comment.search(comment):  # Ex: Google Analytics by MonsterInsights plugin
@@ -68,19 +72,17 @@ class PassivePluginsFinder:
         with open(html_page, "r") as fp:
             page_content = fp.read()
             for comment in comment_after_document.findall(page_content):
-                print(comment)
-                plugin_name = self._get_plugin_name_from_comment_text(comment)
+                plugin_name = self._find_existing_plugin_name_in_comment(comment)
                 if plugin_name is not None:
-                    plugins.append(plugin_name)
+                    plugin = Plugin.from_name(plugin_name)
+                    plugins.append(plugin)
         return plugins
 
     def _is_plugin(self, plugin_name):
-        return self._get_official_plugin_name_from_database(plugin_name) is not None
+        return self._get_plugin_name_from_database(plugin_name) is not None
 
-    def _get_official_plugin_name_from_database(self, plugin_name):
-        for plugin in self.plugins_database.get_plugins():
-            if self._plugin_names_equal(plugin, plugin_name):
-                return plugin
+    def _get_plugin_name_from_database(self, plugin_name):
+        return plugin_name
 
     def _plugin_names_equal(self, name0, name1):
         return self._strip_name(name0) == self._strip_name(name1)
@@ -98,14 +100,15 @@ class PassivePluginsFinder:
         name = name.lower()
         return re.sub('\W', '', name)
 
-    def _is_plugin_url(self, url):
-        if plugins_url.search(url):
-            return self._get_plugin_name_from_url(url) is not None
+    def _contains_plugin_url(self, url):
+        return plugin_url.search(url) is not None or relative_plugin_url.search(url) is not None
 
-    def _get_plugin_name_from_url(self, url):
-        plugin_name = plugins_url.sub("", url)
-        plugin_name = re.match("[^/]+", plugin_name).group()
-        return self._get_official_plugin_name_from_database(plugin_name)
+    def _get_plugin_url_from_string(self, string):
+        url_match = plugin_url.search(string)
+        url = string[url_match.start():]
+        plugin_url_prefix_end = plugin_url.match(url).end()
+        url_end = re.search("[^/]+", url[plugin_url_prefix_end:]).end()
+        return url[:plugin_url_prefix_end + url_end]
 
     def _remove_duplicates(self, plugin_list):
         return list(set(plugin_list))
