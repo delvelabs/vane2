@@ -70,8 +70,14 @@ class TestPassiveThemesFinder(TestCase):
         self.assertTrue(self.themes_finder._theme_names_equal(name0, name1))
 
     def test_list_themes_find_themes_in_page_source(self):
-        sample_page0 = join(dirname(__file__), "samples/playstation.html")
-        sample_page1 = join(dirname(__file__), "samples/")
+        sample_page = join(dirname(__file__), "samples/playstation.html")
+        self.themes_finder.themes_database.get_themes.return_value = ["twenty11"]
+
+        themes = self.themes_finder.list_themes(sample_page)
+
+        self.assertIn("twenty11", themes)
+        #self.assertIn("kratos", themes)
+        self.assertEqual(len(themes), 1)
 
     def test_find_theme_url_in_comment(self):
         comment = '[if IE 8]><link rel="stylesheet" type="text/css" href="http://static.blog.playstation.com/wp-content/themes/twenty11/ie8.css?m=1480446942" /><![endif]'

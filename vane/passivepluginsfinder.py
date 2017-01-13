@@ -19,7 +19,7 @@ class PassivePluginsFinder:
     def list_plugins(self, html_page):
         plugins = self._find_plugins_in_elements(html_page)
         plugins.extend(self._find_plugins_in_comments(html_page))
-        return plugins
+        return self._remove_duplicates(plugins)
 
     def _find_plugins_in_elements(self, html_page):
         plugins = []
