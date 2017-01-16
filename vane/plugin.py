@@ -3,8 +3,6 @@ import re
 
 plugin_url = re.compile("(https?:)?//([\w%-]+(\.|/))+wp-content/(mu-)?plugins/[\w-]+$")
 relative_plugin_url = re.compile("/wp-content/(mu-)?plugins/[\w-]+$")
-plugin_url_without_plugin_name = re.compile("(https?:)?//([\w%-]+(\.|/))+wp-content/(mu-)?plugins/")
-relative_plugin_url_without_plugin_name = re.compile("/wp-content/(mu-)?plugins/")
 
 
 class Plugin:
@@ -16,12 +14,7 @@ class Plugin:
 
     @property
     def name(self):
-        if self._is_url_relative():
-            return relative_plugin_url_without_plugin_name.sub("", self.url)
-        return plugin_url_without_plugin_name.sub("", self.url)
-
-    def _is_url_relative(self):
-        return relative_plugin_url.match(self.url) is not None
+        return re.search("[^/]+$", self.url).group()
 
     def __eq__(self, other):
         return self.name == other.name
