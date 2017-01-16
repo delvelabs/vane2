@@ -72,11 +72,11 @@ class TestPassivePluginsFinder(TestCase):
 
         self.assertIn("carousel", [plugin.name for plugin in plugins])
 
-    def test_check_for_comments_at_document_end_parse_comments_outside_html_closing_tag(self):
+    def test_search_plugin_in_comments_outside_document_parse_comments_outside_html_closing_tag(self):
         sample_page = join(dirname(__file__), "samples/timeinc.html")
         self.plugin_finder.plugins_database.get_plugins.return_value = ["wp-super-cache"]
 
-        plugins = self.plugin_finder._check_for_comments_at_document_end(sample_page)
+        plugins = self.plugin_finder._search_plugin_in_comments_outside_document(sample_page)
 
         self.assertIn("wp-super-cache", [plugin.name for plugin in plugins])
 
@@ -166,6 +166,13 @@ class TestPassivePluginsFinder(TestCase):
         self.assertEqual(self.plugin_finder._get_plugin_url_from_string(url),
                          "https://s1.wp.com/wp-content/mu-plugins/carousel")
 
+    def test_get_plugin_url_from_string_work_with_relative_plugin_url(self):
+        string = "this is a relative url: /wp-content/plugins/my-plugin/file.php"
+
+        url = self.plugin_finder._get_plugin_url_from_string(string)
+
+        self.assertEqual(url, "/wp-content/plugins/my-plugin")
+
     def test_find_plugin_name_in_string_only_return_full_match(self):
         possibilities = ["recaptcha", "spam-captcha", "pluscaptcha", "wp-captcha"]
         self.plugin_finder.plugins_database.get_plugins.return_value = possibilities
@@ -187,3 +194,24 @@ class TestPassivePluginsFinder(TestCase):
         plugins = self.plugin_finder._remove_duplicates(plugins)
 
         self.assertEqual(len(plugins), 1)
+
+    def test_find_possible_plugin_name_in_comment_log_plugin_name_in_comment_with_plugin_word(self):
+        comment0 = "This site uses the Google Analytics by MonsterInsights plugin v5.5.4 - Universal enabled - https://www.monsterinsights.com/"
+        comment1 = "This site is optimized with the Yoast SEO plugin v4.0.2 - https://yoast.com/wordpress/plugins/seo/"
+        comment2 = " BEGIN wp-parsely Plugin Version 1.10.2 "
+        comment_without_plugin = " Random string iuehaguihug"
+        logger = MagicMock()
+        self.plugin_finder.set_logger(logger)
+
+        self.plugin_finder._find_possible_plugin_name_in_comment(comment0)
+        logger.add_plugin.assert_called_with("the google analytics")
+
+        self.plugin_finder._find_possible_plugin_name_in_comment(comment1)
+        logger.add_plugin.assert_called_with("the yoast seo")
+
+        self.plugin_finder._find_possible_plugin_name_in_comment(comment2)
+        logger.add_plugin.assert_called_with("begin wp-parsely")
+
+        logger.reset_mock()
+        self.plugin_finder._find_possible_plugin_name_in_comment(comment_without_plugin)
+        logger.add_plugin.assert_not_called()
