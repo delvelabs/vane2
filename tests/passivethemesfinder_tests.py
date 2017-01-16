@@ -27,6 +27,11 @@ class TestPassiveThemesFinder(TestCase):
 
         self.assertTrue(self.themes_finder._contains_theme_url(url))
 
+    def test_contains_theme_url_return_true_if_theme_url_is_relative(self):
+        relative_url = "this is the theme url: /wp-content/themes/my-theme/style.css"
+
+        self.assertTrue(self.themes_finder._contains_theme_url(relative_url))
+
     def test_get_theme_url_from_string_remove_beginning_of_string_not_part_of_the_url(self):
         string = 'beginning of string ... http://static.blog.playstation.com/wp-content/themes/twenty11'
 
@@ -38,6 +43,11 @@ class TestPassiveThemesFinder(TestCase):
 
         self.assertEqual(self.themes_finder._get_theme_url_from_string(url),
                          "http://static.blog.playstation.com/wp-content/themes/twenty11")
+
+    def test_get_theme_url_from_string_return_return_relative_url(self):
+        relative_url = "this is the theme url: /wp-content/themes/my-theme/style.css"
+
+        self.assertEqual(self.themes_finder._get_theme_url_from_string(relative_url), "/wp-content/themes/my-theme")
 
     def test_list_themes_find_themes_in_page_source(self):
         sample_page0 = join(dirname(__file__), "samples/playstation.html")

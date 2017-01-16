@@ -3,7 +3,8 @@ from lxml import etree
 
 from vane.theme import Theme
 
-theme_url = re.compile("(https?:)?//([\w%-]+(\.|/))+wp-content/themes/(vip/)?")
+theme_url = re.compile("(https?:)?//([\w%-]+(\.|/))+wp-content/themes/(vip/)?[^/]+")
+relative_theme_url = re.compile("/wp-content/themes/(vip/)?[^/]+")
 
 
 class PassiveThemesFinder:
@@ -38,14 +39,13 @@ class PassiveThemesFinder:
         return themes
 
     def _contains_theme_url(self, string):
-        return theme_url.search(string) is not None
+        return theme_url.search(string) is not None or relative_theme_url.search(string) is not None
 
     def _get_theme_url_from_string(self, string):
-        url_match = theme_url.search(string)
-        url = string[url_match.start():]
-        theme_url_prefix_end = theme_url.match(url).end()
-        url_end = re.search("[^/]+", url[theme_url_prefix_end:]).end()
-        return url[:theme_url_prefix_end + url_end]
+        if theme_url.search(string):
+            return theme_url.search(string).group()
+        else:
+            return relative_theme_url.search(string).group()
 
     def _remove_duplicates(self, theme_list):
         return list(set(theme_list))
