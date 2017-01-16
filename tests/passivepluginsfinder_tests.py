@@ -9,14 +9,13 @@ from lxml import etree
 class TestPassivePluginsFinder(TestCase):
 
     def setUp(self):
-        self.plugin_finder = PassivePluginsFinder()
-        self.plugin_finder.set_plugins_database(MagicMock())
+        self.plugin_finder = PassivePluginsFinder(MagicMock(), MagicMock())
 
     def test_find_plugins_in_elements_find_plugin_references_in_page_source(self):
         sample_page0 = join(dirname(__file__), "samples/delvelabs.html")
         sample_page1 = join(dirname(__file__), "samples/starwars.html")
         sample_page2 = join(dirname(__file__), "samples/playstation.html")
-        self.plugin_finder.plugins_database.get_plugins.return_value = ["disqus-comment-system", "yoast-seo", "jetpack",
+        self.plugin_finder.plugins_database.get_plugin_names.return_value = ["disqus-comment-system", "yoast-seo", "jetpack",
                                                                         "google-analytics", "cyclone-slider-2",
                                                                         "sitepress-multilingual-cms", "audio-player"
                                                                         "wp-jquery-lightbox", "panopress", "wp-polls",
@@ -53,7 +52,7 @@ class TestPassivePluginsFinder(TestCase):
     def test_search_in_element_attributes_find_plugins_from_plugin_url_in_attributes_values(self):
         element = etree.fromstring('<img src="http://static.blog.playstation.com/wp-content/plugins/wp-postratings/images/custom/rating_on.png"/>')
 
-        plugin = self.plugin_finder._search_in_element_attributes(element)[0]
+        plugin = next(self.plugin_finder._search_in_element_attributes(element))
 
         self.assertEqual(plugin.name, "wp-postratings")
 
@@ -66,7 +65,7 @@ class TestPassivePluginsFinder(TestCase):
 
     def test_search_plugin_in_comments_outside_document_parse_comments_outside_html_closing_tag(self):
         sample_page = join(dirname(__file__), "samples/timeinc.html")
-        self.plugin_finder.plugins_database.get_plugins.return_value = ["wp-super-cache"]
+        self.plugin_finder.plugins_database.get_plugin_names.return_value = ["wp-super-cache"]
 
         plugins = self.plugin_finder._search_plugin_in_comments_outside_document(sample_page)
 
@@ -79,7 +78,7 @@ class TestPassivePluginsFinder(TestCase):
         plugin_name4 = "w3-total-cache"
         plugin_name5 = "comscore-tag"
         plugin_name6 = "add-meta-tags"
-        self.plugin_finder.plugins_database.get_plugins.return_value = [plugin_name0, plugin_name1, plugin_name2,
+        self.plugin_finder.plugins_database.get_plugin_names.return_value = [plugin_name0, plugin_name1, plugin_name2,
                                                                         plugin_name4, plugin_name5, plugin_name6]
         comment0 = "This site uses the Google Analytics by MonsterInsights plugin v5.5.4 - Universal enabled - https://www.monsterinsights.com/"
         comment1 = "This site is optimized with the Yoast SEO plugin v4.0.2 - https://yoast.com/wordpress/plugins/seo/"
@@ -149,25 +148,17 @@ class TestPassivePluginsFinder(TestCase):
 
     def test_find_existing_plugin_name_in_string_only_return_full_match(self):
         possibilities = ["recaptcha", "spam-captcha", "pluscaptcha", "wp-captcha"]
-        self.plugin_finder.plugins_database.get_plugins.return_value = possibilities
+        self.plugin_finder.plugins_database.get_plugin_names.return_value = possibilities
         string = "This site uses the captcha plugin."
 
         self.assertIsNone(self.plugin_finder._find_existing_plugin_name_in_string(string))
 
     def test_find_existing_plugin_name_in_string_return_longest_match(self):
         possibilities = ["captcha", "wp-captcha"]
-        self.plugin_finder.plugins_database.get_plugins.return_value = possibilities
+        self.plugin_finder.plugins_database.get_plugin_names.return_value = possibilities
         string = "This site uses the wp-captcha plugin."
 
         self.assertEqual(self.plugin_finder._find_existing_plugin_name_in_string(string), "wp-captcha")
-
-    def test_remove_duplicates_remove_plugins_with_same_name(self):
-        plugin = Plugin.from_name("my-plugin")
-        plugins = [plugin, plugin, plugin, plugin]
-
-        plugins = self.plugin_finder._remove_duplicates(plugins)
-
-        self.assertEqual(len(plugins), 1)
 
     def test_find_possible_plugin_name_in_comment_log_plugin_name_in_comment_with_plugin_word(self):
         comment0 = "This site uses the Google Analytics by MonsterInsights plugin v5.5.4 - Universal enabled - https://www.monsterinsights.com/"

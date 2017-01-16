@@ -56,26 +56,16 @@ class TestPassiveThemesFinder(TestCase):
         themes0 = self.themes_finder.list_themes(sample_page0)
         themes1 = self.themes_finder.list_themes(sample_page1)
 
-        self.assertIn("twenty11", [theme.name for theme in themes0])
-        self.assertIn("kratos", [theme.name for theme in themes0])
+        self.assertIn("twenty11", (theme.name for theme in themes0))
+        self.assertIn("kratos", (theme.name for theme in themes0))
         self.assertEqual(len(themes0), 2)
 
-        self.assertEqual("delvelabs", themes1[0].name)
+        self.assertIn("delvelabs", (theme.name for theme in themes1))
         self.assertEqual(len(themes1), 1)
 
     def test_list_themes_find_theme_in_comments_with_theme_url(self):
         sample_page = join(dirname(__file__), "samples/comment.html")
 
-        theme = self.themes_finder.list_themes(sample_page)[0]
+        themes = self.themes_finder.list_themes(sample_page)
 
-        self.assertEqual(theme.name, "twenty11")
-
-    def test_remove_duplicates_remove_themes_with_same_name(self):
-        theme0 = Theme("https://www.mysite.com/wp-content/themes/my-theme")
-        theme1 = Theme("https://www.mysite.com/wp-content/themes/my-theme")
-        theme2 = Theme("https://www.mysite.com/wp-content/themes/my-theme")
-        themes = [theme0, theme1, theme2]
-
-        themes = self.themes_finder._remove_duplicates(themes)
-
-        self.assertEqual(len(themes), 1)
+        self.assertIn("twenty11", (theme.name for theme in themes))

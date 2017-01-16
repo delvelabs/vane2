@@ -19,8 +19,10 @@ class TestTheme(TestCase):
 
     def test_constructor_accept_relative_url(self):
         relative_url = "/wp-content/themes/my-theme"
-
-        Theme(relative_url)
+        try:
+            Theme(relative_url)
+        except ValueError:
+            self.fail("Theme constructor raised an error for a relative url.")
 
     def test_name_return_name_from_theme_url(self):
         theme = Theme("https://www.delve-labs.com/wp-content/themes/delvelabs")
