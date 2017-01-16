@@ -57,14 +57,6 @@ class TestPassivePluginsFinder(TestCase):
 
         self.assertEqual(plugin.name, "wp-postratings")
 
-    def test_find_existing_plugin_name_in_comment_find_plugin_from_name_in_comment_that_exist_in_database(self):
-        comment = " This site uses the W3 Total Cache plugin. "
-        self.plugin_finder.plugins_database.get_plugins.return_value = ["w3-total-cache"]
-
-        plugin_name = self.plugin_finder._find_existing_plugin_name_in_comment(comment)
-
-        self.assertEqual(plugin_name, "w3-total-cache")
-
     def test_find_plugins_in_comments_find_plugin_from_url_in_comment(self):
         sample_page = join(dirname(__file__), "samples/comment.html")
 
@@ -80,25 +72,7 @@ class TestPassivePluginsFinder(TestCase):
 
         self.assertIn("wp-super-cache", [plugin.name for plugin in plugins])
 
-    def test_plugin_names_equal_ignore_case(self):
-        name0 = "Mobile-Navigation"
-        name1 = "mobile-navigation"
-
-        self.assertTrue(self.plugin_finder._plugin_names_equal(name0, name1))
-
-    def test_plugin_names_equal_ignore_whitespace(self):
-        name0 = "mobile navigation"
-        name1 = "mobile-navigation"
-
-        self.assertTrue(self.plugin_finder._plugin_names_equal(name0, name1))
-
-    def test_plugin_names_equal_ignore_hyphens(self):
-        name0 = "mobilenavigation"
-        name1 = "mobile-navigation"
-
-        self.assertTrue(self.plugin_finder._plugin_names_equal(name0, name1))
-
-    def test_find_existing_plugin_name_in_comment_find_plugin_name_in_comment(self):
+    def test_find_plugin_name_in_comment_find_plugin_name_in_comment_that_match_plugin_name_in_database(self):
         plugin_name0 = "google analytics"
         plugin_name1 = "yoast seo"
         plugin_name2 = "wp-parsely"
@@ -118,13 +92,13 @@ class TestPassivePluginsFinder(TestCase):
         comment5 = " Begin comScore Tag "
         comment6 = " BEGIN Metadata added by the Add-Meta-Tags WordPress plugin "
 
-        plugin0 = self.plugin_finder._find_existing_plugin_name_in_comment(comment0)
-        plugin1 = self.plugin_finder._find_existing_plugin_name_in_comment(comment1)
-        plugin2 = self.plugin_finder._find_existing_plugin_name_in_comment(comment2)
-        plugin3 = self.plugin_finder._find_existing_plugin_name_in_comment(comment3)
-        plugin4 = self.plugin_finder._find_existing_plugin_name_in_comment(comment4)
-        plugin5 = self.plugin_finder._find_existing_plugin_name_in_comment(comment5)
-        plugin6 = self.plugin_finder._find_existing_plugin_name_in_comment(comment6)
+        plugin0 = self.plugin_finder._find_plugin_name_in_comment(comment0)
+        plugin1 = self.plugin_finder._find_plugin_name_in_comment(comment1)
+        plugin2 = self.plugin_finder._find_plugin_name_in_comment(comment2)
+        plugin3 = self.plugin_finder._find_plugin_name_in_comment(comment3)
+        plugin4 = self.plugin_finder._find_plugin_name_in_comment(comment4)
+        plugin5 = self.plugin_finder._find_plugin_name_in_comment(comment5)
+        plugin6 = self.plugin_finder._find_plugin_name_in_comment(comment6)
 
         self.assertEqual(plugin0, plugin_name0)
         self.assertEqual(plugin1, plugin_name1)
@@ -173,19 +147,19 @@ class TestPassivePluginsFinder(TestCase):
 
         self.assertEqual(url, "/wp-content/plugins/my-plugin")
 
-    def test_find_plugin_name_in_string_only_return_full_match(self):
+    def test_find_existing_plugin_name_in_string_only_return_full_match(self):
         possibilities = ["recaptcha", "spam-captcha", "pluscaptcha", "wp-captcha"]
         self.plugin_finder.plugins_database.get_plugins.return_value = possibilities
         string = "This site uses the captcha plugin."
 
-        self.assertIsNone(self.plugin_finder._find_plugin_name_in_string(string))
+        self.assertIsNone(self.plugin_finder._find_existing_plugin_name_in_string(string))
 
-    def test_find_plugin_name_in_string_return_longest_match(self):
+    def test_find_existing_plugin_name_in_string_return_longest_match(self):
         possibilities = ["captcha", "wp-captcha"]
         self.plugin_finder.plugins_database.get_plugins.return_value = possibilities
         string = "This site uses the wp-captcha plugin."
 
-        self.assertEqual(self.plugin_finder._find_plugin_name_in_string(string), "wp-captcha")
+        self.assertEqual(self.plugin_finder._find_existing_plugin_name_in_string(string), "wp-captcha")
 
     def test_remove_duplicates_remove_plugins_with_same_name(self):
         plugin = Plugin.from_name("my-plugin")

@@ -57,13 +57,10 @@ class PassivePluginsFinder:
         return self._remove_duplicates(plugins)
 
     def _find_plugin_name_in_comment(self, comment):
-        plugin_name = self._find_existing_plugin_name_in_comment(comment)
+        plugin_name = self._find_existing_plugin_name_in_string(comment)  # search the string for a known plugin name.
         if plugin_name is None:
             plugin_name = self._find_possible_plugin_name_in_comment(comment)
         return plugin_name
-
-    def _find_existing_plugin_name_in_comment(self, comment):
-        return self._find_plugin_name_in_string(comment)  # search the string for a known plugin name.
 
     def _find_possible_plugin_name_in_comment(self, comment):
         comment = comment.lower()
@@ -94,19 +91,7 @@ class PassivePluginsFinder:
                     plugins.append(plugin)
         return plugins
 
-    def _is_plugin(self, plugin_name):
-        return self._get_plugin_name_from_database(plugin_name) is not None
-
-    def _get_plugin_name_from_database(self, plugin_name):
-        if self.plugins_database is not None:
-            for plugin in self.plugins_database.get_plugins():
-                if self._plugin_names_equal(plugin_name, plugin):
-                    return plugin
-
-    def _plugin_names_equal(self, name0, name1):
-        return self._strip_name(name0) == self._strip_name(name1)
-
-    def _find_plugin_name_in_string(self, string):
+    def _find_existing_plugin_name_in_string(self, string):
         if self.plugins_database is None:
             return
         stripped_string = self._strip_name(string)
