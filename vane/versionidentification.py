@@ -12,12 +12,10 @@ class VersionIdentification:
         self.hammertime = hammertime
 
     def identify_version(self, target):
-        #fetch_files
-        #for VersionDefinition in version_list:
-        #   hash_files(files, version_definition.signatures)
-        #   if all hashed_file match:
-        #       return version
-        pass
+        files = list(self.fetch_files(target))
+        for version_definition in self.versions_list.versions:
+            if self._files_match_version(files, version_definition):
+                return version_definition.version
 
     def fetch_files(self, target):
         for file in self.get_files_to_fetch():
@@ -26,23 +24,25 @@ class VersionIdentification:
         for entry in self.hammertime.successful_requests():
             yield entry.response
 
-    def hash_files(self, files, signatures_list):
-        # if the same files are reused, the hash and algo are kept from one version check to another, fix this.
-        for signature in signatures_list:
-            for file in files:
-                if file.name == signature.path:
-                    file.algo = signature.algo
-                    file.hash = self.get_file_hash(file, file.algo)
-
     def get_file_hash(self, file, algo):
         hasher = hashlib.new(algo)
         hasher.update(file.data)
         return hasher.hexdigest()
+
+    def _files_match_version(self, files, version_definition):
+        for signature in version_definition.signatures:
+            for file in files:
+                if signature.path == file.name:
+                    if not self._file_match_signature(file, signature):
+                        return False
+        return True
+
+    def _file_match_signature(self, file, signature):
+        file_hash = self.get_file_hash(file, signature.algo)
+        return file_hash == signature.hash
 
     class File:
 
         def __init__(self, name, data):
             self.name = name
             self.data = data
-            self.hash = None
-            self.algo = None
