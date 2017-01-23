@@ -2,8 +2,8 @@ from unittest import TestCase
 from unittest.mock import MagicMock, call
 from vane.versionidentification import VersionIdentification
 import hashlib
-from common.models import Signature, VersionList, VersionDefinition
-from common.schemas import VersionListSchema
+from openwebvulndb.common.models import Signature, VersionList, VersionDefinition
+from openwebvulndb.common.schemas import VersionListSchema
 from os.path import join, dirname
 
 

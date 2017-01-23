@@ -1,6 +1,6 @@
 import hashlib
 import json
-from common.schemas import VersionListSchema
+from openwebvulndb.common.schemas import VersionListSchema
 
 
 class VersionIdentification:
