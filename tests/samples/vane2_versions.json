@@ -1,0 +1,21 @@
+{
+  "key": "wordpress",
+  "producer": "unittest",
+  "versions": [
+    {
+      "version": "2.0",
+      "signatures": [
+        {
+          "path": "file.js",
+          "hash":"1234",
+          "algo": "SHA256"
+        }
+      ]
+    }
+  ],
+  "signatures_files":[
+    "readme.html",
+    "my_file.css",
+    "file.js"
+  ]
+}

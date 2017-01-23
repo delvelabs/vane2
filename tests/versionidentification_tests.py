@@ -3,6 +3,8 @@ from unittest.mock import MagicMock, call
 from vane.versionidentification import VersionIdentification
 import hashlib
 from common.models import Signature, VersionList, VersionDefinition
+from common.schemas import VersionListSchema
+from os.path import join, dirname
 
 
 class TestVersionIdentification(TestCase):
@@ -10,13 +12,13 @@ class TestVersionIdentification(TestCase):
     def setUp(self):
         self.versions_list = MagicMock()
         self.hammertime = MagicMock()
-        self.version_identification = VersionIdentification(self.versions_list, self.hammertime)
-        self.version_identification.get_files_to_fetch = MagicMock()
+        self.version_identification = VersionIdentification(self.hammertime)
+        self.version_identification.versions_list = MagicMock()
         self.readme_file = VersionIdentification.File("readme.html", b"This is the readme file.")
         self.style_css_file = VersionIdentification.File("style.css", b"This is the style file.")
 
     def test_fetch_files_for_version_identification(self):
-        self.version_identification.get_files_to_fetch.return_value = ["readme.html", "style.css", "wp-include/file.js"]
+        self.version_identification.signatures_files = ["readme.html", "style.css", "wp-include/file.js"]
         target = "http://www.target.url/"
 
         for file in self.version_identification.fetch_files(target):
@@ -69,10 +71,46 @@ class TestVersionIdentification(TestCase):
         version2_definition = VersionDefinition(version="2.0", signatures=[readme_2_signature, style_css_signature])
         version_list = VersionList(producer="unittest", key="wordpress", versions=[version1_definition, version2_definition])
         readme_file = VersionIdentification.File("readme.html", b"ReadMe file for 2.0 version.")
-        version_identification = VersionIdentification(version_list, None)
+        version_identification = VersionIdentification(None)
+        version_identification.versions_list = version_list
         version_identification.fetch_files = MagicMock()
         version_identification.fetch_files.return_value = [readme_file, self.style_css_file]
 
         version = version_identification.identify_version("target")
 
         self.assertEqual(version, "2.0")
+
+    def test_identify_version_find_closest_match_when_one_file_is_missing(self):
+        style_css_signature = Signature(path="style.css", hash=hashlib.sha256(self.style_css_file.data).hexdigest())
+
+        readme_1_signature = Signature(path="readme.html", hash=hashlib.sha256(b"ReadMe file for 1.0 version.").hexdigest())
+        file1_signature = Signature(path="file.js", hash=hashlib.sha256(b"file.js for 1.0 version.").hexdigest())
+        version1_definition = VersionDefinition(version="1.0", signatures=[readme_1_signature, style_css_signature,
+                                                                           file1_signature])
+
+        readme_2_signature = Signature(path="readme.html", hash=hashlib.sha256(b"ReadMe file for 2.0 version.").hexdigest())
+        file2_signature = Signature(path="file.js", hash=hashlib.sha256(b"file.js for 2.0 version.").hexdigest())
+        version2_definition = VersionDefinition(version="2.0", signatures=[readme_2_signature, style_css_signature,
+                                                                           file2_signature])
+
+        version_list = VersionList(producer="unittest", key="wordpress", versions=[version1_definition,
+                                                                                   version2_definition])
+        file_js = VersionIdentification.File("file.js", b"file.js for 1.0 version.")
+        version_identification = VersionIdentification(None)
+        version_identification.versions_list = version_list
+        version_identification.fetch_files = MagicMock()
+        version_identification.fetch_files.return_value = [file_js, self.style_css_file]
+
+        version = version_identification.identify_version("target")
+
+        self.assertEqual(version, "1.0")
+
+    def test_load_versions_signatures(self):
+        filename = join(dirname(__file__), "samples/vane2_versions.json")
+
+        self.version_identification.load_versions_signatures(filename)
+
+        self.assertEqual(self.version_identification.versions_list, VersionListSchema().load(
+            {"key": "wordpress", "producer": "unittest", "versions": [{"version": "2.0", "signatures":
+             [{"path": "file.js", "hash": "1234", "algo": "SHA256"}]}]}).data)
+        self.assertEqual(self.version_identification.signatures_files, ["readme.html", "my_file.css", "file.js"])
