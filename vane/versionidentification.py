@@ -1,14 +1,15 @@
 import hashlib
 import json
 from openwebvulndb.wordpress.vane2schemas import FilesListSchema
+import re
 
 
 class VersionIdentification:
 
     def __init__(self, hammertime):
-        # version list comes from openwebvulndb
         self.files_list = None
         self.hammertime = hammertime
+        self.major_version_pattern = "\d+\.\d+"
 
     def load_files_signatures(self, filename):
         with open(filename, "rt") as fp:
@@ -19,14 +20,23 @@ class VersionIdentification:
         possible_versions = set()
         for fetched_file in self.fetch_files(target):
             signature = self._get_signature_that_match_fetched_file(fetched_file)
-            if len(possible_versions) > 0:
-                possible_versions &= set(signature.versions)
-            else:
-                possible_versions = set(signature.versions)
+            if signature is not None:
+                if len(possible_versions) > 0:
+                    possible_versions &= set(signature.versions)
+                else:
+                    possible_versions = set(signature.versions)
         if len(possible_versions) > 1:
-            return [version for version in possible_versions][0]  # TODO return major version if only one major version, else fail?
-        elif len(possible_versions) == 1:
-            return [version for version in possible_versions][0]
+            return self._get_common_major_version(possible_versions, self.major_version_pattern)
+        return possible_versions.pop()
+
+    def _get_common_major_version(self, versions, major_version_pattern):
+        major_versions = set()
+        for version in versions:
+            major_version = re.match(major_version_pattern, version).group()
+            major_versions.add(major_version)
+        if len(major_versions) > 1:
+            return None
+        return major_versions.pop() + ".x"
 
     def fetch_files(self, target):
         for file_path in self.get_files_to_fetch():
@@ -52,11 +62,6 @@ class VersionIdentification:
             file_hash = self.get_file_hash(fetched_file, signature.algo)
             if file_hash == signature.hash:
                 return signature
-
-    def _get_versions_that_match_file_hash(self, file_hash, signatures):
-        for signature in signatures:
-            if signature.hash == file_hash:
-                return signature.versions
 
     def _get_file_from_files_list(self, filename):
         for file in self.files_list.files:
