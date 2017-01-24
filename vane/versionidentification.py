@@ -1,54 +1,69 @@
 import hashlib
 import json
-from openwebvulndb.common.schemas import VersionListSchema
+from openwebvulndb.wordpress.vane2schemas import FilesListSchema
 
 
 class VersionIdentification:
 
     def __init__(self, hammertime):
         # version list comes from openwebvulndb
-        self.versions_list = None
-        self.signatures_files = []
+        self.files_list = None
         self.hammertime = hammertime
 
-    def load_versions_signatures(self, filename):
+    def load_files_signatures(self, filename):
         with open(filename, "rt") as fp:
-            versions_list = json.loads(fp.read())
-            self.signatures_files = versions_list["signatures_files"]
-            versions_list.pop("signatures_files")
-            self.versions_list = VersionListSchema().load(versions_list).data
+            schema = FilesListSchema()
+            self.files_list = schema.load(json.load(fp)).data
 
     def identify_version(self, target):
-        files = list(self.fetch_files(target))
-        for version_definition in self.versions_list.versions:
-            if self._files_match_version(files, version_definition):
-                return version_definition.version
+        possible_versions = set()
+        for fetched_file in self.fetch_files(target):
+            signature = self._get_signature_that_match_fetched_file(fetched_file)
+            if len(possible_versions) > 0:
+                possible_versions &= set(signature.versions)
+            else:
+                possible_versions = set(signature.versions)
+        if len(possible_versions) > 1:
+            return [version for version in possible_versions][0]  # TODO return major version if only one major version, else fail?
+        elif len(possible_versions) == 1:
+            return [version for version in possible_versions][0]
 
     def fetch_files(self, target):
-        for file in self.signatures_files:
-            url = target + file
+        for file_path in self.get_files_to_fetch():
+            url = target + file_path
             self.hammertime.request(url)
         for entry in self.hammertime.successful_requests():
-            yield entry.response
+            file_name = entry.request.url[len(target):]
+            fetched_file = self.FetchedFile(file_name, entry.response.raw)
+            yield fetched_file
+
+    def get_files_to_fetch(self):
+        for file in self.files_list.files:
+            yield file.path
 
     def get_file_hash(self, file, algo):
         hasher = hashlib.new(algo)
         hasher.update(file.data)
         return hasher.hexdigest()
 
-    def _files_match_version(self, files, version_definition):
-        for signature in version_definition.signatures:
-            for file in files:
-                if signature.path == file.name:
-                    if not self._file_match_signature(file, signature):
-                        return False
-        return True
+    def _get_signature_that_match_fetched_file(self, fetched_file):
+        signatures = self._get_file_from_files_list(fetched_file.name).signatures
+        for signature in signatures:
+            file_hash = self.get_file_hash(fetched_file, signature.algo)
+            if file_hash == signature.hash:
+                return signature
 
-    def _file_match_signature(self, file, signature):
-        file_hash = self.get_file_hash(file, signature.algo)
-        return file_hash == signature.hash
+    def _get_versions_that_match_file_hash(self, file_hash, signatures):
+        for signature in signatures:
+            if signature.hash == file_hash:
+                return signature.versions
 
-    class File:
+    def _get_file_from_files_list(self, filename):
+        for file in self.files_list.files:
+            if file.path == filename:
+                return file
+
+    class FetchedFile:
 
         def __init__(self, name, data):
             self.name = name
