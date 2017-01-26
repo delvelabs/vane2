@@ -7,7 +7,7 @@ node ('master'){
     sh 'bin/pip install -r requirements.txt'
     sh 'bin/pip install --ignore-installed -e git+https://github.com/delvelabs/hammertime.git#egg=hammertime'
     sh 'bin/pip install --ignore-installed nose'
-    sh 'bin/pip install --ignore-installed -e git+ssh://git@bitbucket.org/delvelabs/openwebvulndb-tools.git@WRN-1097#egg=openwebvulndb-tools'
+    sh 'bin/pip install --ignore-installed -e git+ssh://git@bitbucket.org/delvelabs/openwebvulndb-tools.git#egg=openwebvulndb-tools'
 
     stage 'Test'
     sh 'bin/nosetests'
