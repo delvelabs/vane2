@@ -1,7 +1,10 @@
 from hammertime import HammerTime
 from hammertime.rules import IgnoreLargeBody
+from .versionidentification import VersionIdentification
 
 import json
+
+from os.path import join, dirname
 
 
 class Vane:
@@ -28,6 +31,15 @@ class Vane:
 
         self.output_manager.log_message("scan done")
 
+    async def identify_target_version(self, url):
+        self.output_manager.log_message("Identifying %s Wordpress version." % url)
+
+        version_identifier = VersionIdentification(self.hammertime)
+        version_identifier.load_files_signatures(join(dirname(__file__), "wordpress_vane2_versions.json"))
+
+        version = await version_identifier.identify_version(url)
+        self.output_manager.set_wordpress_version(version)
+
     # TODO
     def _load_database(self):
         # load database
@@ -41,6 +53,8 @@ class Vane:
             self.hammertime.loop.run_until_complete(self.scan_target(url))
         elif action == "import_data":
             pass
+        elif action == "identify_version":
+            self.hammertime.loop.run_until_complete(self.identify_target_version(url))
         self.output_manager.flush()
 
 
