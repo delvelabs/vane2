@@ -8,6 +8,7 @@ from os.path import join, dirname
 from fixtures import wrap_lists_in_unordered_lists
 from aiohttp.test_utils import make_mocked_coro, loop_context
 import asyncio
+from hammertime import http
 
 
 class TestVersionIdentification(TestCase):
@@ -45,10 +46,12 @@ class TestVersionIdentification(TestCase):
         target = "http://www.target.url/"
 
         readme_http_entry = MagicMock()
-        readme_http_entry.arguments = {"file_path": "readme.html", 'hash': "12345"}
+        readme_http_entry.arguments = {"file_path": "readme.html"}
+        readme_http_entry.result.hash = "12345"
 
         style_http_entry = MagicMock()
-        style_http_entry.arguments = {"file_path": "style.css", 'hash': "09876"}
+        style_http_entry.arguments = {"file_path": "style.css"}
+        style_http_entry.result.hash = "09876"
 
         with loop_context() as loop:
             readme_result = asyncio.Future(loop=loop)
@@ -82,6 +85,20 @@ class TestVersionIdentification(TestCase):
                  call("http://wp.dev.wardenscanner.com/style.css", arguments=style_css_args),
                  call("http://wp.dev.wardenscanner.com/readme.html", arguments=readme_args),
                  call("http://wp.dev.wardenscanner.com/style.css", arguments=style_css_args)])
+
+    def test_fetch_files_ignore_file_if_no_hash(self):
+        target = "http://www.target.url/"
+
+        readme_http_entry = http.Entry.create(target, arguments={'file_path': 'readme.html'})
+
+        with loop_context() as loop:
+            readme_result = asyncio.Future(loop=loop)
+            readme_result.set_result(readme_http_entry)
+
+            with mock.patch('asyncio.wait', new=make_mocked_coro(([readme_result], None))):
+                fetched_files = loop.run_until_complete(self.version_identification.fetch_files(target))
+
+                self.assertEqual(len(fetched_files), 0)
 
     def test_get_possible_versions_for_fetched_file(self):
         file_list = FileList(key="wordpress", producer="", files=[self.readme_file])

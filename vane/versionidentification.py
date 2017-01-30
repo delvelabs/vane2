@@ -4,7 +4,7 @@ import asyncio
 from urllib.parse import urljoin
 from collections import namedtuple
 from openwebvulndb.common.version import VersionCompare
-from openwebvulndb.common.hash import hash_data
+from hammertime.ruleset import RejectRequest
 
 
 FetchedFile = namedtuple('FetchedFile', ['path', 'hash'])
@@ -25,7 +25,6 @@ class VersionIdentification:
             self.file_list = data
 
     async def identify_version(self, target):
-        self.hammertime.heuristics.add(HashResponse())
         fetched_files = await self.fetch_files(target)
 
         possible_versions = self._get_possible_versions(fetched_files)
@@ -50,8 +49,12 @@ class VersionIdentification:
         fetched_files = []
         done, pending = await asyncio.wait(requests, loop=self.hammertime.loop)
         for future in done:
-            entry = await future
-            fetched_files.append(FetchedFile(path=entry.arguments['file_path'], hash=entry.arguments['hash']))
+            try:
+                entry = await future
+                if hasattr(entry.result, 'hash'):
+                    fetched_files.append(FetchedFile(path=entry.arguments['file_path'], hash=entry.result.hash))
+            except RejectRequest:
+                pass
         return fetched_files
 
     def get_files_to_fetch(self):
@@ -83,10 +86,3 @@ class VersionIdentification:
             if file.path == file_path:
                 return file
         return None
-
-
-class HashResponse:
-
-    async def after_response(self, entry):
-        hash_algo = entry.arguments['hash_algo']
-        entry.arguments['hash'] = hash_data(entry.response.raw, hash_algo)

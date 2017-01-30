@@ -1,6 +1,7 @@
 from hammertime import HammerTime
-from hammertime.rules import IgnoreLargeBody
+from hammertime.rules import IgnoreLargeBody, RejectStatusCode
 from .versionidentification import VersionIdentification
+from .hash import HashResponse
 
 import json
 
@@ -16,7 +17,7 @@ class Vane:
         self.output_manager = OutputManager()
 
     def config_hammertime(self):
-        self.hammertime.heuristics.add_multiple([IgnoreLargeBody()])
+        self.hammertime.heuristics.add_multiple([IgnoreLargeBody(), RejectStatusCode(range(400, 500)), HashResponse()])
 
     async def scan_target(self, url):
         self._load_database()
@@ -29,7 +30,7 @@ class Vane:
         self.output_manager.log_message("scan done")
 
     async def identify_target_version(self, url):
-        self.output_manager.log_message("Identifying %s Wordpress version." % url)
+        self.output_manager.log_message("Identifying Wordpress version for %s" % url)
 
         version_identifier = VersionIdentification(self.hammertime)
         # TODO put in _load_database?
