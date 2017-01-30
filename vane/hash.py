@@ -5,5 +5,8 @@ class HashResponse:
 
     async def after_response(self, entry):
         if not entry.response.truncated:
-            hash_algo = entry.arguments['hash_algo']
-            entry.result.hash = hash_data(entry.response.raw, hash_algo)
+            try:
+                hash_algo = entry.arguments['hash_algo']
+                entry.result.hash = hash_data(entry.response.raw, hash_algo)
+            except KeyError:
+                return
