@@ -176,3 +176,95 @@ class TestVersionIdentification(TestCase):
         version = self.version_identification._get_lowest_version(versions)
 
         self.assertEqual(version, "1.0.12")
+
+
+    # Tests for the unordered list fixtures, remove before merging in master.
+
+    def test_unordered_list_comparison_return_true_if_same_content_in_different_order(self):
+        list1 = list(range(0, 10))
+        list2 = list(range(9, -1, -1))
+
+        list1_copy = wrap_lists_in_unordered_lists(list1)
+        list2_copy = wrap_lists_in_unordered_lists(list2)
+
+        self.assertNotEqual(list1, list2)
+        self.assertEqual(list1_copy, list1)
+        self.assertEqual(list1_copy, list2)
+        self.assertEqual(list2_copy, list1)
+        self.assertEqual(list2_copy, list2)
+
+    def test_unordered_list_comparison_return_false_if_not_same_content(self):
+        base_list = [1, 2, 3, 4]
+        same_length = [2, 3, 4, 5]
+        shorter = [1, 2, 3]
+        longer = [1, 2, 3, 4, 5]
+
+        unordered_base_list = wrap_lists_in_unordered_lists(base_list)
+        unordered_same_length = wrap_lists_in_unordered_lists(same_length)
+        unordered_shorter = wrap_lists_in_unordered_lists(shorter)
+        unordered_longer = wrap_lists_in_unordered_lists(longer)
+
+        self.assertNotEqual(unordered_base_list, same_length)
+        self.assertNotEqual(unordered_base_list, shorter)
+        self.assertNotEqual(unordered_base_list, longer)
+
+        self.assertNotEqual(unordered_same_length, base_list)
+        self.assertNotEqual(unordered_same_length, shorter)
+        self.assertNotEqual(unordered_same_length, longer)
+
+        self.assertNotEqual(unordered_shorter, base_list)
+        self.assertNotEqual(unordered_shorter, same_length)
+        self.assertNotEqual(unordered_shorter, longer)
+
+        self.assertNotEqual(unordered_longer, base_list)
+        self.assertNotEqual(unordered_longer, same_length)
+        self.assertNotEqual(unordered_longer, shorter)
+
+    def test_unordered_list_comparison_is_recursive(self):
+        list_of_list = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+        unequal_list0 = [[1, 2, 3], [4, 5, 6], [7, 8, 9, 10]]
+        unequal_list1 = [[1, 2, 3], [4, 6], [7, 8, 9]]
+        unequal_list2 = [[1, 5, 3], [4, 2, 9], [7, 8, 6]]
+        equal_list0 = [[3, 2, 1], [6, 4, 5], [8, 7, 9]]
+        equal_list1 = [[6, 4, 5], [8, 7, 9], [3, 2, 1]]
+
+        unordered_list_of_list = wrap_lists_in_unordered_lists(list_of_list)
+        unordered_unequal_list0 = wrap_lists_in_unordered_lists(unequal_list0)
+        unordered_unequal_list1 = wrap_lists_in_unordered_lists(unequal_list1)
+        unordered_unequal_list2 = wrap_lists_in_unordered_lists(unequal_list2)
+        unordered_equal_list0 = wrap_lists_in_unordered_lists(equal_list0)
+        unordered_equal_list1 = wrap_lists_in_unordered_lists(equal_list1)
+
+        self.assertEqual(unordered_list_of_list, equal_list0)
+        self.assertEqual(unordered_list_of_list, equal_list1)
+        self.assertEqual(unordered_equal_list0, list_of_list)
+        self.assertEqual(unordered_equal_list0, equal_list1)
+        self.assertEqual(unordered_equal_list1, list_of_list)
+        self.assertEqual(unordered_equal_list1, equal_list1)
+
+        self.assertNotEqual(unordered_list_of_list, unequal_list0)
+        self.assertNotEqual(unordered_list_of_list, unequal_list1)
+        self.assertNotEqual(unordered_list_of_list, unequal_list2)
+        self.assertNotEqual(unordered_unequal_list0, list_of_list)
+        self.assertNotEqual(unordered_unequal_list0, unequal_list1)
+        self.assertNotEqual(unordered_unequal_list0, unequal_list2)
+        self.assertNotEqual(unordered_unequal_list1, list_of_list)
+        self.assertNotEqual(unordered_unequal_list1, unequal_list0)
+        self.assertNotEqual(unordered_unequal_list1, unequal_list2)
+        self.assertNotEqual(unordered_unequal_list2, list_of_list)
+        self.assertNotEqual(unordered_unequal_list2, unequal_list0)
+        self.assertNotEqual(unordered_unequal_list2, unequal_list1)
+
+    def test_wrap_lists_in_unordered_lists(self):
+        base_dict = {"list": [1, 2, 3, {"inner_list": [4, 3, 2]}]}
+        equal_dict = {"list": [3, 2, 1, {"inner_list": [2, 4, 3]}]}
+        unequal_dict0 = {"list": [3, 2, 5, {"inner_list": [2, 4, 3]}]}
+        unequal_dict1 = {"list": [1, 2, 3, {"inner_list": [4, 3, 2, 1]}]}
+
+        self.assertNotEqual(base_dict, equal_dict)  # not equal if not unordered lists.
+
+        wrap_lists_in_unordered_lists(base_dict)
+
+        self.assertEqual(base_dict, equal_dict)
+        self.assertNotEqual(base_dict, unequal_dict0)
+        self.assertNotEqual(base_dict, unequal_dict1)
