@@ -1,6 +1,7 @@
 from unittest import TestCase
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from vane.core import Vane, OutputManager
+from aiohttp.test_utils import make_mocked_coro, loop_context
 
 
 class TestVane(TestCase):
@@ -26,13 +27,16 @@ class TestVane(TestCase):
 
         self.vane.hammertime = hammertime
 
-    def test_perform_action_output_database_version(self):
+    def test_scan_target_output_database_version(self):
         self.vane.database = MagicMock()
         self.vane.database.get_version.return_value = "1.2"
 
-        self.vane.perfom_action(action="scan", url="test")
+        with loop_context() as loop:
+            with patch("vane.core.Vane.identify_target_version", make_mocked_coro()):
+                loop.run_until_complete(self.vane.scan_target("test"))
 
-        self.vane.output_manager.set_vuln_database_version.assert_called_once_with(self.vane.database.get_version.return_value)
+                self.vane.output_manager.set_vuln_database_version.assert_called_once_with(
+                    self.vane.database.get_version.return_value)
 
     def test_output_manager_add_data_create_key_if_key_not_in_data(self):
         output_manager = OutputManager()
