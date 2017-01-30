@@ -22,7 +22,7 @@ class Vane:
         self._load_database()
         self.output_manager.log_message("scanning %s" % url)
 
-        self.identify_target_version(url)
+        await self.identify_target_version(url)
 
         await self.hammertime.close()
 
