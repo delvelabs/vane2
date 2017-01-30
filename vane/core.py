@@ -22,10 +22,7 @@ class Vane:
         self._load_database()
         self.output_manager.log_message("scanning %s" % url)
 
-        self.hammertime.request(url)
-        success = False
-        async for entry in self.hammertime.successful_requests():
-            success = True
+        self.identify_target_version(url)
 
         await self.hammertime.close()
 
@@ -35,6 +32,7 @@ class Vane:
         self.output_manager.log_message("Identifying %s Wordpress version." % url)
 
         version_identifier = VersionIdentification(self.hammertime)
+        # TODO put in _load_database?
         version_identifier.load_files_signatures(join(dirname(__file__), "wordpress_vane2_versions.json"))
 
         version = await version_identifier.identify_version(url)
@@ -53,8 +51,6 @@ class Vane:
             self.hammertime.loop.run_until_complete(self.scan_target(url))
         elif action == "import_data":
             pass
-        elif action == "identify_version":
-            self.hammertime.loop.run_until_complete(self.identify_target_version(url))
         self.output_manager.flush()
 
 

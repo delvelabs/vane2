@@ -1,11 +1,4 @@
-import hashlib
 from collections import OrderedDict
-
-
-def hash_data(data, algo="SHA256"):
-    hasher = hashlib.new(algo)
-    hasher.update(data)
-    return hasher.hexdigest()
 
 
 def wrap_lists_in_unordered_lists(iterable):
@@ -35,18 +28,3 @@ class UnorderedList:
         except ValueError:
             return False
         return len(li) == 0
-
-
-class FakeAsyncIterator:
-
-    def __init__(self, return_value):
-        self.iterator = iter(return_value)
-
-    async def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        try:
-            return next(self.iterator)
-        except StopIteration:
-            raise StopAsyncIteration

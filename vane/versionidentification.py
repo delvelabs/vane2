@@ -1,7 +1,13 @@
-import hashlib
 import json
 from openwebvulndb.common.schemas import FileListSchema
-import packaging.version
+import asyncio
+from urllib.parse import urljoin
+from collections import namedtuple
+from openwebvulndb.common.version import VersionCompare
+from openwebvulndb.common.hash import hash_data
+
+
+FetchedFile = namedtuple('FetchedFile', ['path', 'hash'])
 
 
 class VersionIdentification:
@@ -19,83 +25,68 @@ class VersionIdentification:
             self.file_list = data
 
     async def identify_version(self, target):
-        possible_versions = set()
+        self.hammertime.heuristics.add(HashResponse())
         fetched_files = await self.fetch_files(target)
-        files_signatures = self._get_fetched_files_signatures(fetched_files)
-        for signature in files_signatures:
-            if len(possible_versions) > 0:
-                possible_versions &= set(signature.versions)
-            else:
-                possible_versions = set(signature.versions)
 
-        await self.hammertime.close()
+        possible_versions = self._get_possible_versions(fetched_files)
 
-        version = None
         if len(possible_versions) > 1:
-            version = self._get_common_minor_version(possible_versions)
+            return self._get_lowest_version(possible_versions)
         elif len(possible_versions) == 1:
-            version = possible_versions.pop()
-        return version or "could not identify %s wordpress version" % target
+            return possible_versions.pop()
+        return None
 
-    def _get_common_minor_version(self, versions):
-        common_versions = set()
-        for version in versions:
-            _version = packaging.version.parse(version)
-            major_version = _version._version.release[0]
-            minor_version = _version._version.release[1]
-            common_versions.add("{0}.{1}".format(major_version, minor_version))
-        if len(common_versions) > 1:
-            return None
-        return common_versions.pop() + ".x"
+    def _get_lowest_version(self, versions):
+        sorted_versions = VersionCompare.sorted(versions)
+        return sorted_versions[0]
 
     async def fetch_files(self, target):
-        for file_path in self.get_files_to_fetch():
-            if not target.endswith('/'):
-                target += '/'
-            url = target + file_path
-            self.hammertime.request(url)
+        requests = []
+        for file in self.get_files_to_fetch():
+            url = urljoin(target, file.path)
+            arguments = {'file_path': file.path, 'hash_algo': file.signatures[0].algo}
+            requests.append(self.hammertime.request(url, arguments=arguments))
+
         fetched_files = []
-        async for entry in self.hammertime.successful_requests():
-            file_name = entry.request.url[len(target):]
-            fetched_file = self.FetchedFile(file_name, entry.response.raw)
-            fetched_files.append(fetched_file)
+        done, pending = await asyncio.wait(requests, loop=self.hammertime.loop)
+        for future in done:
+            entry = await future
+            fetched_files.append(FetchedFile(path=entry.arguments['file_path'], hash=entry.arguments['hash']))
         return fetched_files
 
     def get_files_to_fetch(self):
         for file in self.file_list.files:
-            yield file.path
+            yield file
 
-    def get_file_hash(self, file, algo):
-        hasher = hashlib.new(algo)
-        hasher.update(file.data)
-        return hasher.hexdigest()
-
-    def _get_fetched_files_signatures(self, fetched_files):
-        signatures = []
+    def _get_possible_versions(self, fetched_files):
+        possible_versions = set()
         for file in fetched_files:
-            signature = self._get_file_signature_matching_fetched_file(file)
-            if signature is not None:
-                signatures.append(signature)
-        return signatures
+            versions = self._get_possible_versions_for_fetched_file(file)
+            if versions is not None:
+                if len(possible_versions) > 0:
+                    possible_versions &= set(versions)
+                else:
+                    possible_versions = set(versions)
+        return possible_versions
 
-    def _get_file_signature_matching_fetched_file(self, fetched_file):
-        file = self._get_file_from_file_list(fetched_file.name)
+    def _get_possible_versions_for_fetched_file(self, fetched_file):
+        file = self._get_file_from_file_list(fetched_file.path)
         if file is not None:
             signatures = file.signatures
             for signature in signatures:
-                file_hash = self.get_file_hash(fetched_file, signature.algo)
-                if file_hash == signature.hash:
-                    return signature
+                if fetched_file.hash == signature.hash:
+                    return signature.versions
         return None
 
-    def _get_file_from_file_list(self, filename):
-        for file in self.file_list.files:
-            if file.path == filename:
+    def _get_file_from_file_list(self, file_path):
+        for file in self.get_files_to_fetch():
+            if file.path == file_path:
                 return file
         return None
 
-    class FetchedFile:
 
-        def __init__(self, name, data):
-            self.name = name
-            self.data = data
+class HashResponse:
+
+    async def after_response(self, entry):
+        hash_algo = entry.arguments['hash_algo']
+        entry.arguments['hash'] = hash_data(entry.response.raw, hash_algo)
