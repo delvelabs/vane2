@@ -2,6 +2,7 @@ from hammertime import HammerTime
 from hammertime.rules import IgnoreLargeBody, RejectStatusCode
 from .versionidentification import VersionIdentification
 from .hash import HashResponse
+from .activepluginsfinder import ActivePluginsFinder
 
 import json
 
@@ -25,6 +26,8 @@ class Vane:
 
         await self.identify_target_version(url)
 
+        await self.active_plugin_enumeration(url)
+
         await self.hammertime.close()
 
         self.output_manager.log_message("scan done")
@@ -38,6 +41,15 @@ class Vane:
 
         version = await version_identifier.identify_version(url)
         self.output_manager.set_wordpress_version(version)
+
+    async def active_plugin_enumeration(self, url, popular=True, vulnerable=False):
+        plugin_finder = ActivePluginsFinder(self.hammertime)
+        plugin_finder.load_plugins_files_signatures(dirname(__file__))  # TODO use user input for path?
+
+        if popular:
+            plugins = await plugin_finder.enumerate_popular_plugins(url)
+            for plugin in plugins:
+                self.output_manager.add_plugin(plugin)
 
     # TODO
     def _load_database(self):
