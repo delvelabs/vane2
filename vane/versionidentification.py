@@ -61,6 +61,9 @@ class VersionIdentification:
         for file in self.file_list.files:
             yield file
 
+    def set_files_to_fetch(self, file_list):
+        self.file_list = file_list
+
     def _get_possible_versions(self, fetched_files):
         possible_versions = set()
         for file in fetched_files:

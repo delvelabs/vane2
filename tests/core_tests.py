@@ -6,11 +6,9 @@ from aiohttp.test_utils import make_mocked_coro, loop_context
 
 class TestVane(TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        cls.vane = Vane()
-
     def setUp(self):
+        with patch("vane.core.HammerTime", MagicMock()):
+            self.vane = Vane()
         self.vane.output_manager = MagicMock()
 
     def test_perform_action_raise_exception_if_no_url_and_action_is_scan(self):
@@ -18,18 +16,16 @@ class TestVane(TestCase):
             self.vane.perfom_action(action="scan")
 
     def test_perform_action_flush_output(self):
-        hammertime = self.vane.hammertime
-        self.vane.hammertime = MagicMock()
 
         self.vane.perfom_action(action="scan", url="test")
 
         self.vane.output_manager.flush.assert_called_once_with()
 
-        self.vane.hammertime = hammertime
 
     def test_scan_target_output_database_version(self):
         self.vane.database = MagicMock()
         self.vane.database.get_version.return_value = "1.2"
+        self.vane.hammertime.close = make_mocked_coro()
 
         with loop_context() as loop:
             with patch("vane.core.Vane.identify_target_version", make_mocked_coro()):
