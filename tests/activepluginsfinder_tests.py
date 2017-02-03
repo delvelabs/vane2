@@ -4,6 +4,9 @@ from openwebvulndb.common.models import File, FileList, FileSignature, FileListG
 from vane.activepluginsfinder import ActivePluginsFinder
 from aiohttp.test_utils import loop_context, make_mocked_coro
 from os.path import dirname, join
+from hammertime.core import HammerTime
+import asyncio
+from vane.versionidentification import FetchedFile
 
 
 class TestActivePluginFinder(TestCase):
@@ -69,13 +72,13 @@ class TestActivePluginFinder(TestCase):
 
     def test_enumerate_popular_plugins_call_enumerate_plugins_with_popular_plugins_files(self):
         self.plugin_finder.popular_plugins_file_list = "list"
-        self.plugin_finder._enumerate_plugins = make_mocked_coro()
+        self.plugin_finder.enumerate_plugins = make_mocked_coro()
         target = "target"
 
         with loop_context() as loop:
             loop.run_until_complete(self.plugin_finder.enumerate_popular_plugins(target))
 
-            self.plugin_finder._enumerate_plugins.assert_called_once_with(target,
+            self.plugin_finder.enumerate_plugins.assert_called_once_with(target,
                                                                           self.plugin_finder.popular_plugins_file_list)
 
     def test_enumerate_vulnerable_plugins_call_enumerate_plugins_with_vulnerable_plugins_files(self):
@@ -99,3 +102,44 @@ class TestActivePluginFinder(TestCase):
 
             self.plugin_finder._enumerate_plugins.assert_called_once_with(target,
                                                                           self.plugin_finder.plugins_file_list)
+
+    def test_request_plugin_files_return_hammertime_requests(self):
+        target = "http://www.example.com"
+
+        @asyncio.coroutine
+        def fake_perform(entry, *args, **kwargs):
+            entry.result.hash = "fake-hash"
+            return entry
+
+        with loop_context() as loop:
+            hammertime = HammerTime(loop)
+            hammertime.request_engine = MagicMock()
+            hammertime.request_engine.perform = fake_perform
+            self.plugin_finder.hammertime = hammertime
+
+            plugin_files_request = self.plugin_finder.request_plugin_files(target, self.plugin0_file_list)
+
+            plugin_key, plugin_files = loop.run_until_complete(asyncio.wait_for(plugin_files_request, None, loop=loop))
+            self.assertEqual(plugin_key, self.plugin0_file_list.key)
+            for fetched_file in plugin_files:
+                self.assertTrue(fetched_file == FetchedFile(path=self.plugin0_readme_file.path, hash="fake-hash") or
+                                fetched_file == FetchedFile(path=self.plugin0_style_file.path, hash="fake-hash"))
+
+    def test_enumerate_plugins_return_list_with_plugins_key(self):
+        target = "http://www.example.com"
+
+        @asyncio.coroutine
+        def fake_perform(entry, *args, **kwargs):
+            entry.result.hash = "fake-hash"
+            return entry
+
+        with loop_context() as loop:
+            hammertime = HammerTime(loop)
+            hammertime.request_engine = MagicMock()
+            hammertime.request_engine.perform = fake_perform
+            self.plugin_finder.hammertime = hammertime
+
+            plugins = loop.run_until_complete(self.plugin_finder.enumerate_plugins(target, self.plugins_list))
+
+            for plugin_key in plugins:
+                self.assertTrue(plugin_key == self.plugin0_file_list.key or plugin_key == self.plugin1_file_list.key)

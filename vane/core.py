@@ -12,7 +12,7 @@ from os.path import join, dirname
 class Vane:
 
     def __init__(self):
-        self.hammertime = HammerTime(retry_count=3)
+        self.hammertime = HammerTime(retry_count=1)
         self.config_hammertime()
         self.database = None
         self.output_manager = OutputManager()
@@ -25,7 +25,7 @@ class Vane:
         self.output_manager.log_message("scanning %s" % url)
 
         await self.identify_target_version(url)
-
+        print("active plugin enumeration")
         await self.active_plugin_enumeration(url)
 
         await self.hammertime.close()
@@ -45,10 +45,9 @@ class Vane:
     async def active_plugin_enumeration(self, url, popular=True, vulnerable=False):
         plugin_finder = ActivePluginsFinder(self.hammertime)
         plugin_finder.load_plugins_files_signatures(dirname(__file__))  # TODO use user input for path?
-
         if popular:
-            plugins = await plugin_finder.enumerate_popular_plugins(url)
-            for plugin in plugins:
+            for plugin in await plugin_finder.enumerate_popular_plugins(url):
+                print(plugin)
                 self.output_manager.add_plugin(plugin)
 
     # TODO
