@@ -25,7 +25,6 @@ class Vane:
         self.output_manager.log_message("scanning %s" % url)
 
         await self.identify_target_version(url)
-        print("active plugin enumeration")
         await self.active_plugin_enumeration(url)
 
         await self.hammertime.close()
@@ -43,12 +42,12 @@ class Vane:
         self.output_manager.set_wordpress_version(version)
 
     async def active_plugin_enumeration(self, url, popular=True, vulnerable=False):
-        plugin_finder = ActivePluginsFinder(self.hammertime)
+        plugin_finder = ActivePluginsFinder(self.hammertime, url)
         plugin_finder.load_plugins_files_signatures(dirname(__file__))  # TODO use user input for path?
         if popular:
-            for plugin in await plugin_finder.enumerate_popular_plugins(url):
-                print(plugin)
-                self.output_manager.add_plugin(plugin)
+            plugins, errors = await plugin_finder.enumerate_popular_plugins()
+            for plugin in plugins:
+                self.output_manager.add_plugin(plugin['key'])
 
     # TODO
     def _load_database(self):

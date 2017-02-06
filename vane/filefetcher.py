@@ -19,7 +19,7 @@ class FileFetcher:
             url = urljoin(self.url, file.path)
             arguments = {'file_path': file.path, 'hash_algo': file.signatures[0].algo}
             requests.append(self.hammertime.request(url, arguments=arguments))
-        return self.hammertime.loop.create_task(self._request_files(file_list.key, requests, suppress_rejected_requests))
+        return self.hammertime.loop.create_task(self._request_files(key, requests, suppress_rejected_requests))
 
     async def _request_files(self, key, requests, suppress_rejected_requests):
         fetched_files = []

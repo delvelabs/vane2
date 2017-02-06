@@ -59,53 +59,48 @@ class TestActivePluginFinder(TestCase):
             self.plugin_finder.file_fetcher.request_files.return_value = loop.create_task(request_files())
             plugins_file_list = FileListGroup(key="plugins", producer="", file_lists=[self.plugin0_file_list])
 
-            plugins = loop.run_until_complete(self.plugin_finder.enumerate_plugins(self.target_url, plugins_file_list))
+            plugins, errors = loop.run_until_complete(self.plugin_finder.enumerate_plugins(plugins_file_list))
 
             self.plugin_finder.file_fetcher.request_files.assert_has_calls(
                 [call(self.plugin0_file_list.key, self.plugin0_file_list)])
-            self.assertIn(self.plugin0_file_list.key, plugins)
+            self.assertIn(self.plugin0_file_list.key, [plugin['key'] for plugin in plugins])
 
     def test_enumerate_plugins_skip_plugins_with_no_files(self):
         with loop_context() as loop:
             self.plugin_finder.loop = loop
             plugins_file_list = FileListGroup(key="plugins", producer="", file_lists=[])
 
-            plugins = loop.run_until_complete(self.plugin_finder.enumerate_plugins(self.target_url, plugins_file_list))
+            plugins, errors = loop.run_until_complete(self.plugin_finder.enumerate_plugins(plugins_file_list))
 
             self.plugin_finder.file_fetcher.request_files.assert_not_called()
             self.assertEqual(len(plugins), 0)
 
     def test_enumerate_popular_plugins_call_enumerate_plugins_with_popular_plugins_files(self):
         self.plugin_finder.popular_plugins_file_list = "list"
-        self.plugin_finder.enumerate_plugins = make_mocked_coro()
-        target = "target"
+        self.plugin_finder.enumerate_plugins = make_mocked_coro(("plugins", "errors"))
 
         with loop_context() as loop:
-            loop.run_until_complete(self.plugin_finder.enumerate_popular_plugins(target))
+            loop.run_until_complete(self.plugin_finder.enumerate_popular_plugins())
 
-            self.plugin_finder.enumerate_plugins.assert_called_once_with(target,
-                                                                         self.plugin_finder.popular_plugins_file_list)
+            self.plugin_finder.enumerate_plugins.assert_called_once_with(self.plugin_finder.popular_plugins_file_list)
 
     def test_enumerate_vulnerable_plugins_call_enumerate_plugins_with_vulnerable_plugins_files(self):
         self.plugin_finder.vulnerable_plugins_file_list = "list"
-        self.plugin_finder.enumerate_plugins = make_mocked_coro()
-        target = "target"
+        self.plugin_finder.enumerate_plugins = make_mocked_coro(("plugins", "errors"))
 
         with loop_context() as loop:
-            loop.run_until_complete(self.plugin_finder.enumerate_vulnerable_plugins(target))
+            loop.run_until_complete(self.plugin_finder.enumerate_vulnerable_plugins())
 
-            self.plugin_finder.enumerate_plugins.assert_called_once_with(target, self.plugin_finder.vulnerable_plugins_file_list)
+            self.plugin_finder.enumerate_plugins.assert_called_once_with(self.plugin_finder.vulnerable_plugins_file_list)
 
     def test_enumerate_all_plugins_call_enumerate_plugins_with_all_plugins_files(self):
         self.plugin_finder.plugins_file_list = "list"
-        self.plugin_finder.enumerate_plugins = make_mocked_coro()
-        target = "target"
+        self.plugin_finder.enumerate_plugins = make_mocked_coro(("plugins", "errors"))
 
         with loop_context() as loop:
-            loop.run_until_complete(self.plugin_finder.enumerate_all_plugins(target))
+            loop.run_until_complete(self.plugin_finder.enumerate_all_plugins())
 
-            self.plugin_finder.enumerate_plugins.assert_called_once_with(target,
-                                                                          self.plugin_finder.plugins_file_list)
+            self.plugin_finder.enumerate_plugins.assert_called_once_with(self.plugin_finder.plugins_file_list)
 
     def test_enumerate_plugins_return_list_with_plugins_key(self):
         @asyncio.coroutine
@@ -119,7 +114,7 @@ class TestActivePluginFinder(TestCase):
             hammertime.request_engine.perform = fake_perform
             plugin_finder = ActivePluginsFinder(hammertime, self.target_url)
 
-            plugins = loop.run_until_complete(plugin_finder.enumerate_plugins(self.target_url, self.plugins_list))
+            plugins, errors = loop.run_until_complete(plugin_finder.enumerate_plugins(self.plugins_list))
 
-            for plugin_key in plugins:
-                self.assertTrue(plugin_key == self.plugin0_file_list.key or plugin_key == self.plugin1_file_list.key)
+            for plugin in plugins:
+                self.assertTrue(plugin['key'] == self.plugin0_file_list.key or plugin['key'] == self.plugin1_file_list.key)
