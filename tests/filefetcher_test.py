@@ -11,8 +11,8 @@ class TestFileFetcher(TestCase):
 
     def test_request_files_return_task_wrapping_hammertime_requests(self):
         with loop_context() as loop:
-            asyncio.set_event_loop(loop)
             hammertime = HammerTime()
+            hammertime.loop = loop
             hammertime.request_engine.perform = self.fake_perform
             fetcher = FileFetcher(hammertime, "www.example.com")
             signatures = [FileSignature(algo="SHA256", hash="hash")]

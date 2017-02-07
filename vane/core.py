@@ -3,6 +3,7 @@ from hammertime.rules import IgnoreLargeBody, RejectStatusCode
 from .versionidentification import VersionIdentification
 from .hash import HashResponse
 from .activepluginsfinder import ActivePluginsFinder
+from .activethemesfinder import ActiveThemesFinder
 
 import json
 
@@ -26,6 +27,7 @@ class Vane:
 
         await self.identify_target_version(url)
         await self.active_plugin_enumeration(url)
+        await self.active_theme_enumeration(url)
 
         await self.hammertime.close()
 
@@ -48,6 +50,14 @@ class Vane:
             plugins, errors = await plugin_finder.enumerate_popular_plugins()
             for plugin in plugins:
                 self.output_manager.add_plugin(plugin['key'])
+
+    async def active_theme_enumeration(self, url, popular=True, vulnerable=False):
+        themes_finder = ActiveThemesFinder(self.hammertime, url)
+        themes_finder.load_themes_files_signatures(dirname(__file__))  # TODO use user input for path?
+        if popular:
+            themes, errors = await themes_finder.enumerate_popular_themes()
+            for theme in themes:
+                self.output_manager.add_theme(theme['key'])
 
     # TODO
     def _load_database(self):
