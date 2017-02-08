@@ -19,6 +19,7 @@ from os.path import join
 from openwebvulndb.common.schemas import FileListGroupSchema
 from vane.filefetcher import FileFetcher
 import asyncio
+from hammertime.ruleset import RejectRequest
 
 
 class ActiveThemesFinder:
@@ -69,6 +70,6 @@ class ActiveThemesFinder:
                 theme_key, fetched_files = await future
                 if len(fetched_files) > 0:
                     themes.append({'key': theme_key, 'files': fetched_files})
-            except Exception as e:
+            except RejectRequest as e:
                 errors.append(e)
         return themes, errors
