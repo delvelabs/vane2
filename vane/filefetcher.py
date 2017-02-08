@@ -1,4 +1,4 @@
-# vane 2.0: A Wordpress vulnerability assessment tool.
+# Vane 2.0: A web application vulnerability assessment tool.
 # Copyright (C) 2017-  Delve Labs inc.
 #
 # This program is free software; you can redistribute it and/or
@@ -17,7 +17,7 @@
 
 import asyncio
 from collections import namedtuple
-from hammertime.ruleset import RejectRequest
+from hammertime.ruleset import RejectRequest, StopRequest
 from urllib.parse import urljoin
 
 
@@ -44,9 +44,11 @@ class FileFetcher:
         for future in done:
             try:
                 entry = await future
-                if hasattr(entry.result, "hash"):
+                if entry is not None and hasattr(entry.result, "hash"):
                     fetched_files.append(FetchedFile(path=entry.arguments["file_path"], hash=entry.result.hash))
             except RejectRequest as rejected_request:
                 if not suppress_rejected_requests:
                     raise rejected_request
+            except StopRequest:
+                pass
         return key, fetched_files

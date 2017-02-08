@@ -30,14 +30,13 @@ class TestVane(TestCase):
 
     def test_perform_action_raise_exception_if_no_url_and_action_is_scan(self):
         with self.assertRaises(ValueError):
-            self.vane.perfom_action(action="scan")
+            self.vane.perform_action(action="scan")
 
     def test_perform_action_flush_output(self):
 
-        self.vane.perfom_action(action="scan", url="test")
+        self.vane.perform_action(action="scan", url="test")
 
         self.vane.output_manager.flush.assert_called_once_with()
-
 
     def test_scan_target_output_database_version(self):
         self.skipTest("Must mock coroutines")
