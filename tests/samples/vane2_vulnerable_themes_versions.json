@@ -1,0 +1,15 @@
+{
+    "key": "vulnerable_themes",
+    "producer": "unittest",
+    "file_lists":[
+        {
+            "key": "themes/vuln-theme",
+            "producer": "unittest",
+            "files": [
+                {
+                    "path": "wp-content/themes/vuln-theme/readme.html"
+                }
+            ]
+        }
+    ]
+}

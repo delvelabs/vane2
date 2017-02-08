@@ -1,0 +1,15 @@
+{
+    "key": "popular_themes",
+    "producer": "unittest",
+    "file_lists":[
+        {
+            "key": "themes/my-theme",
+            "producer": "unittest",
+            "files": [
+                {
+                    "path": "wp-content/themes/my-theme/readme.txt"
+                }
+            ]
+        }
+    ]
+}

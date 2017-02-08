@@ -1,0 +1,54 @@
+{
+    "key": "themes",
+    "producer": "unittest",
+    "file_lists":[
+        {
+            "key": "themes/theme0",
+            "producer": "unittest",
+            "files": [
+                {
+                    "path": "wp-content/themes/theme0/readme.txt",
+                    "signatures": [
+                        {
+                            "hash": "1",
+                            "algo": "SHA256"
+                        }
+                    ]
+                },
+                {
+                    "path": "wp-content/themes/theme0/style.css",
+                    "signatures": [
+                        {
+                            "hash": "2",
+                            "algo": "SHA256"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "key": "themes/theme1",
+            "producer": "unittest",
+            "files": [
+                {
+                    "path": "wp-content/themes/theme1/readme.txt",
+                    "signatures": [
+                        {
+                            "hash": "3",
+                            "algo": "SHA256"
+                        }
+                    ]
+                },
+                {
+                    "path": "wp-content/themes/theme1/style.css",
+                    "signatures": [
+                        {
+                            "hash": "4",
+                            "algo": "SHA256"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
