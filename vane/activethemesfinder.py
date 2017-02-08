@@ -30,16 +30,29 @@ class ActiveThemesFinder:
         self.themes_file_list_group = None
 
     def load_themes_files_signatures(self, file_path, popular_themes, vulnerable_themes):
-        if popular_themes:
-            file_name = "vane2_popular_themes_versions.json"
-        elif vulnerable_themes:
-            file_name = "vane2_vulnerable_themes_versions.json"
-        else:
-            file_name = "vane2_themes_versions.json"
+        def append_to_file_list_group(file_list_group):
+            for theme_file_list in file_list_group.file_lists:
+                if theme_file_list.key not in (file_list.key for file_list in self.themes_file_list_group.file_lists):
+                    self.themes_file_list_group.file_lists.append(theme_file_list)
 
-        with open(join(file_path, file_name), "r") as fp:
-            self.themes_file_list_group, errors = FileListGroupSchema().loads(fp.read())
-            return errors
+        def load(file_name, merge_if_exists=False):
+            with open(join(file_path, file_name), "r") as fp:
+                if self.themes_file_list_group is not None and merge_if_exists:
+                    data, _errors = FileListGroupSchema().loads(fp.read())
+                    append_to_file_list_group(data)
+                else:
+                    self.themes_file_list_group, _errors = FileListGroupSchema().loads(fp.read())
+                return _errors
+
+        if popular_themes:
+            errors = load("vane2_popular_themes_versions.json")
+            if errors:
+                return errors
+        if vulnerable_themes:
+            errors = load("vane2_vulnerable_themes_versions.json", True)
+        if not vulnerable_themes and not popular_themes:
+            errors = load("vane2_themes_versions.json")
+        return errors
 
     async def enumerate_themes(self):
         tasks_list = []

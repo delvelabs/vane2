@@ -1,4 +1,4 @@
-# vane 2.0: A Wordpress vulnerability assessment tool.
+# Vane 2.0: A web application vulnerability assessment tool.
 # Copyright (C) 2017-  Delve Labs inc.
 #
 # This program is free software; you can redistribute it and/or
@@ -30,16 +30,29 @@ class ActivePluginsFinder:
         self.plugins_file_list_group = None
 
     def load_plugins_files_signatures(self, file_path, popular, vulnerable):
-        if popular:
-            file_name = "vane2_popular_plugins_versions.json"
-        elif vulnerable:
-            file_name = "vane2_vulnerable_plugins_versions.json"
-        else:
-            file_name = "vane2_plugins_versions.json"
+        def merge_to_file_list_group(file_list_group):
+            for plugin_file_list in file_list_group.file_lists:
+                if plugin_file_list.key not in (file_list.key for file_list in self.plugins_file_list_group.file_lists):
+                    self.plugins_file_list_group.file_lists.append(plugin_file_list)
 
-        with open(join(file_path, file_name), "r") as fp:
-            self.plugins_file_list_group, errors = FileListGroupSchema().loads(fp.read())
-            return errors
+        def load(file_name, merge_if_exists=False):
+            with open(join(file_path, file_name), "r") as fp:
+                if self.plugins_file_list_group is not None and merge_if_exists:
+                    data, _errors = FileListGroupSchema().loads(fp.read())
+                    merge_to_file_list_group(data)
+                else:
+                    self.plugins_file_list_group, _errors = FileListGroupSchema().loads(fp.read())
+                return _errors
+
+        if popular:
+            errors = load("vane2_popular_plugins_versions.json")
+            if errors:
+                return errors
+        if vulnerable:
+            errors = load("vane2_vulnerable_plugins_versions.json", True)
+        if not vulnerable and not popular:
+            errors = load("vane2_plugins_versions.json")
+        return errors
 
     async def enumerate_plugins(self):
         tasks_list = []
@@ -49,8 +62,8 @@ class ActivePluginsFinder:
             if len(plugin_file_list.files) > 0:
                 plugin_files_requests = self.file_fetcher.request_files(plugin_file_list.key, plugin_file_list)
                 tasks_list.append(plugin_files_requests)
-        plugins = []
 
+        plugins = []
         for future in asyncio.as_completed(tasks_list, loop=self.loop):
             try:
                 plugin_key, fetched_files = await future

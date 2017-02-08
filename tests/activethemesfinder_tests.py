@@ -1,4 +1,4 @@
-# vane 2.0: A Wordpress vulnerability assessment tool.
+# Vane 2.0: A web application vulnerability assessment tool.
 # Copyright (C) 2017-  Delve Labs inc.
 #
 # This program is free software; you can redistribute it and/or
@@ -20,7 +20,7 @@ from unittest.mock import MagicMock, call
 from vane.activethemesfinder import ActiveThemesFinder
 from openwebvulndb.common.models import FileListGroup, FileList, File, FileSignature
 from os.path import join, dirname
-from aiohttp.test_utils import loop_context, make_mocked_coro
+from aiohttp.test_utils import loop_context
 import asyncio
 from vane.filefetcher import FetchedFile
 from hammertime import HammerTime
@@ -72,6 +72,22 @@ class TestActiveThemesFinder(TestCase):
         self.themes_finder.load_themes_files_signatures(file_path, False, True)
 
         self.assertEqual(self.themes_finder.themes_file_list_group, vulnerable_theme_list)
+
+    def test_load_popular_and_vulnerable_themes_merge_file_list(self):
+        popular_theme_list = FileListGroup(key="popular_themes", producer="unittest", file_lists=[
+            FileList(key="themes/my-theme", producer="unittest",
+                     files=[File(path=self.path_prefix + "my-theme/readme.txt")])
+        ])
+        vulnerable_theme_list = FileListGroup(key="vulnerable_themes", producer="unittest", file_lists=[
+            FileList(key="themes/vuln-theme", producer="unittest",
+                     files=[File(path=self.path_prefix + "vuln-theme/readme.html")])
+        ])
+        file_path = join(dirname(__file__), "samples")
+
+        self.themes_finder.load_themes_files_signatures(file_path, True, True)
+
+        self.assertIn(popular_theme_list.file_lists[0], self.themes_finder.themes_file_list_group.file_lists)
+        self.assertIn(vulnerable_theme_list.file_lists[0], self.themes_finder.themes_file_list_group.file_lists)
 
     def test_enumerate_themes_fetch_version_definitions_files_for_theme(self):
         with loop_context() as loop:

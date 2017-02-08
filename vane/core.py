@@ -1,4 +1,4 @@
-# vane 2.0: A Wordpress vulnerability assessment tool.
+# Vane 2.0: A web application vulnerability assessment tool.
 # Copyright (C) 2017-  Delve Labs inc.
 #
 # This program is free software; you can redistribute it and/or
@@ -30,21 +30,21 @@ from os.path import join, dirname
 class Vane:
 
     def __init__(self):
-        self.hammertime = HammerTime(retry_count=1)
+        self.hammertime = HammerTime(retry_count=3)
         self.config_hammertime()
         self.database = None
         self.output_manager = OutputManager()
 
     def config_hammertime(self):
-        self.hammertime.heuristics.add_multiple([RejectStatusCode(range(400, 500)), IgnoreLargeBody(), HashResponse()])
+        self.hammertime.heuristics.add_multiple([RejectStatusCode(range(400, 511)), IgnoreLargeBody(), HashResponse()])
 
-    async def scan_target(self, url, only_popular=True, only_vulnerable=False):
+    async def scan_target(self, url, popular, vulnerable):
         self._load_database()
         self.output_manager.log_message("scanning %s" % url)
 
         await self.identify_target_version(url)
-        await self.active_plugin_enumeration(url, only_popular, only_vulnerable)
-        await self.active_theme_enumeration(url, only_popular, only_vulnerable)
+        await self.active_plugin_enumeration(url, popular, vulnerable)
+        await self.active_theme_enumeration(url, popular, vulnerable)
 
         await self.hammertime.close()
 
@@ -61,34 +61,49 @@ class Vane:
         self.output_manager.set_wordpress_version(version)
 
     async def active_plugin_enumeration(self, url, popular, vulnerable):
+        self._log_active_enumeration_type("plugins", popular, vulnerable)
+
         plugin_finder = ActivePluginsFinder(self.hammertime, url)
         errors = plugin_finder.load_plugins_files_signatures(dirname(__file__), popular, vulnerable)  # TODO use user input for path?
 
         for error in errors:
-            self.output_manager.log_message(error)
+            self.output_manager.log_message(repr(error))
 
         plugins, errors = await plugin_finder.enumerate_plugins()
 
         for error in errors:
-            self.output_manager.log_message(error)
+            self.output_manager.log_message(repr(error))
 
         for plugin in plugins:
             self.output_manager.add_plugin(plugin['key'])
 
     async def active_theme_enumeration(self, url, popular, vulnerable):
+        self._log_active_enumeration_type("themes", popular, vulnerable)
+
         themes_finder = ActiveThemesFinder(self.hammertime, url)
         errors = themes_finder.load_themes_files_signatures(dirname(__file__), popular, vulnerable)  # TODO use user input for path?
 
         for error in errors:
-            self.output_manager.log_message(error)
+            self.output_manager.log_message(repr(error))
 
         themes, errors = await themes_finder.enumerate_themes()
 
         for error in errors:
-            self.output_manager.log_message(error)
+            self.output_manager.log_message(repr(error))
 
         for theme in themes:
             self.output_manager.add_theme(theme['key'])
+
+    def _log_active_enumeration_type(self, key, popular, vulnerable):
+        if popular and vulnerable:
+            message = "popular and vulnerable"
+        elif popular:
+            message = "popular"
+        elif vulnerable:
+            message = "vulnerable"
+        else:
+            message = "all"
+        self.output_manager.log_message("Active enumeration of {0} {1}.".format(message, key))
 
     # TODO
     def _load_database(self):
@@ -96,11 +111,11 @@ class Vane:
         if self.database is not None:
             self.output_manager.set_vuln_database_version(self.database.get_version())
 
-    def perfom_action(self, action="scan", url=None, database_path=None):
+    def perform_action(self, action="scan", url=None, database_path=None, popular=False, vulnerable=False):
         if action == "scan":
             if url is None:
                 raise ValueError("Target url required.")
-            self.hammertime.loop.run_until_complete(self.scan_target(url))
+            self.hammertime.loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable))
         elif action == "import_data":
             pass
         self.output_manager.flush()
