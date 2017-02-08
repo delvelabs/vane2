@@ -31,16 +31,17 @@ class FileFetcher:
         self.url = url
 
     def request_files(self, key, file_list, suppress_rejected_requests=True):
-        requests = []
+        hammertime_requests = []
         for file in file_list.files:
             url = urljoin(self.url, file.path)
             arguments = {'file_path': file.path, 'hash_algo': file.signatures[0].algo}
-            requests.append(self.hammertime.request(url, arguments=arguments))
-        return self.hammertime.loop.create_task(self._request_files(key, requests, suppress_rejected_requests))
+            hammertime_requests.append(self.hammertime.request(url, arguments=arguments))
+        return self.hammertime.loop.create_task(self._request_files(key, hammertime_requests,
+                                                                    suppress_rejected_requests))
 
-    async def _request_files(self, key, requests, suppress_rejected_requests):
+    async def _request_files(self, key, hammertime_requests, suppress_rejected_requests):
         fetched_files = []
-        done, pending = await asyncio.wait(requests, loop=self.hammertime.loop)
+        done, pending = await asyncio.wait(hammertime_requests, loop=self.hammertime.loop)
         for future in done:
             try:
                 entry = await future
