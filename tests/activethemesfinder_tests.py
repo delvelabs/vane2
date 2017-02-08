@@ -27,24 +27,36 @@ class TestActiveThemesFinder(TestCase):
         self.themes_finder = ActiveThemesFinder(MagicMock(), self.target_url)
         self.themes_finder.file_fetcher = MagicMock()
 
-    def test_load_themes_files_signatures(self):
+    def test_load_all_themes_files_signatures(self):
+        file_path = join(dirname(__file__), "samples")
+
+        self.themes_finder.load_themes_files_signatures(file_path, False, False)
+
+        self.assertEqual(self.themes_finder.themes_file_list_group, self.theme_list)
+
+    def test_load_popular_themes_files_signatures(self):
         popular_theme_list = FileListGroup(key="popular_themes", producer="unittest", file_lists=[
             FileList(key="themes/my-theme", producer="unittest",
                      files=[File(path=self.path_prefix + "my-theme/readme.txt")])
         ])
+        file_path = join(dirname(__file__), "samples")
+
+        self.themes_finder.load_themes_files_signatures(file_path, True, False)
+
+        self.assertEqual(self.themes_finder.themes_file_list_group, popular_theme_list)
+
+    def test_load_vulnerable_themes_files_signatures(self):
         vulnerable_theme_list = FileListGroup(key="vulnerable_themes", producer="unittest", file_lists=[
             FileList(key="themes/vuln-theme", producer="unittest",
                      files=[File(path=self.path_prefix + "vuln-theme/readme.html")])
         ])
         file_path = join(dirname(__file__), "samples")
 
-        self.themes_finder.load_themes_files_signatures(file_path)
+        self.themes_finder.load_themes_files_signatures(file_path, False, True)
 
-        self.assertEqual(self.themes_finder.themes_file_list, self.theme_list)
-        self.assertEqual(self.themes_finder.popular_themes_file_list, popular_theme_list)
-        self.assertEqual(self.themes_finder.vulnerable_themes_file_list, vulnerable_theme_list)
+        self.assertEqual(self.themes_finder.themes_file_list_group, vulnerable_theme_list)
 
-    def test_enumerate_themes_fetch_all_version_definitions_files_for_theme(self):
+    def test_enumerate_themes_fetch_version_definitions_files_for_theme(self):
         with loop_context() as loop:
             @asyncio.coroutine
             def request_files():
@@ -52,9 +64,10 @@ class TestActiveThemesFinder(TestCase):
 
             self.themes_finder.loop = loop
             self.themes_finder.file_fetcher.request_files.return_value = loop.create_task(request_files())
-            themes_file_list = FileListGroup(key="themes", producer="", file_lists=[self.theme0_file_list])
+            self.themes_finder.themes_file_list_group = FileListGroup(key="themes", producer="",
+                                                                      file_lists=[self.theme0_file_list])
 
-            themes, errors = loop.run_until_complete(self.themes_finder.enumerate_themes(themes_file_list))
+            themes, errors = loop.run_until_complete(self.themes_finder.enumerate_themes())
 
             self.themes_finder.file_fetcher.request_files.assert_has_calls([call(self.theme0_file_list.key,
                                                                                  self.theme0_file_list)])
@@ -63,9 +76,9 @@ class TestActiveThemesFinder(TestCase):
     def test_enumerate_themes_skip_themes_with_no_files(self):
         with loop_context() as loop:
             self.themes_finder.loop = loop
-            themes_file_list = FileListGroup(key="themes", producer="", file_lists=[])
+            self.themes_finder.themes_file_list_group = FileListGroup(key="themes", producer="", file_lists=[])
 
-            themes, errors = loop.run_until_complete(self.themes_finder.enumerate_themes(themes_file_list))
+            themes, errors = loop.run_until_complete(self.themes_finder.enumerate_themes())
 
             self.themes_finder.file_fetcher.request_files.assert_not_called()
             self.assertEqual(len(themes), 0)
@@ -82,36 +95,10 @@ class TestActiveThemesFinder(TestCase):
             hammertime.request_engine = MagicMock()
             hammertime.request_engine.perform = fake_perform
             themes_finder = ActiveThemesFinder(hammertime, self.target_url)
+            themes_finder.themes_file_list_group = self.theme_list
 
-            themes, errors = loop.run_until_complete(themes_finder.enumerate_themes(self.theme_list))
+            themes, errors = loop.run_until_complete(themes_finder.enumerate_themes())
 
             for theme in themes:
                 self.assertTrue(theme['key'] == self.theme0_file_list.key or theme['key'] == self.theme1_file_list.key)
                 self.assertIn('files', theme)
-
-    def test_enumerate_popular_themes_call_enumerate_themes_with_popular_themes_files(self):
-        self.themes_finder.popular_themes_file_list = "list"
-        self.themes_finder.enumerate_themes = make_mocked_coro(("themes", "errors"))
-
-        with loop_context() as loop:
-            loop.run_until_complete(self.themes_finder.enumerate_popular_themes())
-
-            self.themes_finder.enumerate_themes.assert_called_once_with(self.themes_finder.popular_themes_file_list)
-
-    def test_enumerate_vulnerable_plugins_call_enumerate_plugins_with_vulnerable_plugins_files(self):
-        self.themes_finder.vulnerable_themes_file_list = "list"
-        self.themes_finder.enumerate_themes = make_mocked_coro(("themes", "errors"))
-
-        with loop_context() as loop:
-            loop.run_until_complete(self.themes_finder.enumerate_vulnerable_themes())
-
-            self.themes_finder.enumerate_themes.assert_called_once_with(self.themes_finder.vulnerable_themes_file_list)
-
-    def test_enumerate_all_plugins_call_enumerate_plugins_with_all_plugins_files(self):
-        self.themes_finder.themes_file_list = "list"
-        self.themes_finder.enumerate_themes = make_mocked_coro(("themes", "errors"))
-
-        with loop_context() as loop:
-            loop.run_until_complete(self.themes_finder.enumerate_all_themes())
-
-            self.themes_finder.enumerate_themes.assert_called_once_with(self.themes_finder.themes_file_list)

@@ -21,13 +21,13 @@ class Vane:
     def config_hammertime(self):
         self.hammertime.heuristics.add_multiple([RejectStatusCode(range(400, 500)), IgnoreLargeBody(), HashResponse()])
 
-    async def scan_target(self, url):
+    async def scan_target(self, url, only_popular=True, only_vulnerable=False):
         self._load_database()
         self.output_manager.log_message("scanning %s" % url)
 
         await self.identify_target_version(url)
-        await self.active_plugin_enumeration(url)
-        await self.active_theme_enumeration(url)
+        await self.active_plugin_enumeration(url, only_popular, only_vulnerable)
+        await self.active_theme_enumeration(url, only_popular, only_vulnerable)
 
         await self.hammertime.close()
 
@@ -43,21 +43,35 @@ class Vane:
         version = await version_identifier.identify_version(url)
         self.output_manager.set_wordpress_version(version)
 
-    async def active_plugin_enumeration(self, url, popular=True, vulnerable=False):
+    async def active_plugin_enumeration(self, url, popular, vulnerable):
         plugin_finder = ActivePluginsFinder(self.hammertime, url)
-        plugin_finder.load_plugins_files_signatures(dirname(__file__))  # TODO use user input for path?
-        if popular:
-            plugins, errors = await plugin_finder.enumerate_popular_plugins()
-            for plugin in plugins:
-                self.output_manager.add_plugin(plugin['key'])
+        errors = plugin_finder.load_plugins_files_signatures(dirname(__file__), popular, vulnerable)  # TODO use user input for path?
 
-    async def active_theme_enumeration(self, url, popular=True, vulnerable=False):
+        for error in errors:
+            self.output_manager.log_message(error)
+
+        plugins, errors = await plugin_finder.enumerate_plugins()
+
+        for error in errors:
+            self.output_manager.log_message(error)
+
+        for plugin in plugins:
+            self.output_manager.add_plugin(plugin['key'])
+
+    async def active_theme_enumeration(self, url, popular, vulnerable):
         themes_finder = ActiveThemesFinder(self.hammertime, url)
-        themes_finder.load_themes_files_signatures(dirname(__file__))  # TODO use user input for path?
-        if popular:
-            themes, errors = await themes_finder.enumerate_popular_themes()
-            for theme in themes:
-                self.output_manager.add_theme(theme['key'])
+        errors = themes_finder.load_themes_files_signatures(dirname(__file__), popular, vulnerable)  # TODO use user input for path?
+
+        for error in errors:
+            self.output_manager.log_message(error)
+
+        themes, errors = await themes_finder.enumerate_themes()
+
+        for error in errors:
+            self.output_manager.log_message(error)
+
+        for theme in themes:
+            self.output_manager.add_theme(theme['key'])
 
     # TODO
     def _load_database(self):
