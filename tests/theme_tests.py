@@ -1,4 +1,4 @@
-# vane 2.0: A Wordpress vulnerability assessment tool.
+# Vane 2.0: A web application vulnerability assessment tool.
 # Copyright (C) 2017-  Delve Labs inc.
 #
 # This program is free software; you can redistribute it and/or
