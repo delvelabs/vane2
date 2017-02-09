@@ -22,7 +22,6 @@ from vane.activepluginsfinder import ActivePluginsFinder
 from aiohttp.test_utils import loop_context
 from os.path import dirname, join
 from hammertime.core import HammerTime
-import asyncio
 from vane.filefetcher import FetchedFile
 
 
@@ -93,8 +92,8 @@ class TestActivePluginFinder(TestCase):
 
     def test_enumerate_plugins_fetch_version_definitions_files_for_plugin(self):
         with loop_context() as loop:
-            @asyncio.coroutine
-            def request_files():
+
+            async def request_files():
                 return self.plugin0_file_list.key, [FetchedFile(path=self.plugin0_readme_file.path, hash="fake-hash")]
 
             self.plugins_finder.loop = loop
@@ -120,8 +119,8 @@ class TestActivePluginFinder(TestCase):
             self.assertEqual(len(plugins), 0)
 
     def test_enumerate_plugins_return_list_of_dict_with_plugin_key_and_fetched_files(self):
-        @asyncio.coroutine
-        def fake_perform(entry, *args, **kwargs):
+
+        async def fake_perform(entry, *args, **kwargs):
             entry.result.hash = "fake-hash"
             return entry
 

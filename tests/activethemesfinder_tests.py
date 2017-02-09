@@ -91,8 +91,8 @@ class TestActiveThemesFinder(TestCase):
 
     def test_enumerate_themes_fetch_version_definitions_files_for_theme(self):
         with loop_context() as loop:
-            @asyncio.coroutine
-            def request_files():
+
+            async def request_files():
                 return self.theme0_file_list.key, [FetchedFile(path=self.theme0_readme_file.path, hash="fake-hash")]
 
             self.themes_finder.loop = loop
@@ -117,8 +117,8 @@ class TestActiveThemesFinder(TestCase):
             self.assertEqual(len(themes), 0)
 
     def test_enumerate_themes_return_list_of_dict_with_theme_key_and_fetched_files(self):
-        @asyncio.coroutine
-        def fake_perform(entry, *args, **kwargs):
+
+        async def fake_perform(entry, *args, **kwargs):
             entry.result.hash = "fake-hash"
             return entry
 
