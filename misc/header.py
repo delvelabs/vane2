@@ -14,16 +14,3 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-
-from openwebvulndb.common.hash import hash_data
-
-
-class HashResponse:
-
-    async def after_response(self, entry):
-        if not entry.response.truncated:
-            try:
-                hash_algo = entry.arguments['hash_algo']
-                entry.result.hash = hash_data(entry.response.raw, hash_algo)
-            except KeyError:
-                return

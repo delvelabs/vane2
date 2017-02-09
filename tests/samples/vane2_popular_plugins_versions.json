@@ -1,0 +1,15 @@
+{
+    "key": "popular_plugins",
+    "producer": "unittest",
+    "file_lists":[
+        {
+            "key": "plugins/my-plugin",
+            "producer": "unittest",
+            "files": [
+                {
+                    "path": "wp-content/plugins/my-plugin/readme.txt"
+                }
+            ]
+        }
+    ]
+}

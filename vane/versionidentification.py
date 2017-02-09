@@ -1,3 +1,20 @@
+# Vane 2.0: A web application vulnerability assessment tool.
+# Copyright (C) 2017-  Delve Labs inc.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 import json
 from openwebvulndb.common.schemas import FileListSchema
 import asyncio
@@ -60,6 +77,9 @@ class VersionIdentification:
     def get_files_to_fetch(self):
         for file in self.file_list.files:
             yield file
+
+    def set_files_to_fetch(self, file_list):
+        self.file_list = file_list
 
     def _get_possible_versions(self, fetched_files):
         possible_versions = set()

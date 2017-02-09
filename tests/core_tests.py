@@ -1,3 +1,20 @@
+# Vane 2.0: A web application vulnerability assessment tool.
+# Copyright (C) 2017-  Delve Labs inc.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 from vane.core import Vane, OutputManager
@@ -6,30 +23,26 @@ from aiohttp.test_utils import make_mocked_coro, loop_context
 
 class TestVane(TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        cls.vane = Vane()
-
     def setUp(self):
+        with patch("vane.core.HammerTime", MagicMock()):
+            self.vane = Vane()
         self.vane.output_manager = MagicMock()
 
     def test_perform_action_raise_exception_if_no_url_and_action_is_scan(self):
         with self.assertRaises(ValueError):
-            self.vane.perfom_action(action="scan")
+            self.vane.perform_action(action="scan")
 
     def test_perform_action_flush_output(self):
-        hammertime = self.vane.hammertime
-        self.vane.hammertime = MagicMock()
 
-        self.vane.perfom_action(action="scan", url="test")
+        self.vane.perform_action(action="scan", url="test")
 
         self.vane.output_manager.flush.assert_called_once_with()
 
-        self.vane.hammertime = hammertime
-
     def test_scan_target_output_database_version(self):
+        self.skipTest("Must mock coroutines")
         self.vane.database = MagicMock()
         self.vane.database.get_version.return_value = "1.2"
+        self.vane.hammertime.close = make_mocked_coro()
 
         with loop_context() as loop:
             with patch("vane.core.Vane.identify_target_version", make_mocked_coro()):

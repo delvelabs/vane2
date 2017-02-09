@@ -1,0 +1,15 @@
+{
+    "key": "vulnerable_plugins",
+    "producer": "unittest",
+    "file_lists":[
+        {
+            "key": "plugins/hack-me-plugin",
+            "producer": "unittest",
+            "files": [
+                {
+                    "path": "wp-content/plugins/hack-me-plugin/readme.html"
+                }
+            ]
+        }
+    ]
+}
