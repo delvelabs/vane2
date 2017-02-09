@@ -49,6 +49,7 @@ class TestFileFetcher(TestCase):
 
     def test_awaiting_requests_ignores_timeout_errors(self):
         with loop_context() as loop:
+            asyncio.set_event_loop(loop)
             hammertime = HammerTime()
             hammertime.loop = loop
             hammertime.request_engine.perform = make_mocked_coro(raise_exception=StopRequest())

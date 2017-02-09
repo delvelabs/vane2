@@ -36,8 +36,8 @@ class Vane:
         self.output_manager = OutputManager()
 
     def config_hammertime(self):
-        self.hammertime.heuristics.add_multiple([RejectStatusCode(range(400, 500)), HashResponse(), IgnoreLargeBody(),
-                                                 RetryOnErrors(range(500, 600))])
+        self.hammertime.heuristics.add_multiple([RejectStatusCode(range(400, 502), range(503, 600)), HashResponse(),
+                                                 IgnoreLargeBody(), RetryOnErrors(range(502, 503))])
 
     async def scan_target(self, url, popular, vulnerable):
         self._load_database()
