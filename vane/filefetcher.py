@@ -17,7 +17,7 @@
 
 import asyncio
 from collections import namedtuple
-from hammertime.ruleset import RejectRequest, StopRequest
+from hammertime.ruleset import StopRequest, RejectRequest
 from urllib.parse import urljoin
 
 
@@ -30,16 +30,15 @@ class FileFetcher:
         self.hammertime = hammertime
         self.url = url
 
-    def request_files(self, key, file_list, suppress_rejected_requests=True):
+    def request_files(self, key, file_list):
         hammertime_requests = []
         for file in file_list.files:
             url = urljoin(self.url, file.path)
             arguments = {'file_path': file.path, 'hash_algo': file.signatures[0].algo}
             hammertime_requests.append(self.hammertime.request(url, arguments=arguments))
-        return self.hammertime.loop.create_task(self._request_files(key, hammertime_requests,
-                                                                    suppress_rejected_requests))
+        return self.hammertime.loop.create_task(self._request_files(key, hammertime_requests))
 
-    async def _request_files(self, key, hammertime_requests, suppress_rejected_requests):
+    async def _request_files(self, key, hammertime_requests):
         fetched_files = []
         done, pending = await asyncio.wait(hammertime_requests, loop=self.hammertime.loop)
         for future in done:
@@ -47,9 +46,6 @@ class FileFetcher:
                 entry = await future
                 if entry is not None and hasattr(entry.result, "hash"):
                     fetched_files.append(FetchedFile(path=entry.arguments["file_path"], hash=entry.result.hash))
-            except RejectRequest as rejected_request:
-                if not suppress_rejected_requests:
-                    raise rejected_request
-            except StopRequest:
+            except (RejectRequest, StopRequest):
                 pass
         return key, fetched_files

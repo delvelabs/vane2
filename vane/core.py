@@ -19,8 +19,8 @@ from hammertime import HammerTime
 from hammertime.rules import IgnoreLargeBody, RejectStatusCode
 from .versionidentification import VersionIdentification
 from .hash import HashResponse
-from .activepluginsfinder import ActivePluginsFinder
-from .activethemesfinder import ActiveThemesFinder
+from .activecomponentfinder import ActiveComponentFinder
+from .retryonerrors import RetryOnErrors
 
 import json
 
@@ -36,7 +36,8 @@ class Vane:
         self.output_manager = OutputManager()
 
     def config_hammertime(self):
-        self.hammertime.heuristics.add_multiple([RejectStatusCode(range(400, 511)), IgnoreLargeBody(), HashResponse()])
+        self.hammertime.heuristics.add_multiple([RejectStatusCode(range(400, 500)), HashResponse(), IgnoreLargeBody(),
+                                                 RetryOnErrors(range(500, 600))])
 
     async def scan_target(self, url, popular, vulnerable):
         self._load_database()
@@ -63,35 +64,27 @@ class Vane:
     async def active_plugin_enumeration(self, url, popular, vulnerable):
         self._log_active_enumeration_type("plugins", popular, vulnerable)
 
-        plugin_finder = ActivePluginsFinder(self.hammertime, url)
-        errors = plugin_finder.load_plugins_files_signatures(dirname(__file__), popular, vulnerable)  # TODO use user input for path?
+        component_finder = ActiveComponentFinder(self.hammertime, url)
+        # TODO use user input for path?
+        errors = component_finder.load_components_identification_file(dirname(__file__), "plugins", popular, vulnerable)
 
         for error in errors:
             self.output_manager.log_message(repr(error))
 
-        plugins, errors = await plugin_finder.enumerate_plugins()
-
-        for error in errors:
-            self.output_manager.log_message(repr(error))
-
-        for plugin in plugins:
+        async for plugin in component_finder.enumerate_found():
             self.output_manager.add_plugin(plugin['key'])
 
     async def active_theme_enumeration(self, url, popular, vulnerable):
         self._log_active_enumeration_type("themes", popular, vulnerable)
 
-        themes_finder = ActiveThemesFinder(self.hammertime, url)
-        errors = themes_finder.load_themes_files_signatures(dirname(__file__), popular, vulnerable)  # TODO use user input for path?
+        component_finder = ActiveComponentFinder(self.hammertime, url)
+        # TODO use user input for path?
+        errors = component_finder.load_components_identification_file(dirname(__file__), "themes", popular, vulnerable)
 
         for error in errors:
             self.output_manager.log_message(repr(error))
 
-        themes, errors = await themes_finder.enumerate_themes()
-
-        for error in errors:
-            self.output_manager.log_message(repr(error))
-
-        for theme in themes:
+        async for theme in component_finder.enumerate_found():
             self.output_manager.add_theme(theme['key'])
 
     def _log_active_enumeration_type(self, key, popular, vulnerable):
