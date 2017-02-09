@@ -65,7 +65,27 @@ class TestFileFetcher(TestCase):
             except StopRequest:
                 self.fail("Timeout error raised.")
 
+    def test_awaiting_requests_ignore_file_if_no_hash(self):
+        with loop_context() as loop:
+            asyncio.set_event_loop(loop)
+            hammertime = HammerTime()
+            hammertime.loop = loop
+            hammertime.request_engine.perform = self.fake_perform_no_hash
+            fetcher = FileFetcher(hammertime, "www.example.com")
+            signatures = [FileSignature(algo="SHA256", hash="hash")]
+            key = "wordpress"
+            files_to_fetch = FileList(key=key, producer="", files=[File(path="readme.html", signatures=signatures)])
+
+            requests = fetcher.request_files(key, files_to_fetch)
+
+            key, fetched_files = loop.run_until_complete(asyncio.wait_for(requests, None, loop=loop))
+            self.assertEqual(len(fetched_files), 0)
+
     @staticmethod
     async def fake_perform(entry, *args, **kwargs):
         entry.result.hash = "fake-hash"
+        return entry
+
+    @staticmethod
+    async def fake_perform_no_hash(entry, *args, **kwargs):
         return entry

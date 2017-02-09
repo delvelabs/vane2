@@ -16,11 +16,14 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from hammertime import HammerTime
-from hammertime.rules import IgnoreLargeBody, RejectStatusCode
+from hammertime.rules import RejectStatusCode
 from .versionidentification import VersionIdentification
 from .hash import HashResponse
 from .activecomponentfinder import ActiveComponentFinder
 from .retryonerrors import RetryOnErrors
+from openwebvulndb.common.schemas import FileListSchema
+from .utils import load_model_from_file
+from .filefetcher import FileFetcher
 
 import json
 
@@ -37,7 +40,7 @@ class Vane:
 
     def config_hammertime(self):
         self.hammertime.heuristics.add_multiple([RejectStatusCode(range(400, 502), range(503, 600)), HashResponse(),
-                                                 IgnoreLargeBody(), RetryOnErrors(range(502, 503))])
+                                                 RetryOnErrors(range(502, 503))])
 
     async def scan_target(self, url, popular, vulnerable):
         self._load_database()
@@ -54,11 +57,17 @@ class Vane:
     async def identify_target_version(self, url):
         self.output_manager.log_message("Identifying Wordpress version for %s" % url)
 
-        version_identifier = VersionIdentification(self.hammertime)
-        # TODO put in _load_database?
-        version_identifier.load_files_signatures(join(dirname(__file__), "wordpress_vane2_versions.json"))
+        version_identifier = VersionIdentification()
+        file_fetcher = FileFetcher(self.hammertime, url)
 
-        version = await version_identifier.identify_version(url)
+        # TODO put in _load_database?
+        file_name = join(dirname(__file__), "wordpress_vane2_versions.json")
+        file_list, errors = load_model_from_file(file_name, FileListSchema())
+        for error in errors:
+            self.output_manager.log_message(repr(error))
+
+        key, fetched_files = await file_fetcher.request_files("wordpress", file_list)
+        version = version_identifier.identify_version(fetched_files, file_list)
         self.output_manager.set_wordpress_version(version)
 
     async def active_plugin_enumeration(self, url, popular, vulnerable):
@@ -71,8 +80,12 @@ class Vane:
         for error in errors:
             self.output_manager.log_message(repr(error))
 
+        version_identification = VersionIdentification()
+
         async for plugin in component_finder.enumerate_found():
-            self.output_manager.add_plugin(plugin['key'])
+            plugin_file_list = component_finder.get_component_file_list(plugin['key'])
+            version = version_identification.identify_version(plugin['files'], plugin_file_list)
+            self.output_manager.add_plugin({'name': plugin['key'], 'version': version})
 
     async def active_theme_enumeration(self, url, popular, vulnerable):
         self._log_active_enumeration_type("themes", popular, vulnerable)
@@ -84,8 +97,12 @@ class Vane:
         for error in errors:
             self.output_manager.log_message(repr(error))
 
+        version_identification = VersionIdentification()
+
         async for theme in component_finder.enumerate_found():
-            self.output_manager.add_theme(theme['key'])
+            theme_file_list = component_finder.get_component_file_list(theme['key'])
+            version = version_identification.identify_version(theme['files'], theme_file_list)
+            self.output_manager.add_theme({'name': theme['key'], 'version': version})
 
     def _log_active_enumeration_type(self, key, popular, vulnerable):
         if popular and vulnerable:
