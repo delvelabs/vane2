@@ -85,7 +85,7 @@ class Vane:
         async for plugin in component_finder.enumerate_found():
             plugin_file_list = component_finder.get_component_file_list(plugin['key'])
             version = version_identification.identify_version(plugin['files'], plugin_file_list)
-            self.output_manager.add_plugin({'name': plugin['key'], 'version': version})
+            self.output_manager.add_plugin(plugin['key'], version)
 
     async def active_theme_enumeration(self, url, popular, vulnerable):
         self._log_active_enumeration_type("themes", popular, vulnerable)
@@ -102,7 +102,7 @@ class Vane:
         async for theme in component_finder.enumerate_found():
             theme_file_list = component_finder.get_component_file_list(theme['key'])
             version = version_identification.identify_version(theme['files'], theme_file_list)
-            self.output_manager.add_theme({'name': theme['key'], 'version': version})
+            self.output_manager.add_theme(theme['key'], version)
 
     def _log_active_enumeration_type(self, key, popular, vulnerable):
         if popular and vulnerable:
@@ -150,11 +150,11 @@ class OutputManager:
     def set_vuln_database_version(self, version):
         self.data["vuln_database_version"] = version
 
-    def add_plugin(self, plugin):
-        self._add_data("plugins", plugin)
+    def add_plugin(self, plugin, version):
+        self._add_data("plugins", {'plugin': plugin, 'version': version or "No version found"})
 
-    def add_theme(self, theme):
-        self._add_data("themes", theme)
+    def add_theme(self, theme, version):
+        self._add_data("themes", {'theme': theme, 'version': version or "No version found"})
 
     def add_vulnerability(self, vulnerability):
         self._add_data("vulnerabilities", vulnerability)
