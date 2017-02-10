@@ -156,6 +156,15 @@ class TestActiveComponentFinder(TestCase):
                                 component_dict['key'] == self.plugin1_file_list.key)
                 self.assertIn('files', component_dict)
 
+    def test_get_component_file_list(self):
+        self.component_finder.components_file_list_group = self.plugin_list
+
+        plugin0_file_list = self.component_finder.get_component_file_list(self.plugin0_file_list.key)
+        plugin1_file_list = self.component_finder.get_component_file_list(self.plugin1_file_list.key)
+
+        self.assertEqual(plugin0_file_list, self.plugin0_file_list)
+        self.assertEqual(plugin1_file_list, self.plugin1_file_list)
+
     @staticmethod
     async def return_async_iterator_as_list(async_iterator):
         li = []

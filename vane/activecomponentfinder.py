@@ -19,6 +19,7 @@ from openwebvulndb.common.schemas import FileListGroupSchema
 from os.path import join
 from .filefetcher import FileFetcher
 from asyncio.queues import Queue
+from .utils import load_model_from_file
 
 
 class ActiveComponentFinder:
@@ -33,7 +34,7 @@ class ActiveComponentFinder:
         file_names = self._get_file_names(file_path, component_base_key, popular, vulnerable)
         errors = []
         for file_name in file_names:
-            file_list_group, _errors = self._load(file_name)
+            file_list_group, _errors = load_model_from_file(file_name, FileListGroupSchema())
             if _errors:
                 errors.extend(_errors)
             if self.components_file_list_group is None:
@@ -42,10 +43,11 @@ class ActiveComponentFinder:
                 self._merge_to_file_list_group(file_list_group)
         return errors
 
-    def _load(self, file_name):
-        with open(file_name) as fp:
-            data, errors = FileListGroupSchema().loads(fp.read())
-            return data, errors
+    def get_component_file_list(self, component_key):
+        for file_list in self.components_file_list_group.file_lists:
+            if file_list.key == component_key:
+                return file_list
+        return None
 
     def _get_file_names(self, path, key, popular, vulnerable):
         base_name = join(path, "vane2_{0}%s_versions.json" % key)
