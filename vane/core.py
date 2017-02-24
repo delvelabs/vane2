@@ -61,7 +61,7 @@ class Vane:
         file_fetcher = FileFetcher(self.hammertime, url)
 
         # TODO put in _load_database?
-        file_name = join(dirname(__file__), "wordpress_vane2_versions.json")
+        file_name = join(dirname(__file__), "vane2_wordpress_versions.json")
         file_list, errors = load_model_from_file(file_name, FileListSchema())
         for error in errors:
             self.output_manager.log_message(repr(error))
