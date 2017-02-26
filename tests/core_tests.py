@@ -16,9 +16,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from unittest import TestCase
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 from vane.core import Vane, OutputManager
 from aiohttp.test_utils import make_mocked_coro, loop_context
+from openwebvulndb.common.models import VulnerabilityList, Vulnerability
 
 
 class TestVane(TestCase):
@@ -50,6 +51,53 @@ class TestVane(TestCase):
 
                 self.vane.output_manager.set_vuln_database_version.assert_called_once_with(
                     self.vane.database.get_version.return_value)
+
+    def test_list_component_vulnerabilitites_call_list_vulnerabilities_for_each_component(self):
+        components_version = {'plugin0': "1.2.3", 'theme0': "3.2.1", 'plugin1': "1.4.0", 'theme1': "6.9"}
+        plugin0_vuln_list = VulnerabilityList(key="plugin0", producer="")
+        plugin1_vuln_list = VulnerabilityList(key="plugin1", producer="")
+        theme0_vuln_list = VulnerabilityList(key="theme0", producer="")
+        theme1_vuln_list = VulnerabilityList(key="theme1", producer="")
+        vuln_list_group = MagicMock()
+        vuln_list_group.vulnerability_lists = [plugin0_vuln_list, plugin1_vuln_list, theme1_vuln_list, theme0_vuln_list]
+
+        fake_list_vuln = MagicMock()
+
+        with patch("vane.vulnerabilitylister.VulnerabilityLister.list_vulnerabilities", fake_list_vuln):
+            self.vane.list_component_vulnerabilities(components_version, vuln_list_group)
+
+            fake_list_vuln.assert_has_calls([call("1.2.3", plugin0_vuln_list), call("1.4.0", plugin1_vuln_list),
+                                             call("3.2.1", theme0_vuln_list), call("6.9", theme1_vuln_list)],
+                                            any_order=True)
+
+    def test_list_component_vulnerabilitites_skip_component_with_no_vulnerability(self):
+        components_version = {'plugin0': "1.2.3"}
+        plugin1_vuln_list = VulnerabilityList(key="plugin1", producer="")
+        vuln_list_group = MagicMock()
+        vuln_list_group.vulnerability_lists = [plugin1_vuln_list]
+
+        fake_list_vuln = MagicMock()
+
+        with patch("vane.vulnerabilitylister.VulnerabilityLister.list_vulnerabilities", fake_list_vuln):
+            self.vane.list_component_vulnerabilities(components_version, vuln_list_group)
+
+            fake_list_vuln.assert_not_called()
+
+    def test_list_component_vulnerabilitites_return_vulnerabilities_for_each_component(self):
+        components_version = {'plugin0': "1.2.3", 'plugin1': "1.4.0"}
+        plugin0_vuln_list = VulnerabilityList(key="plugin0", producer="", vulnerabilities=[Vulnerability(id="1234")])
+        plugin1_vuln_list = VulnerabilityList(key="plugin1", producer="", vulnerabilities=[Vulnerability(id="2345")])
+        vuln_list_group = MagicMock()
+        vuln_list_group.vulnerability_lists = [plugin0_vuln_list, plugin1_vuln_list]
+
+        def fake_list_vuln(self, version, vuln_list):
+            return vuln_list.vulnerabilities
+
+        with patch("vane.vulnerabilitylister.VulnerabilityLister.list_vulnerabilities", fake_list_vuln):
+            vulns = self.vane.list_component_vulnerabilities(components_version, vuln_list_group)
+
+            self.assertEqual(plugin0_vuln_list.vulnerabilities, vulns['plugin0'])
+            self.assertEqual(plugin1_vuln_list.vulnerabilities, vulns['plugin1'])
 
     def test_output_manager_add_data_create_key_if_key_not_in_data(self):
         output_manager = OutputManager()

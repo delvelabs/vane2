@@ -21,9 +21,11 @@ from .versionidentification import VersionIdentification
 from .hash import HashResponse
 from .activecomponentfinder import ActiveComponentFinder
 from .retryonerrors import RetryOnErrors
-from openwebvulndb.common.schemas import FileListSchema
+from openwebvulndb.common.schemas import FileListSchema, VulnerabilityListGroupSchema, VulnerabilitySchema
+from openwebvulndb.common.serialize import clean_walk
 from .utils import load_model_from_file
 from .filefetcher import FileFetcher
+from .vulnerabilitylister import VulnerabilityLister
 
 import json
 
@@ -46,9 +48,16 @@ class Vane:
         self._load_database()
         self.output_manager.log_message("scanning %s" % url)
 
-        await self.identify_target_version(url)
-        await self.active_plugin_enumeration(url, popular, vulnerable)
-        await self.active_theme_enumeration(url, popular, vulnerable)
+        wordpress_version = await self.identify_target_version(url)
+        plugins_version = await self.active_plugin_enumeration(url, popular, vulnerable)
+        theme_versions = await self.active_theme_enumeration(url, popular, vulnerable)
+
+        file_name = join(dirname(__file__), "vane2_vulnerability_database.json")
+        vulnerability_list_group, errors = load_model_from_file(file_name, VulnerabilityListGroupSchema())
+
+        self.list_component_vulnerabilities(wordpress_version, vulnerability_list_group)
+        self.list_component_vulnerabilities(plugins_version, vulnerability_list_group)
+        self.list_component_vulnerabilities(theme_versions, vulnerability_list_group)
 
         await self.hammertime.close()
 
@@ -69,8 +78,10 @@ class Vane:
         key, fetched_files = await file_fetcher.request_files("wordpress", file_list)
         version = version_identifier.identify_version(fetched_files, file_list)
         self.output_manager.set_wordpress_version(version)
+        return {'wordpress': version}
 
     async def active_plugin_enumeration(self, url, popular, vulnerable):
+        plugins_version = {}
         self._log_active_enumeration_type("plugins", popular, vulnerable)
 
         component_finder = ActiveComponentFinder(self.hammertime, url)
@@ -86,8 +97,11 @@ class Vane:
             plugin_file_list = component_finder.get_component_file_list(plugin['key'])
             version = version_identification.identify_version(plugin['files'], plugin_file_list)
             self.output_manager.add_plugin(plugin['key'], version)
+            plugins_version[plugin['key']] = version
+        return plugins_version
 
     async def active_theme_enumeration(self, url, popular, vulnerable):
+        themes_version = {}
         self._log_active_enumeration_type("themes", popular, vulnerable)
 
         component_finder = ActiveComponentFinder(self.hammertime, url)
@@ -103,6 +117,32 @@ class Vane:
             theme_file_list = component_finder.get_component_file_list(theme['key'])
             version = version_identification.identify_version(theme['files'], theme_file_list)
             self.output_manager.add_theme(theme['key'], version)
+            themes_version[theme['key']] = version
+        return themes_version
+
+    def list_component_vulnerabilities(self, components_version, vulnerability_list_group):
+        vulnerability_lister = VulnerabilityLister()
+        components_vulnerabilities = {}
+        for key, version in components_version.items():
+            vulnerability_list = self._get_vulnerability_list_for_key(key, vulnerability_list_group)
+            if vulnerability_list is not None:
+                vulnerabilities = vulnerability_lister.list_vulnerabilities(version, vulnerability_list)
+                components_vulnerabilities[key] = vulnerabilities
+                self._log_vulnerabilities(vulnerabilities)
+        return components_vulnerabilities
+
+    def _log_vulnerabilities(self, vulnerabilities):
+        vulnerability_schema = VulnerabilitySchema()
+        for vulnerability in vulnerabilities:
+            data, errors = vulnerability_schema.dump(vulnerability)
+            clean_walk(data)
+            self.output_manager.add_vulnerability(data)
+
+    def _get_vulnerability_list_for_key(self, key, vulnerability_list_group):
+        for vuln_list in vulnerability_list_group.vulnerability_lists:
+            if vuln_list.key == key:
+                return vuln_list
+        return None
 
     def _log_active_enumeration_type(self, key, popular, vulnerable):
         if popular and vulnerable:
