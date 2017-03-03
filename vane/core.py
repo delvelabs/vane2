@@ -128,15 +128,15 @@ class Vane:
             if vulnerability_list is not None:
                 vulnerabilities = vulnerability_lister.list_vulnerabilities(version, vulnerability_list)
                 components_vulnerabilities[key] = vulnerabilities
-                self._log_vulnerabilities(vulnerabilities)
+                self._log_vulnerabilities(key, vulnerabilities)
         return components_vulnerabilities
 
-    def _log_vulnerabilities(self, vulnerabilities):
+    def _log_vulnerabilities(self, key, vulnerabilities):
         vulnerability_schema = VulnerabilitySchema()
         for vulnerability in vulnerabilities:
             data, errors = vulnerability_schema.dump(vulnerability)
             clean_walk(data)
-            self.output_manager.add_vulnerability(data)
+            self.output_manager.add_vulnerability(key, data)
 
     def _get_vulnerability_list_for_key(self, key, vulnerability_list_group):
         for vuln_list in vulnerability_list_group.vulnerability_lists:
@@ -185,27 +185,41 @@ class OutputManager:
             return json.dumps(data, indent=4)
 
     def set_wordpress_version(self, version):
-        self.data["wordpress_version"] = version
+        self.data["wordpress"] = {"version": version}
 
     def set_vuln_database_version(self, version):
         self.data["vuln_database_version"] = version
 
     def add_plugin(self, plugin, version):
-        self._add_data("plugins", {'plugin': plugin, 'version': version or "No version found"})
+        self._add_data("plugins", {'key': plugin, 'version': version or "No version found"})
 
     def add_theme(self, theme, version):
-        self._add_data("themes", {'theme': theme, 'version': version or "No version found"})
+        self._add_data("themes", {'key': theme, 'version': version or "No version found"})
 
-    def add_vulnerability(self, vulnerability):
-        self._add_data("vulnerabilities", vulnerability)
+    def add_vulnerability(self, key, vulnerability):
+        if "/" in key:
+            component_path = key.split("/")
+            component_dict = self._get_dictionary_with_key_value_pair_in_list("key", key, self.data[component_path[0]])
+        else:
+            component_dict = self.data[key]
+        if component_dict is not None:
+            self._add_data("vulnerabilities", vulnerability, component_dict)
 
     def flush(self):
         print(self._format(self.data))
 
-    def _add_data(self, key, value):
-        if key not in self.data:
-            self.data[key] = []
+    def _add_data(self, key, value, container=None):
+        if container is None:
+            container = self.data
+        if key not in container:
+            container[key] = []
         if isinstance(value, list):
-            self.data[key].extend(value)
+            container[key].extend(value)
         else:
-            self.data[key].append(value)
+            container[key].append(value)
+
+    def _get_dictionary_with_key_value_pair_in_list(self, key, value, list):
+        for dictionary in list:
+            if key in dictionary and dictionary[key] == value:
+                return dictionary
+        return None

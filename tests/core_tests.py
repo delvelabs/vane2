@@ -132,26 +132,38 @@ class TestVane(TestCase):
 
     def test_output_manager_add_plugins_append_plugin_and_version_to_plugin_list(self):
         output_manager = OutputManager()
-        output_manager.data["plugins"] = [{'plugin': "plugin0", 'version': "2.1"}]
+        output_manager.data["plugins"] = [{'key': "plugin0", 'version': "2.1"}]
 
         output_manager.add_plugin("plugin1", "4.7.2")
 
-        self.assertEqual(output_manager.data["plugins"], [{'plugin': "plugin0", 'version': "2.1"},
-                                                          {'plugin': "plugin1", 'version': "4.7.2"}])
+        self.assertEqual(output_manager.data["plugins"], [{'key': "plugin0", 'version': "2.1"},
+                                                          {'key': "plugin1", 'version': "4.7.2"}])
 
     def test_output_manager_add_themes_append_theme_to_theme_list(self):
         output_manager = OutputManager()
-        output_manager.data["themes"] = [{'theme': "theme0", 'version': "1.2.3"}]
+        output_manager.data["themes"] = [{'key': "theme0", 'version': "1.2.3"}]
 
         output_manager.add_theme("theme1", "6.1")
 
-        self.assertEqual(output_manager.data["themes"], [{'theme': "theme0", 'version': "1.2.3"},
-                                                         {'theme': "theme1", 'version': "6.1"}])
+        self.assertEqual(output_manager.data["themes"], [{'key': "theme0", 'version': "1.2.3"},
+                                                         {'key': "theme1", 'version': "6.1"}])
 
-    def test_output_manager_add_vulnerability_append_vulnerability_to_vulnerabilities_list(self):
+    def test_output_manager_add_vulnerability_add_vulnerability_to_vuln_list_of_key(self):
         output_manager = OutputManager()
-        output_manager.data["vulnerabilities"] = ["vulnerability0"]
+        output_manager.add_plugin("plugins/my-plugin", "1.0")
+        output_manager.add_theme("themes/my-theme", "2.0")
 
-        output_manager.add_vulnerability("vulnerability1")
+        output_manager.add_vulnerability("plugins/my-plugin", "my-plugin-vulnerability")
+        output_manager.add_vulnerability("themes/my-theme", "my-theme-vuln")
 
-        self.assertEqual(output_manager.data["vulnerabilities"], ["vulnerability0", "vulnerability1"])
+        self.assertEqual(output_manager.data["plugins"][0]["vulnerabilities"][0], "my-plugin-vulnerability")
+        self.assertEqual(output_manager.data["themes"][0]["vulnerabilities"][0], "my-theme-vuln")
+
+    def test_output_manager_add_vulnerability_append_vulnerability_to_vulnerabilities_list_of_key(self):
+        output_manager = OutputManager()
+        output_manager.add_plugin("plugins/my-plugin", "1.0")
+        output_manager.add_vulnerability("plugins/my-plugin", "vulnerability0")
+
+        output_manager.add_vulnerability("plugins/my-plugin", "vulnerability1")
+
+        self.assertEqual(output_manager.data["plugins"][0]["vulnerabilities"], ["vulnerability0", "vulnerability1"])
