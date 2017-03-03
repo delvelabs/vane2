@@ -19,7 +19,8 @@ from unittest import TestCase
 from unittest.mock import MagicMock, patch, call
 from vane.core import Vane, OutputManager
 from aiohttp.test_utils import make_mocked_coro, loop_context
-from openwebvulndb.common.models import VulnerabilityList, Vulnerability
+from openwebvulndb.common.models import VulnerabilityList, Vulnerability, Meta
+from collections import OrderedDict
 
 
 class TestVane(TestCase):
@@ -28,6 +29,7 @@ class TestVane(TestCase):
         with patch("vane.core.HammerTime", MagicMock()):
             self.vane = Vane()
         self.vane.output_manager = MagicMock()
+        self.fake_meta = Meta(key="meta")
 
     def test_perform_action_raise_exception_if_no_url_and_action_is_scan(self):
         with self.assertRaises(ValueError):
@@ -134,24 +136,25 @@ class TestVane(TestCase):
         output_manager = OutputManager()
         output_manager.data["plugins"] = [{'key': "plugin0", 'version': "2.1"}]
 
-        output_manager.add_plugin("plugin1", "4.7.2")
+        output_manager.add_plugin("plugin1", "4.7.2", self.fake_meta)
 
         self.assertEqual(output_manager.data["plugins"], [{'key': "plugin0", 'version': "2.1"},
-                                                          {'key': "plugin1", 'version': "4.7.2"}])
+                                                          {'key': "plugin1", 'version': "4.7.2",
+                                                           "meta": {"key": "meta"}}])
 
     def test_output_manager_add_themes_append_theme_to_theme_list(self):
         output_manager = OutputManager()
         output_manager.data["themes"] = [{'key': "theme0", 'version': "1.2.3"}]
 
-        output_manager.add_theme("theme1", "6.1")
+        output_manager.add_theme("theme1", "6.1", self.fake_meta)
 
         self.assertEqual(output_manager.data["themes"], [{'key': "theme0", 'version': "1.2.3"},
-                                                         {'key': "theme1", 'version': "6.1"}])
+                                                         {'key': "theme1", 'version': "6.1", "meta": {"key": "meta"}}])
 
     def test_output_manager_add_vulnerability_add_vulnerability_to_vuln_list_of_key(self):
         output_manager = OutputManager()
-        output_manager.add_plugin("plugins/my-plugin", "1.0")
-        output_manager.add_theme("themes/my-theme", "2.0")
+        output_manager.add_plugin("plugins/my-plugin", "1.0", self.fake_meta)
+        output_manager.add_theme("themes/my-theme", "2.0", self.fake_meta)
 
         output_manager.add_vulnerability("plugins/my-plugin", "my-plugin-vulnerability")
         output_manager.add_vulnerability("themes/my-theme", "my-theme-vuln")
@@ -161,9 +164,29 @@ class TestVane(TestCase):
 
     def test_output_manager_add_vulnerability_append_vulnerability_to_vulnerabilities_list_of_key(self):
         output_manager = OutputManager()
-        output_manager.add_plugin("plugins/my-plugin", "1.0")
+        output_manager.add_plugin("plugins/my-plugin", "1.0", self.fake_meta)
         output_manager.add_vulnerability("plugins/my-plugin", "vulnerability0")
 
         output_manager.add_vulnerability("plugins/my-plugin", "vulnerability1")
 
         self.assertEqual(output_manager.data["plugins"][0]["vulnerabilities"], ["vulnerability0", "vulnerability1"])
+
+    def test_output_manager_get_component_dictionary_return_dictionary_of_component_with_key_in_data(self):
+        output_manager = OutputManager()
+        output_manager.add_plugin("plugins/plugin0", "2.0", self.fake_meta)
+        output_manager.add_plugin("plugins/plugin1", "1.5", self.fake_meta)
+        output_manager.add_theme("themes/theme0", "4.5", self.fake_meta)
+        output_manager.add_theme("themes/theme1", "3.2.1", self.fake_meta)
+        output_manager.set_wordpress_version("4.2.2", self.fake_meta)
+
+        plugin0 = output_manager._get_component_dictionary("plugins/plugin0")
+        plugin1 = output_manager._get_component_dictionary("plugins/plugin1")
+        theme0 = output_manager._get_component_dictionary("themes/theme0")
+        theme1 = output_manager._get_component_dictionary("themes/theme1")
+        wordpress = output_manager._get_component_dictionary("wordpress")
+
+        self.assertEqual(plugin0, {"key": "plugins/plugin0", "version": "2.0", "meta": {"key": "meta"}})
+        self.assertEqual(plugin1, {"key": "plugins/plugin1", "version": "1.5", "meta": {"key": "meta"}})
+        self.assertEqual(theme0, {"key": "themes/theme0", "version": "4.5", "meta": {"key": "meta"}})
+        self.assertEqual(theme1, {"key": "themes/theme1", "version": "3.2.1", "meta": {"key": "meta"}})
+        self.assertEqual(wordpress, {"version": "4.2.2", "meta": {"key": "meta"}})
