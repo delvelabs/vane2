@@ -199,18 +199,20 @@ class OutputManager:
             return json.dumps(data, indent=4)
 
     def set_wordpress_version(self, version, meta):
-        wordpress_dict = {"version": version, "meta": self._meta_to_dict(meta)}
+        wordpress_dict = OrderedDict([("version", version), ("meta", self._meta_to_dict(meta))])
         self.data["wordpress"] = wordpress_dict
 
     def set_vuln_database_version(self, version):
         self.data["vuln_database_version"] = version
 
     def add_plugin(self, plugin, version, meta):
-        plugin_dict = {'key': plugin, 'version': version or "No version found", "meta": self._meta_to_dict(meta)}
+        plugin_dict = OrderedDict([('key', plugin), ('version', version or "No version found"),
+                                   ("meta", self._meta_to_dict(meta))])
         self._add_data("plugins", plugin_dict)
 
     def add_theme(self, theme, version, meta):
-        theme_dict = {'key': theme, 'version': version or "No version found", "meta": self._meta_to_dict(meta)}
+        theme_dict = OrderedDict([('key', theme), ('version', version or "No version found"),
+                                  ("meta", self._meta_to_dict(meta))])
         self._add_data("themes", theme_dict)
 
     def add_vulnerability(self, key, vulnerability):
