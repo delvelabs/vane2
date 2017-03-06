@@ -21,6 +21,7 @@ from vane.passivepluginsfinder import PassivePluginsFinder
 from vane.plugin import Plugin
 from unittest.mock import MagicMock
 from lxml import etree
+from openwebvulndb.common.models import Meta, MetaList
 
 
 class TestPassivePluginsFinder(TestCase):
@@ -88,8 +89,8 @@ class TestPassivePluginsFinder(TestCase):
 
         self.assertIn("wp-super-cache", [plugin.name for plugin in plugins])
 
-    def test_find_plugin_name_in_comment_find_plugin_name_in_comment_that_match_plugin_name_in_database(self):
-        plugin_name0 = "google analytics"
+    def test_find_plugin_name_in_comment_find_plugin_name_in_comment_that_match_plugin_name_in_meta_list(self):
+        plugin0_meta = "google analytics"
         plugin_name1 = "yoast seo"
         plugin_name2 = "wp-parsely"
         plugin_name4 = "w3-total-cache"
@@ -163,19 +164,51 @@ class TestPassivePluginsFinder(TestCase):
 
         self.assertEqual(url, "/wp-content/plugins/my-plugin")
 
-    def test_find_existing_plugin_name_in_string_only_return_full_match(self):
-        possibilities = ["recaptcha", "spam-captcha", "pluscaptcha", "wp-captcha"]
-        self.plugin_finder.plugins_database.get_plugin_names.return_value = possibilities
+    def test_find_existing_plugin_in_string_only_return_full_match(self):
+        self.plugin_finder.meta_list = MetaList(key="plugins")
+        self.plugin_finder.meta_list.metas = [Meta(key="plugins/recaptcha"), Meta(key="plugins/spam-captcha"),
+                                              Meta(key="plugins/pluscaptcha"), Meta(key="plugins/wp-captcha")]
         string = "This site uses the captcha plugin."
 
-        self.assertIsNone(self.plugin_finder._find_existing_plugin_name_in_string(string))
+        self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string))
 
-    def test_find_existing_plugin_name_in_string_return_longest_match(self):
-        possibilities = ["captcha", "wp-captcha"]
-        self.plugin_finder.plugins_database.get_plugin_names.return_value = possibilities
+    def test_find_existing_plugin_in_string_return_longest_match(self):
+        self.plugin_finder.meta_list = MetaList(key="plugins")
+        self.plugin_finder.meta_list.metas = [Meta(key="plugins/captcha"), Meta(key="plugins/wp-captcha")]
         string = "This site uses the wp-captcha plugin."
 
-        self.assertEqual(self.plugin_finder._find_existing_plugin_name_in_string(string), "wp-captcha")
+        self.assertEqual(self.plugin_finder._find_existing_plugin_in_string(string), "plugins/wp-captcha")
+
+    def test_find_existing_plugin_in_string_return_plugin_key_with_key_in_meta_that_matches_string(self):
+        string0 = "BEGIN wp-parsely Plugin Version 1.10.2 "
+        string1 = "This site uses the wp-captcha plugin."
+        string2 = "No plugin name in this string"
+
+        self.plugin_finder.meta_list = MetaList(key="plugins")
+        self.plugin_finder.meta_list.metas.append(Meta(key="plugins/wp-parsely", name="Parse.ly"))
+        self.plugin_finder.meta_list.metas.append(Meta(key="plugins/wp-captcha", name="WP Captcha"))
+
+        plugin_key0 = self.plugin_finder._find_existing_plugin_in_string(string0)
+        plugin_key1 = self.plugin_finder._find_existing_plugin_in_string(string1)
+        plugin_key2 = self.plugin_finder._find_existing_plugin_in_string(string2)
+
+        self.assertEqual(plugin_key0, "plugins/wp-parsely")
+        self.assertEqual(plugin_key1, "plugins/wp-captcha")
+        self.assertIsNone(plugin_key2)
+
+    def test_find_existing_plugin_in_string_return_plugin_key_with_name_in_meta_that_matches_string(self):
+        string0 = "This site uses the Google Analytics by MonsterInsights plugin v5.5.4 - Universal enabled - https://www.monsterinsights.com/"
+        string1 = "This site is optimized with the Yoast SEO plugin v4.0.2 - https://yoast.com/wordpress/plugins/seo/"
+        string2 = "This string contains no plugin name."
+
+        self.plugin_finder.meta_list = MetaList(key="plugins")
+        self.plugin_finder.meta_list.metas.append(Meta(key="plugins/wordpress-seo", name="Yoast SEO"))
+        self.plugin_finder.meta_list.metas.append(Meta(key="plugins/google-analytics-for-wordpress",
+                                                       name="Google Analytics by MonsterInsights"))
+
+        self.assertEqual(self.plugin_finder._find_existing_plugin_in_string(string0), "plugins/google-analytics-for-wordpress")
+        self.assertEqual(self.plugin_finder._find_existing_plugin_in_string(string1), "plugins/wordpress-seo")
+        self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string2))
 
     def test_find_possible_plugin_name_in_comment_log_plugin_name_in_comment_with_plugin_word(self):
         comment0 = "This site uses the Google Analytics by MonsterInsights plugin v5.5.4 - Universal enabled - https://www.monsterinsights.com/"

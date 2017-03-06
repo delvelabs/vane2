@@ -18,6 +18,7 @@
 from lxml import etree
 import re
 from vane.plugin import Plugin
+from io import BytesIO
 
 
 plugin_url = re.compile("(https?:)?//([\w%-]+(\.|/))+wp-content/(mu-)?plugins/[^/]+")
@@ -31,6 +32,7 @@ class PassivePluginsFinder:
 
     def __init__(self, logger, plugins_database):
         self.plugins_database = plugins_database
+        self.meta_list = None
         self.logger = logger
 
     def set_plugins_database(self, database):
@@ -39,12 +41,13 @@ class PassivePluginsFinder:
     def set_logger(self, logger):
         self.logger = logger
 
-    def list_plugins(self, html_page):
-        plugins = set(self._find_plugins_in_elements(html_page))
-        return plugins | set(self._find_plugins_in_comments(html_page))
+    def list_plugins(self, hammertime_response):
+        plugins = set(self._find_plugins_in_elements(hammertime_response))
+        return plugins | set(self._find_plugins_in_comments(hammertime_response))
 
-    def _find_plugins_in_elements(self, html_page):
-        element_tree_iterator = etree.iterparse(html_page, html=True)
+    def _find_plugins_in_elements(self, hammertime_response):
+        raw_html = BytesIO(hammertime_response.raw)
+        element_tree_iterator = etree.iterparse(raw_html, html=True)
         for event, element in element_tree_iterator:
             yield from self._search_in_element_attributes(element)
 
@@ -53,16 +56,17 @@ class PassivePluginsFinder:
             if self._contains_plugin_url(attribute_value):
                 yield Plugin(self._get_plugin_url_from_string(attribute_value))
 
-    def _find_plugins_in_comments(self, html_page):
-        element_tree_iterator = etree.iterparse(html_page, html=True, events=("comment",))
+    def _find_plugins_in_comments(self, hammertime_response):
+        raw_html = BytesIO(hammertime_response.raw)
+        element_tree_iterator = etree.iterparse(raw_html, html=True, events=("comment",))
         for event, comment_element in element_tree_iterator:
             if self._contains_plugin_url(comment_element.text):
                 yield Plugin(self._get_plugin_url_from_string(comment_element.text))
             else:
-                plugin_name = self._find_plugin_name_in_comment(comment_element.text)
-                if plugin_name is not None:
-                    yield Plugin.from_name(plugin_name)
-        yield from self._search_plugin_in_comments_outside_document(html_page)
+                pass #plugin_name = self._find_plugin_name_in_comment(comment_element.text)
+                #if plugin_name is not None:
+                    #yield Plugin.from_name(plugin_name)
+        yield from self._search_plugin_in_comments_outside_document(raw_html)
 
     def _find_plugin_name_in_comment(self, comment):
         plugin_name = self._find_existing_plugin_name_in_string(comment)  # search the string for a known plugin name.
@@ -95,14 +99,21 @@ class PassivePluginsFinder:
                 if plugin_name is not None:
                     yield Plugin.from_name(plugin_name)
 
-    def _find_existing_plugin_name_in_string(self, string):
-        stripped_string = self._strip_name(string)
+    def _find_existing_plugin_in_string(self, string):
         longest_match = ""
-        for plugin in self.plugins_database.get_plugin_names():
-            if self._strip_name(plugin) in stripped_string:
-                if len(plugin) > len(longest_match):
-                    longest_match = plugin
-        return longest_match if len(longest_match) > 0 else None
+        for plugin_key in self._find_possible_plugin_keys_in_meta(string):
+            if len(plugin_key) > len(longest_match):
+                longest_match = plugin_key
+        if len(longest_match) > 0:
+            return longest_match
+        else:
+            best_match = None
+            for meta in self._find_possible_plugin_names_in_meta(string):
+                if best_match is None:
+                    best_match = meta
+                elif len(meta.name) > len(best_match.name):
+                    best_match = meta
+            return best_match.key if best_match is not None else None
 
     def _strip_name(self, name):
         name = name.lower()
@@ -116,3 +127,19 @@ class PassivePluginsFinder:
             return plugin_url.search(string).group()
         else:
             return relative_plugin_url.search(string).group()
+
+    def _find_possible_plugin_keys_in_meta(self, string):
+        possible_keys = []
+        if self.meta_list is not None:
+            for plugin_meta in self.meta_list.metas:
+                if plugin_meta.key[len("plugins/"):] in string:
+                    possible_keys.append(plugin_meta.key)
+        return possible_keys
+
+    def _find_possible_plugin_names_in_meta(self, string):
+        possible_metas = []
+        if self.meta_list is not None:
+            for plugin_meta in self.meta_list.metas:
+                if plugin_meta.name is not None and plugin_meta.name in string:
+                    possible_metas.append(plugin_meta)
+        return possible_metas
