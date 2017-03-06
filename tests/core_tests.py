@@ -54,6 +54,43 @@ class TestVane(TestCase):
                 self.vane.output_manager.set_vuln_database_version.assert_called_once_with(
                     self.vane.database.get_version.return_value)
 
+    def test_scan_target_abort_after_version_identification_if_identification_fails(self):
+        self.vane.active_plugin_enumeration = make_mocked_coro()
+        self.vane.active_theme_enumeration = make_mocked_coro()
+        self.vane.hammertime.close = make_mocked_coro()
+        self.vane.identify_target_version = make_mocked_coro(raise_exception=
+                                                             ValueError("target is not a valid Wordpress site."))
+
+        with loop_context() as loop:
+            loop.run_until_complete(self.vane.scan_target("target", True, True))
+
+        self.vane.active_plugin_enumeration.assert_not_called()
+        self.vane.active_theme_enumeration.assert_not_called()
+        self.vane.hammertime.close.assert_called_once_with()
+
+    def test_scan_target_log_message_if_scan_aborted(self):
+        self.vane.hammertime.close = make_mocked_coro()
+        exception = ValueError("target is not a valid Wordpress site.")
+        self.vane.identify_target_version = make_mocked_coro(raise_exception=exception)
+
+        with loop_context() as loop:
+            loop.run_until_complete(self.vane.scan_target("target", True, True))
+
+        self.vane.output_manager.log_message.assert_any_call(str(exception))
+
+    def test_identify_target_version_raise_value_error_if_version_identification_return_no_fetched_files(self):
+        fake_load = MagicMock()
+        fake_load.return_value = "data", "errors"
+        fake_fetcher = MagicMock()
+        fake_fetcher.request_files = make_mocked_coro(return_value=("key", []))
+        fake_fetcher_factory = MagicMock()
+        fake_fetcher_factory.return_value = fake_fetcher
+        with patch("vane.core.load_model_from_file", fake_load):
+            with patch("vane.core.FileFetcher", fake_fetcher_factory):
+                with loop_context() as loop:
+                    with self.assertRaises(ValueError):
+                        loop.run_until_complete(self.vane.identify_target_version("invalid url", "input path"))
+
     def test_list_component_vulnerabilitites_call_list_vulnerabilities_for_each_component(self):
         components_version = {'plugin0': "1.2.3", 'theme0': "3.2.1", 'plugin1': "1.4.0", 'theme1': "6.9"}
         plugin0_vuln_list = VulnerabilityList(key="plugin0", producer="")
@@ -200,3 +237,16 @@ class TestVane(TestCase):
         self.assertEqual(theme0, {"key": "themes/theme0", "version": "4.5"})
         self.assertEqual(theme1, {"key": "themes/theme1", "version": "3.2.1"})
         self.assertEqual(wordpress, {"version": "4.2.2"})
+
+    def test_validate_url_return_false_if_malformed_url(self):
+        url0 = "not a valid url"
+        url1 = "www.test"
+        url2 = "test.com"
+        url3 = "test://www.test.com"
+        url4 = "https//www.test.com"
+
+        self.assertFalse(self.vane._validate_url(url0))
+        self.assertFalse(self.vane._validate_url(url1))
+        self.assertFalse(self.vane._validate_url(url2))
+        self.assertFalse(self.vane._validate_url(url3))
+        self.assertFalse(self.vane._validate_url(url4))
