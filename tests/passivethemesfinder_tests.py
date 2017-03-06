@@ -16,6 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from unittest import TestCase
+from unittest.mock import MagicMock
 
 from vane.passivethemesfinder import PassiveThemesFinder
 from vane.theme import Theme
@@ -70,8 +71,11 @@ class TestPassiveThemesFinder(TestCase):
         sample_page0 = join(dirname(__file__), "samples/playstation.html")
         sample_page1 = join(dirname(__file__), "samples/delvelabs.html")
 
-        themes0 = self.themes_finder.list_themes(sample_page0)
-        themes1 = self.themes_finder.list_themes(sample_page1)
+        page0_hammertime_response = html_file_to_hammertime_response(sample_page0)
+        page1_hammertime_response = html_file_to_hammertime_response(sample_page1)
+
+        themes0 = self.themes_finder.list_themes(page0_hammertime_response)
+        themes1 = self.themes_finder.list_themes(page1_hammertime_response)
 
         self.assertIn("twenty11", (theme.name for theme in themes0))
         self.assertIn("kratos", (theme.name for theme in themes0))
@@ -83,6 +87,16 @@ class TestPassiveThemesFinder(TestCase):
     def test_list_themes_find_theme_in_comments_with_theme_url(self):
         sample_page = join(dirname(__file__), "samples/comment.html")
 
-        themes = self.themes_finder.list_themes(sample_page)
+        hammertime_response = html_file_to_hammertime_response(sample_page)
+
+        themes = self.themes_finder.list_themes(hammertime_response)
 
         self.assertIn("twenty11", (theme.name for theme in themes))
+
+
+def html_file_to_hammertime_response(filename):
+    with open(filename, 'rt') as html_page:
+        content = html_page.read()
+        hammertime_response = MagicMock()
+        hammertime_response.raw = content.encode("utf-8")
+        return hammertime_response

@@ -17,6 +17,7 @@
 
 import re
 from lxml import etree
+from io import BytesIO
 
 from vane.theme import Theme
 
@@ -26,18 +27,20 @@ relative_theme_url = re.compile("/wp-content/themes/(vip/)?[^/]+")
 
 class PassiveThemesFinder:
 
-    def list_themes(self, html_page):
-        themes = set(self._find_themes_in_elements(html_page))
-        return themes | set(self._find_themes_in_comments(html_page))
+    def list_themes(self, hammertime_response):
+        themes = set(self._find_themes_in_elements(hammertime_response))
+        return themes | set(self._find_themes_in_comments(hammertime_response))
 
-    def _find_themes_in_comments(self, html_page):
-        element_tree_iterator = etree.iterparse(html_page, html=True, events=("comment",))
+    def _find_themes_in_comments(self, hammertime_response):
+        raw_html = BytesIO(hammertime_response.raw)
+        element_tree_iterator = etree.iterparse(raw_html, html=True, events=("comment",))
         for event, comment_element in element_tree_iterator:
             if self._contains_theme_url(comment_element.text):
                 yield Theme(self._get_theme_url_from_string(comment_element.text))
 
-    def _find_themes_in_elements(self, html_page):
-        element_tree_iterator = etree.iterparse(html_page, html=True)
+    def _find_themes_in_elements(self, hammertime_response):
+        raw_html = BytesIO(hammertime_response.raw)
+        element_tree_iterator = etree.iterparse(raw_html, html=True)
         for event, element in element_tree_iterator:
             yield from self._find_theme_in_element_attributes(element)
 

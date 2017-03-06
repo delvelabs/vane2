@@ -19,8 +19,10 @@ from unittest import TestCase
 from unittest.mock import MagicMock, patch, call
 from vane.core import Vane, OutputManager
 from aiohttp.test_utils import make_mocked_coro, loop_context
-from openwebvulndb.common.models import VulnerabilityList, Vulnerability, Meta
+from openwebvulndb.common.models import VulnerabilityList, Vulnerability, Meta, MetaList
 from collections import OrderedDict
+from vane.plugin import Plugin
+from vane.theme import Theme
 
 
 class TestVane(TestCase):
@@ -100,6 +102,49 @@ class TestVane(TestCase):
 
             self.assertEqual(plugin0_vuln_list.vulnerabilities, vulns['plugin0'])
             self.assertEqual(plugin1_vuln_list.vulnerabilities, vulns['plugin1'])
+
+    def test_passive_plugin_enumeration_find_matching_plugin_key_in_meta_from_name(self):
+        meta_list = MetaList(key="plugins")
+        disqus_meta = Meta(key="plugins/disqus-comment-system", name="Disqus Comment System")
+        wp_postratings_meta = Meta(key="plugins/wp-postratings", name="WP-PostRatings")
+        cyclone_slider_meta = Meta(key="plugins/cyclone-slider-2", name="Cyclone Slider 2")
+        meta_list.metas = [disqus_meta, wp_postratings_meta, cyclone_slider_meta]
+
+        fake_plugin_finder = MagicMock()
+        fake_plugin_finder.list_plugins.return_value = \
+            {Plugin("/wp-content/plugins/wp-postratings"),
+             Plugin("https://www.delve-labs.com/wp-content/plugins/disqus-comment-system"),
+             Plugin("http://a.dilcdn.com/bl/wp-content/plugins/cyclone-slider-2")}
+
+        fake_plugin_finder_factory = MagicMock()
+        fake_plugin_finder_factory.return_value = fake_plugin_finder
+
+        with patch("vane.core.PassivePluginsFinder", fake_plugin_finder_factory):
+            plugins = self.vane.passive_plugin_enumeration("html_page", meta_list)
+
+            self.assertIn(disqus_meta.key, plugins)
+            self.assertIn(wp_postratings_meta.key, plugins)
+            self.assertIn(cyclone_slider_meta.key, plugins)
+
+    def test_passive_theme_enumeration_return_theme_keys_from_meta_that_match_found_url(self):
+        meta_list = MetaList(key="themes")
+        twenty_seventeen_meta = Meta(key="themes/twentyseventeen")
+        twenty_sixteen_meta = Meta(key="themes/twentysixteen")
+        meta_list.metas = [twenty_seventeen_meta, twenty_sixteen_meta]
+
+        fake_theme_finder = MagicMock()
+        fake_theme_finder.list_themes.return_value = \
+            {Theme("http://127.0.0.1/wordpress/wp-content/themes/twentyseventeen"),
+             Theme("http://127.0.0.1/wordpress/wp-content/themes/twentysixteen")}
+
+        fake_theme_finder_factory = MagicMock()
+        fake_theme_finder_factory.return_value = fake_theme_finder
+
+        with patch("vane.core.PassiveThemesFinder", fake_theme_finder_factory):
+            themes = self.vane.passive_theme_enumeration("html_page", meta_list)
+
+            self.assertIn(twenty_sixteen_meta.key, themes)
+            self.assertIn(twenty_seventeen_meta.key, themes)
 
     def test_output_manager_add_data_create_key_if_key_not_in_data(self):
         output_manager = OutputManager()

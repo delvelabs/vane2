@@ -27,6 +27,8 @@ from openwebvulndb.common.serialize import clean_walk
 from .utils import load_model_from_file
 from .filefetcher import FileFetcher
 from .vulnerabilitylister import VulnerabilityLister
+from .passivepluginsfinder import PassivePluginsFinder
+from .passivethemesfinder import PassiveThemesFinder
 from collections import OrderedDict
 
 import json
@@ -54,15 +56,15 @@ class Vane:
         input_path = dirname(__file__)
 
         wordpress_version = await self.identify_target_version(url, input_path)
-        plugins_version = await self.active_plugin_enumeration(url, popular, vulnerable, input_path)
-        theme_versions = await self.active_theme_enumeration(url, popular, vulnerable, input_path)
+        #plugins_version = await self.plugin_enumeration(url, popular, vulnerable, input_path)
+        theme_versions = await self.theme_enumeration(url, popular, vulnerable, input_path)
 
         file_name = join(input_path, "vane2_vulnerability_database.json")
         vulnerability_list_group, errors = load_model_from_file(file_name, VulnerabilityListGroupSchema())
 
-        self.list_component_vulnerabilities(wordpress_version, vulnerability_list_group)
-        self.list_component_vulnerabilities(plugins_version, vulnerability_list_group)
-        self.list_component_vulnerabilities(theme_versions, vulnerability_list_group)
+        #self.list_component_vulnerabilities(wordpress_version, vulnerability_list_group)
+        #self.list_component_vulnerabilities(plugins_version, vulnerability_list_group)
+        #self.list_component_vulnerabilities(theme_versions, vulnerability_list_group)
 
         await self.hammertime.close()
 
@@ -86,7 +88,37 @@ class Vane:
         self.output_manager.set_wordpress_version(version, meta_list.get_meta("wordpress"))
         return {'wordpress': version}
 
-    async def active_plugin_enumeration(self, url, popular, vulnerable, input_path):
+    async def plugin_enumeration(self, url, popular, vulnerable, input_path):
+        meta_list, errors = self._load_meta_list("plugins", input_path)
+
+        plugins_version = await self.active_plugin_enumeration(url, popular, vulnerable, input_path, meta_list)
+
+        site_homepage = await self.hammertime.request(url)
+        plugins = self.passive_plugin_enumeration(site_homepage.response, meta_list)
+
+        for plugin in plugins:
+            if plugin not in plugins_version:
+                plugins_version[plugin] = None
+
+        return plugins_version
+
+    async def theme_enumeration(self, url, popular, vulnerable, input_path):
+        meta_list, errors = self._load_meta_list("themes", input_path)
+
+        themes_version = await self.active_theme_enumeration(url, popular, vulnerable, input_path, meta_list)
+
+        site_homepage = await self.hammertime.request(url)
+
+        themes = self.passive_theme_enumeration(site_homepage.response, meta_list)
+
+        for theme in themes:
+            if theme not in themes_version:
+                themes_version[theme] = None
+                self.output_manager.add_theme(theme, None, meta_list.get_meta(theme))
+
+        return themes_version
+
+    async def active_plugin_enumeration(self, url, popular, vulnerable, input_path, meta_list):
         plugins_version = {}
         self._log_active_enumeration_type("plugins", popular, vulnerable)
 
@@ -97,8 +129,6 @@ class Vane:
         for error in errors:
             self.output_manager.log_message(repr(error))
 
-        meta_list, errors = self._load_meta_list("plugins", input_path)
-
         version_identification = VersionIdentification()
 
         async for plugin in component_finder.enumerate_found():
@@ -108,7 +138,7 @@ class Vane:
             plugins_version[plugin['key']] = version
         return plugins_version
 
-    async def active_theme_enumeration(self, url, popular, vulnerable, input_path):
+    async def active_theme_enumeration(self, url, popular, vulnerable, input_path, meta_list):
         themes_version = {}
         self._log_active_enumeration_type("themes", popular, vulnerable)
 
@@ -119,8 +149,6 @@ class Vane:
         for error in errors:
             self.output_manager.log_message(repr(error))
 
-        meta_list, errors = self._load_meta_list("themes", input_path)
-
         version_identification = VersionIdentification()
 
         async for theme in component_finder.enumerate_found():
@@ -129,6 +157,27 @@ class Vane:
             self.output_manager.add_theme(theme['key'], version, meta_list.get_meta(theme['key']))
             themes_version[theme['key']] = version
         return themes_version
+
+    def passive_plugin_enumeration(self, html_page, meta_list):
+        passive_plugins_finder = PassivePluginsFinder(None, None)
+        possible_plugins = [] #passive_plugins_finder.list_plugins(html_page)
+        plugin_keys = []
+        for plugin in possible_plugins:
+            meta = meta_list.get_meta("plugins/" + plugin.name)
+            if meta is not None:
+                plugin_keys.append(meta.key)
+        return plugin_keys
+
+    def passive_theme_enumeration(self, hammertime_response, meta_list):
+        passive_theme_finder = PassiveThemesFinder()
+        possible_themes = passive_theme_finder.list_themes(hammertime_response)
+        theme_keys = []
+
+        for theme in possible_themes:
+            meta = meta_list.get_meta("themes/" + theme.name)
+            if meta is not None:
+                theme_keys.append(meta.key)
+        return theme_keys
 
     def list_component_vulnerabilities(self, components_version, vulnerability_list_group):
         vulnerability_lister = VulnerabilityLister()
