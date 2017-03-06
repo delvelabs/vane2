@@ -62,7 +62,7 @@ class TestVane(TestCase):
                                                              ValueError("target is not a valid Wordpress site."))
 
         with loop_context() as loop:
-            loop.run_until_complete(self.vane.scan_target("target", True, True))
+            loop.run_until_complete(self.vane.scan_target("http://www.test.com/", True, True))
 
         self.vane.active_plugin_enumeration.assert_not_called()
         self.vane.active_theme_enumeration.assert_not_called()
@@ -74,9 +74,23 @@ class TestVane(TestCase):
         self.vane.identify_target_version = make_mocked_coro(raise_exception=exception)
 
         with loop_context() as loop:
-            loop.run_until_complete(self.vane.scan_target("target", True, True))
+            loop.run_until_complete(self.vane.scan_target("http://www.test.com/", True, True))
 
         self.vane.output_manager.log_message.assert_any_call(str(exception))
+
+    def test_scan_target_abort_if_target_is_not_valid_url(self):
+        self.vane.active_plugin_enumeration = make_mocked_coro()
+        self.vane.active_theme_enumeration = make_mocked_coro()
+        self.vane.hammertime.close = make_mocked_coro()
+        self.vane.identify_target_version = make_mocked_coro()
+
+        with loop_context() as loop:
+            loop.run_until_complete(self.vane.scan_target("www.test.com", True, True))
+
+        self.vane.active_plugin_enumeration.assert_not_called()
+        self.vane.active_theme_enumeration.assert_not_called()
+        self.vane.identify_target_version.assert_not_called()
+        self.vane.hammertime.close.assert_called_once_with()
 
     def test_identify_target_version_raise_value_error_if_version_identification_return_no_fetched_files(self):
         fake_load = MagicMock()

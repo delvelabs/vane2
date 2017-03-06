@@ -35,6 +35,7 @@ from collections import OrderedDict
 from urllib.parse import urlparse
 import re
 
+
 class Vane:
 
     def __init__(self):
@@ -50,6 +51,11 @@ class Vane:
     async def scan_target(self, url, popular, vulnerable):
         self._load_database()
         self.output_manager.log_message("scanning %s" % url)
+
+        if not self._validate_url(url):
+            self.output_manager.log_message("%s is not a valid url" % url)
+            await self.hammertime.close()
+            return
 
         # TODO use user input for path?
         input_path = dirname(__file__)
