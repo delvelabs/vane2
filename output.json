@@ -1,0 +1,523 @@
+{
+    "general_log": [
+        "scanning http://127.0.0.1/wordpress/",
+        "Identifying Wordpress version for http://127.0.0.1/wordpress/",
+        "Active enumeration of popular plugins.",
+        "Active enumeration of popular themes.",
+        "scan done"
+    ],
+    "plugins": [
+        {
+            "name": "Disqus Comment System",
+            "key": "plugins/disqus-comment-system",
+            "version": "2.50",
+            "url": "https://disqus.com/",
+            "vulnerabilities": [
+                {
+                    "id": "6357",
+                    "title": "Disqus <= 2.75 - Remote Code Execution Vuln",
+                    "reported_type": "RCE",
+                    "created_at": "2014-08-01T10:58:45+00:00",
+                    "updated_at": "2014-08-01T10:58:45+00:00",
+                    "affected_versions": [
+                        {
+                            "fixed_in": "2.76"
+                        }
+                    ],
+                    "references": [
+                        {
+                            "type": "other",
+                            "url": "http://blog.sucuri.net/2014/06/anatomy-of-a-remote-code-execution-bug-on-disqus.html"
+                        },
+                        {
+                            "type": "wpvulndb",
+                            "id": "6357"
+                        }
+                    ]
+                },
+                {
+                    "id": "6358",
+                    "title": "Disqus Comment System <= 2.68 - Reflected Cross-Site Scripting (XSS)",
+                    "reported_type": "XSS",
+                    "created_at": "2014-08-01T10:58:45+00:00",
+                    "updated_at": "2014-08-01T10:58:45+00:00",
+                    "affected_versions": [
+                        {
+                            "fixed_in": "2.69"
+                        }
+                    ],
+                    "references": [
+                        {
+                            "type": "other",
+                            "url": "http://www.ethicalhack3r.co.uk/security/wordpress-plugin-disqus-comment-system-xss/"
+                        },
+                        {
+                            "type": "wpvulndb",
+                            "id": "6358"
+                        }
+                    ]
+                },
+                {
+                    "id": "7537",
+                    "title": "Disqus 2.77 CSRF",
+                    "reported_type": "CSRF",
+                    "created_at": "2014-09-17T17:07:36+00:00",
+                    "updated_at": "2014-09-17T17:07:36+00:00",
+                    "affected_versions": [
+                        {
+                            "fixed_in": "2.79"
+                        }
+                    ],
+                    "references": [
+                        {
+                            "type": "cve",
+                            "id": "2014-5346",
+                            "url": "https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2014-5346"
+                        },
+                        {
+                            "type": "other",
+                            "url": "https://vexatioustendencies.com/csrf-in-disqus-wordpress-plugin-v2-77/"
+                        },
+                        {
+                            "type": "wpvulndb",
+                            "id": "7537"
+                        }
+                    ]
+                },
+                {
+                    "id": "7538",
+                    "title": "Disqus 2.75 XSS & CSRF",
+                    "reported_type": "MULTI",
+                    "created_at": "2014-09-17T17:15:47+00:00",
+                    "updated_at": "2014-09-23T13:42:26+00:00",
+                    "affected_versions": [
+                        {
+                            "fixed_in": "2.76"
+                        }
+                    ],
+                    "references": [
+                        {
+                            "type": "cve",
+                            "id": "2014-5345",
+                            "url": "https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2014-5345"
+                        },
+                        {
+                            "type": "cve",
+                            "id": "2014-5347",
+                            "url": "https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2014-5347"
+                        },
+                        {
+                            "type": "other",
+                            "url": "https://www.nikcub.com/posts/multiple-vulnerabilities-in-disqus-wordpress-plugin/"
+                        },
+                        {
+                            "type": "other",
+                            "url": "https://gist.github.com/nikcub/cb5dc7a5464276c8424a"
+                        },
+                        {
+                            "type": "wpvulndb",
+                            "id": "7538"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Akismet",
+            "key": "plugins/akismet",
+            "version": "3.2",
+            "url": "https://akismet.com/"
+        },
+        {
+            "name": "Duplicate Post",
+            "key": "plugins/duplicate-post",
+            "version": "3.0.2",
+            "url": "http://lopo.it/duplicate-post-plugin/"
+        }
+    ],
+    "themes": [
+        {
+            "name": "Twenty Seventeen",
+            "key": "themes/twentyseventeen",
+            "version": "1.0",
+            "url": "https://wordpress.org/themes/twentyseventeen/"
+        },
+        {
+            "name": "Twenty Sixteen",
+            "key": "themes/twentysixteen",
+            "version": "1.3",
+            "url": "https://wordpress.org/themes/twentysixteen/"
+        },
+        {
+            "name": "Twenty Fifteen",
+            "key": "themes/twentyfifteen",
+            "version": "1.7",
+            "url": "https://wordpress.org/themes/twentyfifteen/"
+        }
+    ],
+    "wordpress": {
+        "name": "WordPress",
+        "version": "4.7",
+        "url": "https://wordpress.org/",
+        "vulnerabilities": [
+            {
+                "id": "95816",
+                "title": "WordPress Prior to 4.7.2 Multiple Security Vulnerabilities",
+                "cvss": 5.0,
+                "description": "wp-admin/includes/class-wp-press-this.php in Press This in WordPress before 4.7.2 does not properly restrict visibility of a taxonomy-assignment user interface, which allows remote attackers to bypass intended access restrictions by reading terms.",
+                "reported_type": "Input Validation Error",
+                "created_at": "2017-01-26T00:00:00+00:00",
+                "updated_at": "2017-02-05T15:48:53+00:00",
+                "affected_versions": [
+                    {
+                        "fixed_in": "4.7.2"
+                    }
+                ],
+                "references": [
+                    {
+                        "type": "bugtraqid",
+                        "id": "95816"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://wordpress.org/news/2017/01/wordpress-4-7-2-security-release/"
+                    },
+                    {
+                        "type": "cve",
+                        "id": "2017-5611",
+                        "url": "https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2017-5611"
+                    },
+                    {
+                        "type": "cve",
+                        "id": "2017-5610",
+                        "url": "https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2017-5610"
+                    },
+                    {
+                        "type": "cve",
+                        "id": "2017-5612",
+                        "url": "https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2017-5612"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://github.com/WordPress/WordPress/commit/4482f9207027de8f36630737ae085110896ea849"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://github.com/WordPress/WordPress/commit/21264a31e0849e6ff793a06a17de877dd88ea454"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://github.com/WordPress/WordPress/commit/85384297a60900004e27e417eac56d24267054cb"
+                    },
+                    {
+                        "type": "other",
+                        "url": "http://www.openwall.com/lists/oss-security/2017/01/28/5"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://codex.wordpress.org/Version_4.7.2"
+                    }
+                ]
+            },
+            {
+                "id": "CVE-2017-5493",
+                "title": "WordPress Cryptographic Security Bypass Vulnerability",
+                "cvss": 5.0,
+                "description": "wp-includes/ms-functions.php in the Multisite WordPress API in WordPress before 4.7.1 does not properly choose random numbers for keys, which makes it easier for remote attackers to bypass intended access restrictions via a crafted (1) site signup or (2) user signup.",
+                "reported_type": "CWE-310",
+                "created_at": "2017-01-12T00:00:00+00:00",
+                "updated_at": "2017-01-23T04:06:00+00:00",
+                "affected_versions": [
+                    {
+                        "fixed_in": "4.7.1"
+                    }
+                ],
+                "references": [
+                    {
+                        "type": "cve",
+                        "id": "2017-5493",
+                        "url": "https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2017-5493"
+                    },
+                    {
+                        "type": "other",
+                        "url": "http://www.openwall.com/lists/oss-security/2017/01/14/6"
+                    },
+                    {
+                        "type": "bugtraqid",
+                        "id": "95401"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://codex.wordpress.org/Version_4.7.1"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://github.com/WordPress/WordPress/commit/cea9e2dc62abf777e06b12ec4ad9d1aaa49b29f4"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://wordpress.org/news/2017/01/wordpress-4-7-1-security-and-maintenance-release/"
+                    }
+                ]
+            },
+            {
+                "id": "CVE-2017-5492",
+                "title": "WordPress Prior to 4.7.1 Cross Site Request Forgery Vulnerability",
+                "cvss": 6.8,
+                "description": "Cross-site request forgery (CSRF) vulnerability in the widget-editing accessibility-mode feature in WordPress before 4.7.1 allows remote attackers to hijack the authentication of unspecified victims for requests that perform a widgets-access action, related to wp-admin/includes/class-wp-screen.php and wp-admin/widgets.php.",
+                "reported_type": "CWE-352",
+                "created_at": "2017-01-12T00:00:00+00:00",
+                "updated_at": "2017-01-23T01:06:00+00:00",
+                "affected_versions": [
+                    {
+                        "fixed_in": "4.7.1"
+                    }
+                ],
+                "references": [
+                    {
+                        "type": "cve",
+                        "id": "2017-5492",
+                        "url": "https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2017-5492"
+                    },
+                    {
+                        "type": "other",
+                        "url": "http://www.openwall.com/lists/oss-security/2017/01/14/6"
+                    },
+                    {
+                        "type": "bugtraqid",
+                        "id": "95407"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://codex.wordpress.org/Version_4.7.1"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://github.com/WordPress/WordPress/commit/03e5c0314aeffe6b27f4b98fef842bf0fb00c733"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://wordpress.org/news/2017/01/wordpress-4-7-1-security-and-maintenance-release/"
+                    }
+                ]
+            },
+            {
+                "id": "CVE-2017-5491",
+                "title": "WordPress Prior to 4.7.1 Security Bypass Vulnerability",
+                "cvss": 5.0,
+                "description": "wp-mail.php in WordPress before 4.7.1 might allow remote attackers to bypass intended posting restrictions via a spoofed mail server with the mail.example.com name.",
+                "reported_type": "CWE-254",
+                "created_at": "2017-01-11T00:00:00+00:00",
+                "updated_at": "2017-01-23T12:06:00+00:00",
+                "affected_versions": [
+                    {
+                        "fixed_in": "4.7.1"
+                    }
+                ],
+                "references": [
+                    {
+                        "type": "cve",
+                        "id": "2017-5491",
+                        "url": "https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2017-5491"
+                    },
+                    {
+                        "type": "other",
+                        "url": "http://www.openwall.com/lists/oss-security/2017/01/14/6"
+                    },
+                    {
+                        "type": "bugtraqid",
+                        "id": "95406"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://codex.wordpress.org/Version_4.7.1"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://github.com/WordPress/WordPress/commit/061e8788814ac87706d8b95688df276fe3c8596a"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://wordpress.org/news/2017/01/wordpress-4-7-1-security-and-maintenance-release/"
+                    }
+                ]
+            },
+            {
+                "id": "CVE-2017-5490",
+                "title": "WordPress Prior to 4.7.1 Cross Site Scripting Vulnerability",
+                "cvss": 4.3,
+                "description": "Cross-site scripting (XSS) vulnerability in the theme-name fallback functionality in wp-includes/class-wp-theme.php in WordPress before 4.7.1 allows remote attackers to inject arbitrary web script or HTML via a crafted directory name of a theme, related to wp-admin/includes/class-theme-installer-skin.php.",
+                "reported_type": "CWE-79",
+                "created_at": "2017-01-12T00:00:00+00:00",
+                "updated_at": "2017-01-23T00:06:00+00:00",
+                "affected_versions": [
+                    {
+                        "fixed_in": "4.7.1"
+                    }
+                ],
+                "references": [
+                    {
+                        "type": "cve",
+                        "id": "2017-5490",
+                        "url": "https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2017-5490"
+                    },
+                    {
+                        "type": "other",
+                        "url": "http://www.openwall.com/lists/oss-security/2017/01/14/6"
+                    },
+                    {
+                        "type": "bugtraqid",
+                        "id": "95402"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://codex.wordpress.org/Version_4.7.1"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://github.com/WordPress/WordPress/commit/ce7fb2934dd111e6353784852de8aea2a938b359"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://wordpress.org/news/2017/01/wordpress-4-7-1-security-and-maintenance-release/"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://www.mehmetince.net/low-severity-wordpress/"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://github.com/WordPress/WordPress/blob/c9ea1de1441bb3bda133bf72d513ca9de66566c2/wp-admin/update-core.php"
+                    }
+                ]
+            },
+            {
+                "id": "CVE-2017-5489",
+                "title": "WordPress Prior to 4.7.1 Cross Site Request Forgery Vulnerability",
+                "cvss": 6.8,
+                "description": "Cross-site request forgery (CSRF) vulnerability in WordPress before 4.7.1 allows remote attackers to hijack the authentication of unspecified victims via vectors involving a Flash file upload.",
+                "reported_type": "CWE-352",
+                "created_at": "2017-01-11T00:00:00+00:00",
+                "updated_at": "2017-01-23T01:06:00+00:00",
+                "affected_versions": [
+                    {
+                        "fixed_in": "4.7.1"
+                    }
+                ],
+                "references": [
+                    {
+                        "type": "cve",
+                        "id": "2017-5489",
+                        "url": "https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2017-5489"
+                    },
+                    {
+                        "type": "other",
+                        "url": "http://www.openwall.com/lists/oss-security/2017/01/14/6"
+                    },
+                    {
+                        "type": "bugtraqid",
+                        "id": "95399"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://codex.wordpress.org/Version_4.7.1"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://wordpress.org/news/2017/01/wordpress-4-7-1-security-and-maintenance-release/"
+                    }
+                ]
+            },
+            {
+                "id": "CVE-2017-5488",
+                "title": "WordPress Prior to 4.7.1 Cross Site Scripting Vulnerability",
+                "cvss": 4.3,
+                "description": "Multiple cross-site scripting (XSS) vulnerabilities in wp-admin/update-core.php in WordPress before 4.7.1 allow remote attackers to inject arbitrary web script or HTML via the (1) name or (2) version header of a plugin.",
+                "reported_type": "CWE-79",
+                "created_at": "2017-01-11T00:00:00+00:00",
+                "updated_at": "2017-01-23T08:06:00+00:00",
+                "affected_versions": [
+                    {
+                        "fixed_in": "4.7.1"
+                    }
+                ],
+                "references": [
+                    {
+                        "type": "cve",
+                        "id": "2017-5488",
+                        "url": "https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2017-5488"
+                    },
+                    {
+                        "type": "other",
+                        "url": "http://www.openwall.com/lists/oss-security/2017/01/14/6"
+                    },
+                    {
+                        "type": "bugtraqid",
+                        "id": "95397"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://codex.wordpress.org/Version_4.7.1"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://github.com/WordPress/WordPress/commit/c9ea1de1441bb3bda133bf72d513ca9de66566c2"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://wordpress.org/news/2017/01/wordpress-4-7-1-security-and-maintenance-release/"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://github.com/WordPress/WordPress/blob/c9ea1de1441bb3bda133bf72d513ca9de66566c2/wp-admin/update-core.php"
+                    }
+                ]
+            },
+            {
+                "id": "CVE-2017-5487",
+                "title": "WordPress Prior to 4.7.1 Information Disclosure Vulnerability",
+                "cvss": 5.0,
+                "description": "wp-includes/rest-api/endpoints/class-wp-rest-users-controller.php in the REST API implementation in WordPress 4.7 before 4.7.1 does not properly restrict listings of post authors, which allows remote attackers to obtain sensitive information via a wp-json/wp/v2/users request.",
+                "reported_type": "CWE-200",
+                "created_at": "2017-01-11T00:00:00+00:00",
+                "updated_at": "2017-01-23T00:07:00+00:00",
+                "affected_versions": [
+                    {
+                        "fixed_in": "4.7.1"
+                    }
+                ],
+                "references": [
+                    {
+                        "type": "cve",
+                        "id": "2017-5487",
+                        "url": "https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2017-5487"
+                    },
+                    {
+                        "type": "other",
+                        "url": "http://www.openwall.com/lists/oss-security/2017/01/14/6"
+                    },
+                    {
+                        "type": "bugtraqid",
+                        "id": "95391"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://codex.wordpress.org/Version_4.7.1"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://github.com/WordPress/WordPress/commit/daf358983cc1ce0c77bf6d2de2ebbb43df2add60"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://wordpress.org/news/2017/01/wordpress-4-7-1-security-and-maintenance-release/"
+                    },
+                    {
+                        "type": "other",
+                        "url": "https://www.wordfence.com/blog/2016/12/wordfence-blocks-username-harvesting-via-new-rest-api-wp-4-7/"
+                    }
+                ]
+            }
+        ]
+    }
+}
