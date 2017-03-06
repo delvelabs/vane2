@@ -199,21 +199,19 @@ class OutputManager:
             return json.dumps(data, indent=4)
 
     def set_wordpress_version(self, version, meta):
-        wordpress_dict = OrderedDict([("version", version), ("meta", self._meta_to_dict(meta))])
+        wordpress_dict = OrderedDict([("version", version)])
+        if meta is not None:
+            self._add_meta_to_component(wordpress_dict, meta)
         self.data["wordpress"] = wordpress_dict
 
     def set_vuln_database_version(self, version):
         self.data["vuln_database_version"] = version
 
     def add_plugin(self, plugin, version, meta):
-        plugin_dict = OrderedDict([('key', plugin), ('version', version or "No version found"),
-                                   ("meta", self._meta_to_dict(meta))])
-        self._add_data("plugins", plugin_dict)
+        self._add_component("plugins", plugin, version, meta)
 
     def add_theme(self, theme, version, meta):
-        theme_dict = OrderedDict([('key', theme), ('version', version or "No version found"),
-                                  ("meta", self._meta_to_dict(meta))])
-        self._add_data("themes", theme_dict)
+        self._add_component("themes", theme, version, meta)
 
     def add_vulnerability(self, key, vulnerability):
         component_dict = self._get_component_dictionary(key)
@@ -247,11 +245,15 @@ class OutputManager:
             return self.data[key]
         return None
 
-    def _meta_to_dict(self, meta):
-        meta_dict = self._to_dict(meta, MetaSchema())
-        return meta_dict
+    def _add_component(self, key, component_key, version, meta):
+        component_dict = OrderedDict([('key', component_key), ('version', version or "No version found")])
+        if meta is not None:
+            self._add_meta_to_component(component_dict, meta)
+        self._add_data(key, component_dict)
 
-    def _to_dict(self, data, schema):
-        data, errors = schema.dump(data)
-        clean_walk(data)
-        return data
+    def _add_meta_to_component(self, component_dict, meta):
+        if meta.name is not None:
+            component_dict["name"] = meta.name
+            component_dict.move_to_end("name", False)
+        if meta.url is not None:
+            component_dict["url"] = meta.url

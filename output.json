@@ -6,72 +6,12 @@
         "Active enumeration of popular themes.",
         "scan done"
     ],
-    "themes": [
-        {
-            "key": "themes/twentyseventeen",
-            "version": "1.0",
-            "meta": {
-                "key": "themes/twentyseventeen",
-                "name": "Twenty Seventeen",
-                "url": "https://wordpress.org/themes/twentyseventeen/",
-                "is_popular": true,
-                "repositories": [
-                    {
-                        "type": "subversion",
-                        "location": "https://themes.svn.wordpress.org/twentyseventeen/"
-                    }
-                ]
-            }
-        },
-        {
-            "key": "themes/twentysixteen",
-            "version": "1.3",
-            "meta": {
-                "key": "themes/twentysixteen",
-                "name": "Twenty Sixteen",
-                "url": "https://wordpress.org/themes/twentysixteen/",
-                "is_popular": true,
-                "repositories": [
-                    {
-                        "type": "subversion",
-                        "location": "https://themes.svn.wordpress.org/twentysixteen/"
-                    }
-                ]
-            }
-        },
-        {
-            "key": "themes/twentyfifteen",
-            "version": "1.7",
-            "meta": {
-                "key": "themes/twentyfifteen",
-                "name": "Twenty Fifteen",
-                "url": "https://wordpress.org/themes/twentyfifteen/",
-                "is_popular": true,
-                "repositories": [
-                    {
-                        "type": "subversion",
-                        "location": "https://themes.svn.wordpress.org/twentyfifteen/"
-                    }
-                ]
-            }
-        }
-    ],
     "plugins": [
         {
+            "name": "Disqus Comment System",
             "key": "plugins/disqus-comment-system",
             "version": "2.50",
-            "meta": {
-                "key": "plugins/disqus-comment-system",
-                "name": "Disqus Comment System",
-                "url": "https://disqus.com/",
-                "is_popular": true,
-                "repositories": [
-                    {
-                        "type": "subversion",
-                        "location": "https://plugins.svn.wordpress.org/disqus-comment-system/"
-                    }
-                ]
-            },
+            "url": "https://disqus.com/",
             "vulnerabilities": [
                 {
                     "id": "6357",
@@ -183,54 +123,42 @@
             ]
         },
         {
+            "name": "Akismet",
             "key": "plugins/akismet",
             "version": "3.2",
-            "meta": {
-                "key": "plugins/akismet",
-                "name": "Akismet",
-                "url": "https://akismet.com/",
-                "is_popular": true,
-                "repositories": [
-                    {
-                        "type": "subversion",
-                        "location": "https://plugins.svn.wordpress.org/akismet/"
-                    }
-                ]
-            }
+            "url": "https://akismet.com/"
         },
         {
+            "name": "Duplicate Post",
             "key": "plugins/duplicate-post",
             "version": "3.0.2",
-            "meta": {
-                "key": "plugins/duplicate-post",
-                "name": "Duplicate Post",
-                "url": "http://lopo.it/duplicate-post-plugin/",
-                "is_popular": true,
-                "repositories": [
-                    {
-                        "type": "subversion",
-                        "location": "https://plugins.svn.wordpress.org/duplicate-post/"
-                    }
-                ]
-            }
+            "url": "http://lopo.it/duplicate-post-plugin/"
+        }
+    ],
+    "themes": [
+        {
+            "name": "Twenty Seventeen",
+            "key": "themes/twentyseventeen",
+            "version": "1.0",
+            "url": "https://wordpress.org/themes/twentyseventeen/"
+        },
+        {
+            "name": "Twenty Sixteen",
+            "key": "themes/twentysixteen",
+            "version": "1.3",
+            "url": "https://wordpress.org/themes/twentysixteen/"
+        },
+        {
+            "name": "Twenty Fifteen",
+            "key": "themes/twentyfifteen",
+            "version": "1.7",
+            "url": "https://wordpress.org/themes/twentyfifteen/"
         }
     ],
     "wordpress": {
+        "name": "WordPress",
         "version": "4.7",
-        "meta": {
-            "key": "wordpress",
-            "name": "WordPress",
-            "cpe_names": [
-                "cpe:2.3:a:wordpress:wordpress"
-            ],
-            "url": "https://wordpress.org/",
-            "repositories": [
-                {
-                    "type": "subversion",
-                    "location": "https://core.svn.wordpress.org/"
-                }
-            ]
-        },
+        "url": "https://wordpress.org/",
         "vulnerabilities": [
             {
                 "id": "95816",
