@@ -24,7 +24,7 @@ from .retryonerrors import RetryOnErrors
 from openwebvulndb.common.schemas import FileListSchema, VulnerabilityListGroupSchema, VulnerabilitySchema, \
     MetaListSchema
 from openwebvulndb.common.serialize import clean_walk
-from .utils import load_model_from_file
+from .utils import load_model_from_file, validate_url
 from .filefetcher import FileFetcher
 from .vulnerabilitylister import VulnerabilityLister
 
@@ -32,8 +32,6 @@ import json
 
 from os.path import join, dirname
 from collections import OrderedDict
-from urllib.parse import urlparse
-import re
 
 
 class Vane:
@@ -52,7 +50,7 @@ class Vane:
         self._load_database()
         self.output_manager.log_message("scanning %s" % url)
 
-        if not self._validate_url(url):
+        if not validate_url(url):
             self.output_manager.log_message("%s is not a valid url" % url)
             await self.hammertime.close()
             return
@@ -195,14 +193,6 @@ class Vane:
         elif action == "import_data":
             pass
         self.output_manager.flush()
-
-    def _validate_url(self, url):
-        result = urlparse(url)
-        if len(result.scheme) == 0 or len(result.netloc) == 0:
-            return False
-        if not re.match("https?", result.scheme):
-            return False
-        return True
 
 
 class OutputManager:

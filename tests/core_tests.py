@@ -251,16 +251,3 @@ class TestVane(TestCase):
         self.assertEqual(theme0, {"key": "themes/theme0", "version": "4.5"})
         self.assertEqual(theme1, {"key": "themes/theme1", "version": "3.2.1"})
         self.assertEqual(wordpress, {"version": "4.2.2"})
-
-    def test_validate_url_return_false_if_malformed_url(self):
-        url0 = "not a valid url"
-        url1 = "www.test"
-        url2 = "test.com"
-        url3 = "test://www.test.com"
-        url4 = "https//www.test.com"
-
-        self.assertFalse(self.vane._validate_url(url0))
-        self.assertFalse(self.vane._validate_url(url1))
-        self.assertFalse(self.vane._validate_url(url2))
-        self.assertFalse(self.vane._validate_url(url3))
-        self.assertFalse(self.vane._validate_url(url4))
