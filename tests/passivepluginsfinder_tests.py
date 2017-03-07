@@ -18,8 +18,6 @@
 from unittest import TestCase
 from os.path import join, dirname
 from vane.passivepluginsfinder import PassivePluginsFinder
-from vane.plugin import Plugin
-from unittest.mock import MagicMock
 from lxml import etree
 from openwebvulndb.common.models import Meta, MetaList
 from fixtures import html_file_to_hammertime_response
@@ -28,20 +26,28 @@ from fixtures import html_file_to_hammertime_response
 class TestPassivePluginsFinder(TestCase):
 
     def setUp(self):
-        self.plugin_finder = PassivePluginsFinder(MagicMock(), MagicMock())
+        self.plugin_finder = PassivePluginsFinder(None)
 
-    def test_find_plugins_in_elements_find_plugin_references_in_page_source(self):
+    def test_list_plugins_find_plugin_references_in_page_source(self):
         # yoast seo, disqus comment system and google analytics by monster insights:
         sample_page0 = join(dirname(__file__), "samples/delvelabs.html")
+
+        # yoast seo, jm-twitter-cards (impossible à trouver?), yet-another-related-posts-plugin, cyclone-slider-2,
+        # wp-jquery-lightbox, panopress, sitepress-multilingual-cms, W3 Total Cache
+        # possibles: MH Cookie, DOL Web Analytics
         sample_page1 = join(dirname(__file__), "samples/starwars.html")
+
+        # wp-polls, lift-search, wp-postratings, jetpack, Google Analytics by MonsterInsights, audio-player
+        # possibles: scea-omniture, image-rotator-2
         sample_page2 = join(dirname(__file__), "samples/playstation.html")
+
         page0_response = html_file_to_hammertime_response(sample_page0)
         page1_response = html_file_to_hammertime_response(sample_page1)
         page2_response = html_file_to_hammertime_response(sample_page2)
 
         disqus_meta = Meta(key="plugins/disqus-comment-system", name="Disqus Comment System")
         yoast_seo_meta = Meta(key="plugins/wordpress-seo", name="Yoast SEO")
-        jetpack_meta = Meta(key="no found yet")
+        jetpack_meta = Meta(key="plugins/jetpack", name="Jetpack by WordPress.com")
         google_analytics_meta = Meta(key="plugins/google-analytics-for-wordpress",
                                      name="Google Analytics by MonsterInsights")
         cyclone_slider_meta = Meta(key="plugins/cyclone-slider-2", name="Cyclone Slider 2")
@@ -52,13 +58,15 @@ class TestPassivePluginsFinder(TestCase):
         wp_polls_meta = Meta(key="plugins/wp-polls", name="WP-Polls")
         posts_plugin_meta = Meta(key="plugins/yet-another-related-posts-plugin",
                                  name="Yet Another Related Posts Plugin (YARPP)")
-        postratings_meta = Meta(key="plugins/wp-postratings", name="WP-PostRatings")  # confirmed in playstation.html
-        lift_search_meta = Meta(key="plugins/lift-search", name="Lift: Search for WordPress")  # confirmed in playstation.html
+        postratings_meta = Meta(key="plugins/wp-postratings", name="WP-PostRatings")
+        lift_search_meta = Meta(key="plugins/lift-search", name="Lift: Search for WordPress")
+        total_cache_meta = Meta(key="plugins/w3-total-cache", name="W3 Total Cache")
         self.plugin_finder.meta_list = MetaList(key="plugins", metas=[disqus_meta, yoast_seo_meta, jetpack_meta,
                                                                       google_analytics_meta, cyclone_slider_meta,
                                                                       sitepress_meta, audio_player_meta, lightbox_meta,
                                                                       panopress_meta, wp_polls_meta, posts_plugin_meta,
-                                                                      postratings_meta, lift_search_meta])
+                                                                      postratings_meta, lift_search_meta,
+                                                                      total_cache_meta])
 
         plugins_in_page0 = self.plugin_finder.list_plugins(page0_response)
         plugins_in_page1 = self.plugin_finder.list_plugins(page1_response)
@@ -69,24 +77,22 @@ class TestPassivePluginsFinder(TestCase):
         self.assertIn(google_analytics_meta.key, plugins_in_page0)
         self.assertEqual(len(plugins_in_page0), 3)
 
-        # self.assertIn(Plugin.from_name("cyclone-slider-2"), plugins_in_page1)
-        # self.assertIn(Plugin.from_name("sitepress-multilingual-cms"), plugins_in_page1)
-        # self.assertIn(Plugin.from_name("wp-jquery-lightbox"), plugins_in_page1)
-        # self.assertIn(Plugin.from_name("panopress"), plugins_in_page1)
-        # self.assertIn(Plugin.from_name("yet-another-related-posts-plugin"), plugins_in_page1)
-        # self.assertIn(Plugin.from_name("yoast-seo"), plugins_in_page1)
-        # self.assertIn(Plugin.from_name("google-analytics"), plugins_in_page1)
-        # self.assertEqual(len(plugins_in_page1), 7)
-        #
-        # self.assertIn(Plugin.from_name("wp-polls"), plugins_in_page2)
-        # self.assertIn(Plugin.from_name("wp-postratings"), plugins_in_page2)
-        # self.assertIn(Plugin.from_name("lift-search"), plugins_in_page2)
-        # self.assertIn(Plugin.from_name("jetpack"), plugins_in_page2)
-        # self.assertIn(Plugin.from_name("audio-player"), plugins_in_page2)
-        # self.assertIn(Plugin.from_name("google-analytics"), plugins_in_page2)
-        # self.assertIn(Plugin.from_name("scea-omniture"), plugins_in_page2)
-        # self.assertIn(Plugin.from_name("image-rotator-2"), plugins_in_page2)
-        # self.assertEqual(len(plugins_in_page2), 8)
+        self.assertIn(cyclone_slider_meta.key, plugins_in_page1)
+        self.assertIn(sitepress_meta.key, plugins_in_page1)
+        self.assertIn(lightbox_meta.key, plugins_in_page1)
+        self.assertIn(panopress_meta.key, plugins_in_page1)
+        self.assertIn(posts_plugin_meta.key, plugins_in_page1)
+        self.assertIn(yoast_seo_meta.key, plugins_in_page1)
+        self.assertIn(total_cache_meta.key, plugins_in_page1)
+        self.assertEqual(len(plugins_in_page1), 7)
+
+        self.assertIn(wp_polls_meta.key, plugins_in_page2)
+        self.assertIn(postratings_meta.key, plugins_in_page2)
+        self.assertIn(lift_search_meta.key, plugins_in_page2)
+        self.assertIn(jetpack_meta.key, plugins_in_page2)
+        self.assertIn(audio_player_meta.key, plugins_in_page2)
+        self.assertIn(google_analytics_meta.key, plugins_in_page2)
+        self.assertEqual(len(plugins_in_page2), 6)
 
     def test_search_in_element_attributes_find_plugins_from_plugin_url_in_attributes_values(self):
         element = etree.fromstring('<img src="http://static.blog.playstation.com/wp-content/plugins/wp-postratings/images/custom/rating_on.png"/>')
@@ -97,14 +103,13 @@ class TestPassivePluginsFinder(TestCase):
 
         self.assertEqual(plugin_key, postratings_meta.key)
 
-    def test_find_plugins_in_comments_find_plugin_from_url_in_comment(self):
-        self.skipTest("TODO find a url that point to an existing plugin for the test, as no plugin with the exact same file at the same path as been found in the database.")
-        sample_page = join(dirname(__file__), "samples/comment.html")
-        self.plugin_finder.meta_list = MetaList(key="plugins", metas=Meta(key=""))
+    def test_find_existing_plugin_in_string_find_plugin_from_url_in_comment(self):
+        comment = "this is a comment with a plugin url: http://www.wpsite.com/wp-content/plugins/my-plugin/script.js"
+        self.plugin_finder.meta_list = MetaList(key="plugins", metas=[Meta(key="my-plugin")])
 
-        plugins = self.plugin_finder._find_plugins_in_comments(html_file_to_hammertime_response(sample_page))
+        plugin_key = self.plugin_finder._find_existing_plugin_in_string(comment)
 
-        self.assertIn("carousel", [plugin.name for plugin in plugins])
+        self.assertEqual(plugin_key, "my-plugin")
 
     def test_search_plugin_in_comments_outside_document_parse_comments_outside_html_closing_tag(self):
         sample_page = join(dirname(__file__), "samples/timeinc.html")
@@ -115,7 +120,7 @@ class TestPassivePluginsFinder(TestCase):
 
         self.assertEqual(plugins, ["wp-super-cache"])
 
-    def test_find_plugin_name_in_comment_find_plugin_name_in_comment_that_match_plugin_name_in_meta_list(self):
+    def test_find_existing_plugin_in_string_find_plugin_name_in_comment_that_match_plugin_name_in_meta_list(self):
         plugin0_meta = Meta(key="plugins/google-analytics-for-wordpress", name="Google Analytics by MonsterInsights")
         plugin1_meta = Meta(key="plugins/wordpress-seo", name="Yoast SEO")
         plugin2_meta = Meta(key="plugins/wp-parsely", name="Parse.ly")
@@ -135,13 +140,13 @@ class TestPassivePluginsFinder(TestCase):
         comment5 = " Begin comScore Tag "
         comment6 = " BEGIN Metadata added by the Add-Meta-Tags WordPress plugin "
 
-        plugin0 = self.plugin_finder._find_plugin_key_in_comment(comment0)
-        plugin1 = self.plugin_finder._find_plugin_key_in_comment(comment1)
-        plugin2 = self.plugin_finder._find_plugin_key_in_comment(comment2)
-        plugin3 = self.plugin_finder._find_plugin_key_in_comment(comment3)
-        plugin4 = self.plugin_finder._find_plugin_key_in_comment(comment4)
-        plugin5 = self.plugin_finder._find_plugin_key_in_comment(comment5)
-        plugin6 = self.plugin_finder._find_plugin_key_in_comment(comment6)
+        plugin0 = self.plugin_finder._find_existing_plugin_in_string(comment0)
+        plugin1 = self.plugin_finder._find_existing_plugin_in_string(comment1)
+        plugin2 = self.plugin_finder._find_existing_plugin_in_string(comment2)
+        plugin3 = self.plugin_finder._find_existing_plugin_in_string(comment3)
+        plugin4 = self.plugin_finder._find_existing_plugin_in_string(comment4)
+        plugin5 = self.plugin_finder._find_existing_plugin_in_string(comment5)
+        plugin6 = self.plugin_finder._find_existing_plugin_in_string(comment6)
 
         self.assertEqual(plugin0, plugin0_meta.key)
         self.assertEqual(plugin1, plugin1_meta.key)
@@ -236,23 +241,12 @@ class TestPassivePluginsFinder(TestCase):
         self.assertEqual(self.plugin_finder._find_existing_plugin_in_string(string1), "plugins/wordpress-seo")
         self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string2))
 
-    def test_find_possible_plugin_name_in_comment_log_plugin_name_in_comment_with_plugin_word(self):
-        comment0 = "This site uses the Google Analytics by MonsterInsights plugin v5.5.4 - Universal enabled - https://www.monsterinsights.com/"
-        comment1 = "This site is optimized with the Yoast SEO plugin v4.0.2 - https://yoast.com/wordpress/plugins/seo/"
-        comment2 = " BEGIN wp-parsely Plugin Version 1.10.2 "
-        comment_without_plugin = " Random string iuehaguihug"
-        logger = MagicMock()
-        self.plugin_finder.set_logger(logger)
+    def test_get_plugin_key_from_plugin_url(self):
+        plugin_url0 = "http://www.mywebsite.com/wp-content/plugins/w3-total-cache"
+        plugin_url1 = "http://static.blog.playstation.com/wp-content/plugins/wp-postratings"
 
-        self.plugin_finder._find_possible_plugin_name_in_comment(comment0)
-        logger.add_plugin.assert_called_with("the google analytics")
+        plugin_key0 = self.plugin_finder._get_plugin_key_from_plugin_url(plugin_url0)
+        plugin_key1 = self.plugin_finder._get_plugin_key_from_plugin_url(plugin_url1)
 
-        self.plugin_finder._find_possible_plugin_name_in_comment(comment1)
-        logger.add_plugin.assert_called_with("the yoast seo")
-
-        self.plugin_finder._find_possible_plugin_name_in_comment(comment2)
-        logger.add_plugin.assert_called_with("begin wp-parsely")
-
-        logger.reset_mock()
-        self.plugin_finder._find_possible_plugin_name_in_comment(comment_without_plugin)
-        logger.add_plugin.assert_not_called()
+        self.assertEqual(plugin_key0, "plugins/w3-total-cache")
+        self.assertEqual(plugin_key1, "plugins/wp-postratings")

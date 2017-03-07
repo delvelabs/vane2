@@ -17,7 +17,6 @@
 
 from lxml import etree
 import re
-from vane.plugin import Plugin
 from io import BytesIO
 
 
@@ -30,13 +29,11 @@ comment_after_document = re.compile("</html>.*<!--.*-->$", re.DOTALL)
 
 class PassivePluginsFinder:
 
-    def __init__(self, logger, plugins_database):
-        self.plugins_database = plugins_database
-        self.meta_list = None
-        self.logger = logger
+    def __init__(self, meta_list):
+        self.meta_list = meta_list
 
-    def set_plugins_database(self, database):
-        self.plugins_database = database
+    def set_plugins_meta_list(self, meta_list):
+        self.meta_list = meta_list
 
     def set_logger(self, logger):
         self.logger = logger
@@ -64,34 +61,7 @@ class PassivePluginsFinder:
             plugin_key = self._find_existing_plugin_in_string(comment_element.text)
             if plugin_key is not None:
                 yield plugin_key
-            else:
-                plugin_name = self._find_plugin_key_in_comment(comment_element.text)
-                if plugin_name is not None:
-                    yield Plugin.from_name(plugin_name)
         yield from self._search_plugin_in_comments_outside_document(hammertime_response)
-
-    def _find_plugin_key_in_comment(self, comment):
-        plugin_key = self._find_existing_plugin_in_string(comment)  # search the string for a known plugin name.
-        if plugin_key is None:
-            plugin_key = self._find_possible_plugin_name_in_comment(comment)
-        return plugin_key
-
-    def _find_possible_plugin_name_in_comment(self, comment):
-        comment = comment.lower()
-        if plugin_in_comment.search(comment):
-            if plugin_author_in_comment.search(comment):  # Ex: Google Analytics by MonsterInsights plugin
-                end = re.search(" by", comment)
-            else:
-                end = re.search(" plugin", comment)
-            comment = comment[:end.start()]
-            # The plugin's name is probably in the three words before the 'plugin' word.
-            beginning = re.search("((\s|^)[\w-]+){1,3}$", comment)
-            possible_plugin_name = comment[beginning.start():]
-            # For now, unknown plugin are not stored, only logged, so it is not returned.
-            self._log_possible_plugin_name(possible_plugin_name.strip())
-
-    def _log_possible_plugin_name(self, plugin_name):
-        self.logger.add_plugin(plugin_name)
 
     def _search_plugin_in_comments_outside_document(self, hammertime_response):
         page_content = hammertime_response.raw.decode("utf-8")
@@ -104,7 +74,7 @@ class PassivePluginsFinder:
         def get_longest_match(matches, key=len):
             return max(matches, key=key)
         if self._contains_plugin_url(string):
-            _string = self._get_plugin_url_from_string(string)
+            _string = self._get_plugin_key_from_plugin_url(self._get_plugin_url_from_string(string))
         else:
             _string = string.lower()
         possible_keys = self._find_possible_plugin_keys_in_meta(_string)
@@ -128,6 +98,9 @@ class PassivePluginsFinder:
             return plugin_url.search(string).group()
         else:
             return relative_plugin_url.search(string).group()
+
+    def _get_plugin_key_from_plugin_url(self, url):
+        return re.search("plugins/.+$", url).group()
 
     def _find_possible_plugin_keys_in_meta(self, string):
         possible_keys = []
