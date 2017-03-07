@@ -24,7 +24,7 @@ from .retryonerrors import RetryOnErrors
 from openwebvulndb.common.schemas import FileListSchema, VulnerabilityListGroupSchema, VulnerabilitySchema, \
     MetaListSchema
 from openwebvulndb.common.serialize import clean_walk
-from .utils import load_model_from_file, validate_url
+from .utils import load_model_from_file, validate_url, normalize_url
 from .filefetcher import FileFetcher
 from .vulnerabilitylister import VulnerabilityLister
 
@@ -54,6 +54,8 @@ class Vane:
             self.output_manager.log_message("%s is not a valid url" % url)
             await self.hammertime.close()
             return
+
+        url = normalize_url(url)
 
         # TODO use user input for path?
         input_path = dirname(__file__)

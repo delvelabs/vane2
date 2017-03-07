@@ -15,4 +15,12 @@ def validate_url(url):
         return False
     if not re.match("https?", result.scheme):
         return False
+    if not url.endswith("/"):
+        url += "/"
     return True
+
+
+def normalize_url(url):
+    if not url.endswith("/"):
+        url += "/"
+    return url
