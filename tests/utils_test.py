@@ -10,12 +10,18 @@ class TestUtils(TestCase):
         url2 = "test.com"
         url3 = "test://www.test.com"
         url4 = "https//www.test.com"
+        url5 = "http://www.validurl.com"
+        url6 = "https://www.another.valid.url.com/"
+        url7 = "http://127.0.0.1/wordpress"
 
         self.assertFalse(validate_url(url0))
         self.assertFalse(validate_url(url1))
         self.assertFalse(validate_url(url2))
         self.assertFalse(validate_url(url3))
         self.assertFalse(validate_url(url4))
+        self.assertTrue(validate_url(url5))
+        self.assertTrue(validate_url(url6))
+        self.assertTrue(validate_url(url7))
 
     def test_normalize_url_append_slash_if_url_path_is_not_empty_and_not_ending_with_slash(self):
         url0 = "http://wp.dev.wardenscanner.com/"
