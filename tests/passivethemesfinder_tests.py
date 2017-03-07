@@ -23,6 +23,7 @@ from vane.theme import Theme
 
 from os.path import join, dirname
 
+from fixtures import html_file_to_hammertime_response
 
 class TestPassiveThemesFinder(TestCase):
 
@@ -92,11 +93,3 @@ class TestPassiveThemesFinder(TestCase):
         themes = self.themes_finder.list_themes(hammertime_response)
 
         self.assertIn("twenty11", (theme.name for theme in themes))
-
-
-def html_file_to_hammertime_response(filename):
-    with open(filename, 'rt') as html_page:
-        content = html_page.read()
-        hammertime_response = MagicMock()
-        hammertime_response.raw = content.encode("utf-8")
-        return hammertime_response

@@ -17,6 +17,8 @@
 
 from collections import OrderedDict
 
+from unittest.mock import MagicMock
+
 
 def wrap_lists_in_unordered_lists(iterable):
     """Recursively iterate over the contents of a iterable and wrap all lists elements into UnorderedList"""
@@ -45,3 +47,11 @@ class UnorderedList:
         except ValueError:
             return False
         return len(li) == 0
+
+
+def html_file_to_hammertime_response(filename):
+    with open(filename, 'rt') as html_page:
+        content = html_page.read()
+        hammertime_response = MagicMock()
+        hammertime_response.raw = content.encode("utf-8")
+        return hammertime_response
