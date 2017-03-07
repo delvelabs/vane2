@@ -20,7 +20,6 @@ from unittest.mock import MagicMock, patch, call
 from vane.core import Vane, OutputManager
 from aiohttp.test_utils import make_mocked_coro, loop_context
 from openwebvulndb.common.models import VulnerabilityList, Vulnerability, Meta, MetaList
-from collections import OrderedDict
 from vane.theme import Theme
 
 
@@ -300,3 +299,21 @@ class TestVane(TestCase):
         self.assertEqual(theme0, {"key": "themes/theme0", "version": "4.5"})
         self.assertEqual(theme1, {"key": "themes/theme1", "version": "3.2.1"})
         self.assertEqual(wordpress, {"version": "4.2.2"})
+
+    def test_scan_target_only_use_passive_detection_if_passive_parameter_is_true(self):
+        self.vane.identify_target_version = make_mocked_coro()
+        self.vane.active_plugin_enumeration = make_mocked_coro()
+        self.vane.passive_plugin_enumeration = make_mocked_coro()
+        self.vane.passive_theme_enumeration = make_mocked_coro()
+        self.vane.active_theme_enumeration = make_mocked_coro()
+        self.vane.list_component_vulnerabilities = MagicMock()
+        self.vane.hammertime.request = make_mocked_coro(return_value=MagicMock())
+        self.vane.hammertime.close = make_mocked_coro()
+
+        with loop_context() as loop:
+            loop.run_until_complete(self.vane.scan_target("target", True, True, passive_only=True))
+
+            self.vane.active_theme_enumeration.assert_not_called()
+            self.vane.active_plugin_enumeration.assert_not_called()
+            self.assertEqual(len(self.vane.passive_theme_enumeration.mock_calls), 1)
+            self.assertEqual(len(self.vane.passive_plugin_enumeration.mock_calls), 1)

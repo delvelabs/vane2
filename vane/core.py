@@ -48,7 +48,7 @@ class Vane:
         self.hammertime.heuristics.add_multiple([RetryOnErrors(range(502, 503)), RejectStatusCode(range(400, 600)),
                                                  HashResponse()])
 
-    async def scan_target(self, url, popular, vulnerable):
+    async def scan_target(self, url, popular, vulnerable, passive_only=False):
         self._load_database()
         self.output_manager.log_message("scanning %s" % url)
 
@@ -56,15 +56,15 @@ class Vane:
         input_path = dirname(__file__)
 
         wordpress_version = await self.identify_target_version(url, input_path)
-        #plugins_version = await self.plugin_enumeration(url, popular, vulnerable, input_path)
-        theme_versions = await self.theme_enumeration(url, popular, vulnerable, input_path)
+        plugins_version = await self.plugin_enumeration(url, popular, vulnerable, input_path, passive_only=passive_only)
+        theme_versions = await self.theme_enumeration(url, popular, vulnerable, input_path, passive_only=passive_only)
 
         file_name = join(input_path, "vane2_vulnerability_database.json")
         vulnerability_list_group, errors = load_model_from_file(file_name, VulnerabilityListGroupSchema())
 
-        #self.list_component_vulnerabilities(wordpress_version, vulnerability_list_group)
-        #self.list_component_vulnerabilities(plugins_version, vulnerability_list_group)
-        #self.list_component_vulnerabilities(theme_versions, vulnerability_list_group)
+        self.list_component_vulnerabilities(wordpress_version, vulnerability_list_group)
+        self.list_component_vulnerabilities(plugins_version, vulnerability_list_group)
+        self.list_component_vulnerabilities(theme_versions, vulnerability_list_group)
 
         await self.hammertime.close()
 
@@ -88,10 +88,12 @@ class Vane:
         self.output_manager.set_wordpress_version(version, meta_list.get_meta("wordpress"))
         return {'wordpress': version}
 
-    async def plugin_enumeration(self, url, popular, vulnerable, input_path):
+    async def plugin_enumeration(self, url, popular, vulnerable, input_path, passive_only=False):
         meta_list, errors = self._load_meta_list("plugins", input_path)
+        plugins_version = {}
 
-        plugins_version = await self.active_plugin_enumeration(url, popular, vulnerable, input_path, meta_list)
+        if not passive_only:
+            plugins_version = await self.active_plugin_enumeration(url, popular, vulnerable, input_path, meta_list)
 
         site_homepage = await self.hammertime.request(url)
         plugins = self.passive_plugin_enumeration(site_homepage.response, meta_list)
@@ -104,10 +106,12 @@ class Vane:
 
         return plugins_version
 
-    async def theme_enumeration(self, url, popular, vulnerable, input_path):
+    async def theme_enumeration(self, url, popular, vulnerable, input_path, passive_only=False):
         meta_list, errors = self._load_meta_list("themes", input_path)
+        themes_version = {}
 
-        themes_version = await self.active_theme_enumeration(url, popular, vulnerable, input_path, meta_list)
+        if not passive_only:
+            themes_version = await self.active_theme_enumeration(url, popular, vulnerable, input_path, meta_list)
 
         site_homepage = await self.hammertime.request(url)
 
@@ -222,11 +226,12 @@ class Vane:
         file_name = join(input_path, "vane2_%s_meta.json" % key)
         return load_model_from_file(file_name, MetaListSchema())
 
-    def perform_action(self, action="scan", url=None, database_path=None, popular=False, vulnerable=False):
+    def perform_action(self, action="scan", url=None, database_path=None, popular=False, vulnerable=False, passive=False):
         if action == "scan":
             if url is None:
                 raise ValueError("Target url required.")
-            self.hammertime.loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable))
+            self.hammertime.loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
+                                                                     passive_only=passive))
         elif action == "import_data":
             pass
         self.output_manager.flush()
