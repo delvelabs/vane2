@@ -99,6 +99,8 @@ class Vane:
         for plugin in plugins:
             if plugin not in plugins_version:
                 plugins_version[plugin] = None
+                meta = meta_list.get_meta(plugin)
+                self.output_manager.add_plugin(plugin, plugins_version[plugin], meta)
 
         return plugins_version
 
@@ -114,7 +116,8 @@ class Vane:
         for theme in themes:
             if theme not in themes_version:
                 themes_version[theme] = None
-                self.output_manager.add_theme(theme, None, meta_list.get_meta(theme))
+                meta = meta_list.get_meta(theme)
+                self.output_manager.add_theme(theme, themes_version[theme], meta)
 
         return themes_version
 
@@ -159,13 +162,8 @@ class Vane:
         return themes_version
 
     def passive_plugin_enumeration(self, html_page, meta_list):
-        passive_plugins_finder = PassivePluginsFinder(None, None)
-        possible_plugins = [] #passive_plugins_finder.list_plugins(html_page)
-        plugin_keys = []
-        for plugin in possible_plugins:
-            meta = meta_list.get_meta("plugins/" + plugin.name)
-            if meta is not None:
-                plugin_keys.append(meta.key)
+        passive_plugins_finder = PassivePluginsFinder(meta_list)
+        plugin_keys = passive_plugins_finder.list_plugins(html_page)
         return plugin_keys
 
     def passive_theme_enumeration(self, hammertime_response, meta_list):
