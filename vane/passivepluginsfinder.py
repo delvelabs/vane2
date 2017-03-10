@@ -38,8 +38,21 @@ class PassivePluginsFinder:
         self.meta_list = meta_list
 
     def list_plugins(self, hammertime_response):
-        plugins = set(self._find_plugins_in_elements(hammertime_response))
-        return plugins | set(self._find_plugins_in_comments(hammertime_response))
+        plugin_keys = set(self._find_plugins_in_elements(hammertime_response))
+
+        plugins_version = {}
+        for plugin_dict in self._find_plugins_in_comments(hammertime_response):
+            plugin_key, version = plugin_dict.popitem()
+            if plugin_key not in plugins_version:
+                plugins_version[plugin_key] = version
+            elif version is not None:
+                plugins_version[plugin_key] = version
+
+        for plugin_key in plugin_keys:
+            if plugin_key not in plugins_version:
+                plugins_version[plugin_key] = None
+
+        return plugins_version
 
     def _find_plugins_in_elements(self, hammertime_response):
         raw_html = BytesIO(hammertime_response.raw)
@@ -77,12 +90,17 @@ class PassivePluginsFinder:
             possible_plugin_key = self._get_plugin_key_from_plugin_url(plugin_url)
             confirmed_plugin_key = self._find_longest_plugin_key_match_in_meta_for_string(possible_plugin_key)
             if confirmed_plugin_key is not None:
-                return confirmed_plugin_key
+                version = self._get_version(string)
+                return {confirmed_plugin_key: version}
         if self._contains_url(string):
             plugin_key = self._get_plugin_key_from_meta_url_in_string(string)
             if plugin_key is not None:
-                return plugin_key
-        return self._get_plugin_key_from_name_in_comment(string)
+                version = self._get_version(string)
+                return {plugin_key: version}
+        plugin_key = self._get_plugin_key_from_name_in_comment(string)
+        if plugin_key is not None:
+            return {plugin_key: self._get_version(string)}
+        return None
 
     def _get_plugin_key_from_name_in_comment(self, string):
         string = string.lower()
@@ -181,6 +199,14 @@ class PassivePluginsFinder:
 
     def _contains_url(self, string):
         return url_pattern.search(string) is not None
+
+    def _get_version(self, string):
+        match = re.search("[Vv](ersion)?[\s]*\d+\.\d+(\.\d+)?", string)
+        if match is not None:
+            version = match.group()
+            version = re.sub("^\D+", "", version)
+            return version
+        return None
 
 
 def get_size_of_matching_sequence(sequence, _sequence):

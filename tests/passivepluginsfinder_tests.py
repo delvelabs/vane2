@@ -28,7 +28,7 @@ class TestPassivePluginsFinder(TestCase):
     def setUp(self):
         self.plugin_finder = PassivePluginsFinder(None)
 
-    def test_list_plugins_find_plugin_references_in_page_source(self):
+    def test_list_plugins_find_plugin_references_and_version_in_page_source(self):
         # yoast seo, disqus comment system and google analytics by monster insights:
         sample_page0 = join(dirname(__file__), "samples/delvelabs.html")
 
@@ -76,6 +76,8 @@ class TestPassivePluginsFinder(TestCase):
         self.assertIn(disqus_meta.key, plugins_in_page0)
         self.assertIn(yoast_seo_meta.key, plugins_in_page0)
         self.assertIn(google_analytics_meta.key, plugins_in_page0)
+        self.assertEqual(plugins_in_page0[yoast_seo_meta.key], "4.0.2")
+        self.assertEqual(plugins_in_page0[google_analytics_meta.key], "5.5.4")
         self.assertEqual(len(plugins_in_page0), 3)
 
         self.assertIn(cyclone_slider_meta.key, plugins_in_page1)
@@ -84,6 +86,7 @@ class TestPassivePluginsFinder(TestCase):
         self.assertIn(panopress_meta.key, plugins_in_page1)
         self.assertIn(posts_plugin_meta.key, plugins_in_page1)
         self.assertIn(yoast_seo_meta.key, plugins_in_page1)
+        self.assertEqual(plugins_in_page1[yoast_seo_meta.key], "3.4.1")
         self.assertIn(total_cache_meta.key, plugins_in_page1)
         self.assertEqual(len(plugins_in_page1), 7)
 
@@ -93,6 +96,7 @@ class TestPassivePluginsFinder(TestCase):
         self.assertIn(jetpack_meta.key, plugins_in_page2)
         self.assertIn(audio_player_meta.key, plugins_in_page2)
         self.assertIn(google_analytics_meta.key, plugins_in_page2)
+        self.assertEqual(plugins_in_page2[google_analytics_meta.key], "5.5.2")
         self.assertEqual(len(plugins_in_page2), 6)
 
     def test_search_in_element_attributes_find_plugins_from_plugin_url_in_attributes_values(self):
@@ -108,7 +112,7 @@ class TestPassivePluginsFinder(TestCase):
         comment = "this is a comment with a plugin url: http://www.wpsite.com/wp-content/plugins/my-plugin/script.js"
         self.plugin_finder.meta_list = MetaList(key="plugins", metas=[Meta(key="my-plugin")])
 
-        plugin_key = self.plugin_finder._find_plugin_in_string(comment)
+        plugin_key, version = self.plugin_finder._find_plugin_in_string(comment).popitem()
 
         self.assertEqual(plugin_key, "my-plugin")
 
@@ -119,9 +123,9 @@ class TestPassivePluginsFinder(TestCase):
         self.plugin_finder.meta_list = MetaList(key="plugins", metas=[total_cache_meta])
         response = html_file_to_hammertime_response(sample_page)
 
-        plugins = [plugin for plugin in self.plugin_finder._search_plugin_in_comments_outside_document(response)]
+        plugins = next(self.plugin_finder._search_plugin_in_comments_outside_document(response))
 
-        self.assertEqual(plugins, [total_cache_meta.key])
+        self.assertEqual(plugins, {total_cache_meta.key: None})
 
     def test_find_existing_plugin_in_string_find_plugin_in_comment_that_match_plugin_name_in_meta_list(self):
         plugin0_meta = Meta(key="plugins/google-analytics-for-wordpress", name="Google Analytics by MonsterInsights")
@@ -142,11 +146,11 @@ class TestPassivePluginsFinder(TestCase):
         plugin3 = self.plugin_finder._find_plugin_in_string(comment3)
         plugin4 = self.plugin_finder._find_plugin_in_string(comment4)
 
-        self.assertEqual(plugin0, plugin0_meta.key)
-        self.assertEqual(plugin1, plugin1_meta.key)
-        self.assertEqual(plugin2, plugin2_meta.key)
-        self.assertEqual(plugin3, plugin1_meta.key)
-        self.assertEqual(plugin4, plugin4_meta.key)
+        self.assertEqual(plugin0, {plugin0_meta.key: "5.5.4"})
+        self.assertEqual(plugin1, {plugin1_meta.key: "4.0.2"})
+        self.assertEqual(plugin2, {plugin2_meta.key: "1.10.2"})
+        self.assertEqual(plugin3, {plugin1_meta.key: None})
+        self.assertEqual(plugin4, {plugin4_meta.key: None})
 
     def test_contains_plugin_url_return_false_if_no_valid_url(self):
         url = "http://www.mywebsite.com/contact-us.html"
@@ -204,7 +208,9 @@ class TestPassivePluginsFinder(TestCase):
         self.plugin_finder.meta_list.metas = [Meta(key="plugins/captcha"), Meta(key="plugins/wp-captcha")]
         string = "This site uses the wp-captcha plugin."
 
-        self.assertEqual(self.plugin_finder._find_plugin_in_string(string), "plugins/wp-captcha")
+        key, version = self.plugin_finder._find_plugin_in_string(string).popitem()
+
+        self.assertEqual(key, "plugins/wp-captcha")
 
     def test_find_existing_plugin_in_string_return_plugin_key_with_key_in_meta_that_matches_string(self):
         string0 = "BEGIN wp-parsely Plugin Version 1.10.2 "
@@ -215,8 +221,8 @@ class TestPassivePluginsFinder(TestCase):
         self.plugin_finder.meta_list.metas.append(Meta(key="plugins/wp-parsely", name="Parse.ly"))
         self.plugin_finder.meta_list.metas.append(Meta(key="plugins/wp-captcha", name="WP Captcha"))
 
-        plugin_key0 = self.plugin_finder._find_plugin_in_string(string0)
-        plugin_key1 = self.plugin_finder._find_plugin_in_string(string1)
+        plugin_key0, version = self.plugin_finder._find_plugin_in_string(string0).popitem()
+        plugin_key1, version = self.plugin_finder._find_plugin_in_string(string1).popitem()
         plugin_key2 = self.plugin_finder._find_plugin_in_string(string2)
 
         self.assertEqual(plugin_key0, "plugins/wp-parsely")
@@ -233,8 +239,10 @@ class TestPassivePluginsFinder(TestCase):
         self.plugin_finder.meta_list.metas.append(Meta(key="plugins/google-analytics-for-wordpress",
                                                        name="Google Analytics by MonsterInsights"))
 
-        self.assertEqual(self.plugin_finder._find_plugin_in_string(string0), "plugins/google-analytics-for-wordpress")
-        self.assertEqual(self.plugin_finder._find_plugin_in_string(string1), "plugins/wordpress-seo")
+        plugin0 = self.plugin_finder._find_plugin_in_string(string0)
+        plugin1 = self.plugin_finder._find_plugin_in_string(string1)
+        self.assertEqual(plugin0, {"plugins/google-analytics-for-wordpress": "5.5.4"})
+        self.assertEqual(plugin1, {"plugins/wordpress-seo": "4.0.2"})
         self.assertIsNone(self.plugin_finder._find_plugin_in_string(string2))
 
     def test_find_existing_plugin_in_string_doesnt_find_name_that_are_part_of_larger_word(self):
@@ -342,3 +350,20 @@ class TestPassivePluginsFinder(TestCase):
         self.assertTrue(self.plugin_finder._contains_url(string2))
         self.assertFalse(self.plugin_finder._contains_url(string3))
         self.assertFalse(self.plugin_finder._contains_url(string4))
+
+    def test_get_version_return_plugin_version_from_string(self):
+        string0 = "This site is optimized with the Yoast SEO plugin v4.0.2 - https://yoast.com/wordpress/plugins/seo/"
+        string_without_version = "The amazing plugin without version."
+        string1 = "This site uses the Google Analytics by MonsterInsights plugin v5.5.4 - Universal enabled - " \
+                  "https://www.monsterinsights.com/"
+        string2 = "BEGIN wp-parsely Plugin Version 1.10.2"
+
+        version0 = self.plugin_finder._get_version(string0)
+        version1 = self.plugin_finder._get_version(string1)
+        version2 = self.plugin_finder._get_version(string2)
+        no_version = self.plugin_finder._get_version(string_without_version)
+
+        self.assertEqual(version0, "4.0.2")
+        self.assertEqual(version1, "5.5.4")
+        self.assertEqual(version2, "1.10.2")
+        self.assertIsNone(no_version)
