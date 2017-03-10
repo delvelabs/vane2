@@ -60,7 +60,8 @@ class TestPassivePluginsFinder(TestCase):
                                  name="Yet Another Related Posts Plugin (YARPP)")
         postratings_meta = Meta(key="plugins/wp-postratings", name="WP-PostRatings")
         lift_search_meta = Meta(key="plugins/lift-search", name="Lift: Search for WordPress")
-        total_cache_meta = Meta(key="plugins/w3-total-cache", name="W3 Total Cache")
+        total_cache_meta = Meta(key="plugins/w3-total-cache", name="W3 Total Cache",
+                                url="http://www.w3-edge.com/wordpress-plugins/w3-total-cache/")
         self.plugin_finder.meta_list = MetaList(key="plugins", metas=[disqus_meta, yoast_seo_meta, jetpack_meta,
                                                                       google_analytics_meta, cyclone_slider_meta,
                                                                       sitepress_meta, audio_player_meta, lightbox_meta,
@@ -112,49 +113,40 @@ class TestPassivePluginsFinder(TestCase):
         self.assertEqual(plugin_key, "my-plugin")
 
     def test_search_plugin_in_comments_outside_document_parse_comments_outside_html_closing_tag(self):
-        sample_page = join(dirname(__file__), "samples/timeinc.html")
-        self.plugin_finder.meta_list = MetaList(key="plugins", metas=[Meta(key="wp-super-cache")])
+        sample_page = join(dirname(__file__), "samples/starwars.html")
+        total_cache_meta = Meta(key="plugins/w3-total-cache", name="W3 Total Cache",
+                                url="http://www.w3-edge.com/wordpress-plugins/w3-total-cache/")
+        self.plugin_finder.meta_list = MetaList(key="plugins", metas=[total_cache_meta])
         response = html_file_to_hammertime_response(sample_page)
 
         plugins = [plugin for plugin in self.plugin_finder._search_plugin_in_comments_outside_document(response)]
 
-        self.assertEqual(plugins, ["wp-super-cache"])
+        self.assertEqual(plugins, [total_cache_meta.key])
 
-    def test_find_existing_plugin_in_string_find_plugin_name_in_comment_that_match_plugin_name_in_meta_list(self):
+    def test_find_existing_plugin_in_string_find_plugin_in_comment_that_match_plugin_name_in_meta_list(self):
         plugin0_meta = Meta(key="plugins/google-analytics-for-wordpress", name="Google Analytics by MonsterInsights")
         plugin1_meta = Meta(key="plugins/wordpress-seo", name="Yoast SEO")
         plugin2_meta = Meta(key="plugins/wp-parsely", name="Parse.ly")
-        plugin4_meta = Meta(key="plugins/w3-total-cache", name="W3 Total Cache")
-        plugin5_meta = Meta(key="plugins/comscore-tag", name="Comscore tag")
-        plugin6_meta = Meta(key="plugins/add-meta-tags", name="Add Meta Tags")
+        plugin4_meta = Meta(key="plugins/add-meta-tags", name="Add Meta Tags")
         self.plugin_finder.meta_list = MetaList(key="plugins", metas=[plugin0_meta, plugin1_meta, plugin2_meta,
-                                                                      plugin4_meta, plugin5_meta, plugin6_meta])
+                                                                      plugin4_meta])
         comment0 = "This site uses the Google Analytics by MonsterInsights plugin v5.5.4 - Universal enabled - https://www.monsterinsights.com/"
         comment1 = "This site is optimized with the Yoast SEO plugin v4.0.2 - https://yoast.com/wordpress/plugins/seo/"
         comment2 = " BEGIN wp-parsely Plugin Version 1.10.2 "
         comment3 = " / Yoast SEO plugin. "
-        comment4 = """ Performance optimized by W3 Total Cache. Learn more: http://www.w3-edge.com/wordpress-plugins/
-                       Page Caching using memcached Database Caching 20/145 queries in 0.172 seconds using memcached
-                       Object Caching 3311/3449 objects using memcached
-                       Served from: www.bbcamerica.com @ 2017-01-11 10:56:28 by W3 Total Cache"""
-        comment5 = " Begin comScore Tag "
-        comment6 = " BEGIN Metadata added by the Add-Meta-Tags WordPress plugin "
+        comment4 = " BEGIN Metadata added by the Add-Meta-Tags WordPress plugin "
 
         plugin0 = self.plugin_finder._find_existing_plugin_in_string(comment0)
         plugin1 = self.plugin_finder._find_existing_plugin_in_string(comment1)
         plugin2 = self.plugin_finder._find_existing_plugin_in_string(comment2)
         plugin3 = self.plugin_finder._find_existing_plugin_in_string(comment3)
         plugin4 = self.plugin_finder._find_existing_plugin_in_string(comment4)
-        plugin5 = self.plugin_finder._find_existing_plugin_in_string(comment5)
-        plugin6 = self.plugin_finder._find_existing_plugin_in_string(comment6)
 
         self.assertEqual(plugin0, plugin0_meta.key)
         self.assertEqual(plugin1, plugin1_meta.key)
         self.assertEqual(plugin2, plugin2_meta.key)
         self.assertEqual(plugin3, plugin1_meta.key)
         self.assertEqual(plugin4, plugin4_meta.key)
-        self.assertEqual(plugin5, plugin5_meta.key)
-        self.assertEqual(plugin6, plugin6_meta.key)
 
     def test_contains_plugin_url_return_false_if_no_valid_url(self):
         url = "http://www.mywebsite.com/contact-us.html"
@@ -241,6 +233,28 @@ class TestPassivePluginsFinder(TestCase):
         self.assertEqual(self.plugin_finder._find_existing_plugin_in_string(string1), "plugins/wordpress-seo")
         self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string2))
 
+    def test_find_existing_plugin_in_string_doesnt_find_name_that_are_part_of_larger_word(self):
+        """Test that a word like 'secondary' in a comment doesn't match a plugin like 'econda'."""
+        meta_list = MetaList(key="plugins", metas=[Meta(key="plugins/econda"), Meta(key="plugins/nofollow"),
+                                                   Meta(key="plugins/recentcomments"), Meta(key="plugins/google")])
+        self.plugin_finder.set_plugins_meta_list(meta_list)
+        string0 = "secondary-toggle"
+        string3 = "//fonts.googleapis.com/css"
+
+        self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string0))
+        self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string3))
+
+    # TODO find a better name
+    def test_find_existing_plugin_in_url_doesnt_return_words_containing_plugin_names(self):
+        meta_list = MetaList(key="plugins", metas=[Meta(key="plugins/nofollow"),
+                                                   Meta(key="plugins/recentcomments")])
+        self.plugin_finder.set_plugins_meta_list(meta_list)
+        string1 = "external nofollow"
+        string2 = "recentcomments"
+
+        self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string1))
+        self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string2))
+
     def test_get_plugin_key_from_plugin_url(self):
         plugin_url0 = "http://www.mywebsite.com/wp-content/plugins/w3-total-cache"
         plugin_url1 = "http://static.blog.playstation.com/wp-content/plugins/wp-postratings"
@@ -250,3 +264,63 @@ class TestPassivePluginsFinder(TestCase):
 
         self.assertEqual(plugin_key0, "plugins/w3-total-cache")
         self.assertEqual(plugin_key1, "plugins/wp-postratings")
+
+    def test_extract_plugin_from_plugin_comment_pattern(self):
+        plugin_string0 = "BEGIN wp-parsely Plugin Version 1.10.2 "
+        plugin_string1 = "This site uses the wp-captcha plugin."
+        plugin_string2 = "No plugin name in this string"
+        plugin_string3 = "This site uses the Google Analytics by MonsterInsights plugin"
+
+        plugin0_meta = Meta(key="plugins/wp-parsely", name="Parse.ly")
+        plugin1_meta = Meta(key="plugins/wp-captcha", name="WP Captcha")
+        plugin3_meta = Meta(key="plugins/google-analytics-for-wordpress", name="Google Analytics by MonsterInsights")
+        self.plugin_finder.meta_list = MetaList(key="plugins", metas=[plugin0_meta, plugin1_meta, plugin3_meta])
+
+        plugin0_key = self.plugin_finder._extract_plugin_from_plugin_comment_pattern(plugin_string0)
+        plugin1_key = self.plugin_finder._extract_plugin_from_plugin_comment_pattern(plugin_string1)
+        plugin2_key = self.plugin_finder._extract_plugin_from_plugin_comment_pattern(plugin_string2)
+        plugin3_key = self.plugin_finder._extract_plugin_from_plugin_comment_pattern(plugin_string3)
+
+        self.assertEqual(plugin0_key, plugin0_meta.key)
+        self.assertEqual(plugin1_key, plugin1_meta.key)
+        self.assertIsNone(plugin2_key)
+        self.assertEqual(plugin3_key, plugin3_meta.key)
+
+    def test_get_plugin_key_from_meta_url_in_string(self):
+        plugin0_string = "This site uses the Google Analytics by MonsterInsights plugin v5.5.4 - Universal enabled - https://www.monsterinsights.com/"
+        plugin1_string = "This site is optimized with the Yoast SEO plugin v4.0.2 - https://yoast.com/wordpress/plugins/seo/"
+        plugin2_string = "Performance optimized by W3 Total Cache. Learn more: http://www.w3-edge.com/wordpress-plugins"
+        plugin3_string = "String with a random url: https://www.google.com"
+
+        total_cache_meta = Meta(key="plugins/w3-total-cache", name="W3 Total Cache",
+                                url="http://www.w3-edge.com/wordpress-plugins/w3-total-cache/")
+        yoast_seo_meta = Meta(key="plugins/wordpress-seo", name="Yoast SEO",
+                              url="https://yoast.com/wordpress/plugins/seo/#utm_source=wpadmin&#038;utm_medium=plugin&#038;utm_campaign=wpseoplugin")
+        google_analytics_meta = Meta(key="plugins/google-analytics-for-wordpress",
+                                     name="Google Analytics by MonsterInsights",
+                                     url="https://www.monsterinsights.com/pricing/#utm_source=wordpress&#038;utm_medium=plugin&#038;utm_campaign=wpgaplugin&#038;utm_content=v504")
+        self.plugin_finder.meta_list = MetaList(key="plugins", metas=[total_cache_meta, yoast_seo_meta,
+                                                                      google_analytics_meta])
+
+        plugin_key0 = self.plugin_finder._get_plugin_key_from_meta_url_in_string(plugin0_string)
+        plugin_key1 = self.plugin_finder._get_plugin_key_from_meta_url_in_string(plugin1_string)
+        plugin_key2 = self.plugin_finder._get_plugin_key_from_meta_url_in_string(plugin2_string)
+        plugin_key3 = self.plugin_finder._get_plugin_key_from_meta_url_in_string(plugin3_string)
+
+        self.assertEqual(plugin_key0, google_analytics_meta.key)
+        self.assertEqual(plugin_key1, yoast_seo_meta.key)
+        self.assertEqual(plugin_key2, total_cache_meta.key)
+        self.assertIsNone(plugin_key3)
+
+    def test_contains_url(self):
+        string0 = "string with an url: http://www.google.com/"
+        string1 = "another string with an url https://www.delve-labs.com/"
+        string2 = "http://www.w3-edge.com/wordpress-plugins more characters..."
+        string3 = "no url in this string..."
+        string4 = "no url here too, but .com present."
+
+        self.assertTrue(self.plugin_finder._contains_url(string0))
+        self.assertTrue(self.plugin_finder._contains_url(string1))
+        self.assertTrue(self.plugin_finder._contains_url(string2))
+        self.assertFalse(self.plugin_finder._contains_url(string3))
+        self.assertFalse(self.plugin_finder._contains_url(string4))
