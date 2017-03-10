@@ -190,10 +190,14 @@ class TestPassivePluginsFinder(TestCase):
     def test_find_existing_plugin_in_string_only_return_full_match(self):
         self.plugin_finder.meta_list = MetaList(key="plugins")
         self.plugin_finder.meta_list.metas = [Meta(key="plugins/recaptcha"), Meta(key="plugins/spam-captcha"),
-                                              Meta(key="plugins/pluscaptcha"), Meta(key="plugins/wp-captcha")]
-        string = "This site uses the captcha plugin."
+                                              Meta(key="plugins/pluscaptcha"), Meta(key="plugins/wp-captcha"),
+                                              Meta(key="plugins/typing-lag-fix-for-yoast-seo",
+                                                   name="Typing Lag Fix for Yoast SEO")]
+        string0 = "This site uses the captcha plugin."
+        string1 = "This site is optimized with the Yoast SEO plugin v4.0.2 - https://yoast.com/wordpress/plugins/seo/"
 
-        self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string))
+        self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string0))
+        self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string1))
 
     def test_find_existing_plugin_in_string_return_longest_match(self):
         self.plugin_finder.meta_list = MetaList(key="plugins")
@@ -311,6 +315,20 @@ class TestPassivePluginsFinder(TestCase):
         self.assertEqual(plugin_key1, yoast_seo_meta.key)
         self.assertEqual(plugin_key2, total_cache_meta.key)
         self.assertIsNone(plugin_key3)
+
+    def test_get_plugin_key_from_meta_url_in_string_return_key_with_longest_url_match(self):
+        # This string has the plugin name and a part of its url:
+        string = "This site is optimized with the Yoast SEO plugin v4.0.2 - https://yoast.com/wordpress/plugins/seo/"
+        yoast_seo_meta = Meta(key="plugins/wordpress-seo", name="Yoast SEO",
+                              url="https://yoast.com/wordpress/plugins/seo/#utm_source=wpadmin&#038;utm_medium=plugin&#"
+                                  "038;utm_campaign=wpseoplugin")
+        email_commenter_meta = Meta(key="plugins/email-commenters", name="Email Commenters",
+                                    url="http://yoast.com/wordpress/email-commenters/")  # url matches, but shorter than the other match
+        self.plugin_finder.meta_list = MetaList(key="plugins", metas=[email_commenter_meta, yoast_seo_meta])
+
+        plugin_key = self.plugin_finder._get_plugin_key_from_meta_url_in_string(string)
+
+        self.assertEqual(plugin_key, yoast_seo_meta.key)
 
     def test_contains_url(self):
         string0 = "string with an url: http://www.google.com/"

@@ -27,7 +27,7 @@ relative_plugin_url = re.compile("/wp-content/(mu-)?plugins/[^/]+")
 plugin_in_comment = re.compile("(\w+\s)+plugin")
 plugin_author_in_comment = re.compile("([\w]+\s)+by ([\w]+\s)+plugin")
 comment_after_document = re.compile("</html>.*<!--.*-->$", re.DOTALL)
-url_pattern = re.compile("https?://([\w-]+\.)+\w+/?([\w-]*|/)*")
+url_pattern = re.compile("https?://([\w-]+\.)+\w+/?([\w-]*/?)*")
 
 
 class PassivePluginsFinder:
@@ -144,7 +144,7 @@ class PassivePluginsFinder:
                 if plugin_meta.name is not None:
                     _words = plugin_meta.name.lower().split(" ")
                     match_size = get_size_of_matching_sequence(words, _words)
-                    if match_size > 0:
+                    if match_size >= len(_words):  # Prevent short plugins names to match a part of a longer plugin name.
                         possible_matching_metas.append({"meta": plugin_meta, "match_size": match_size})
         return possible_matching_metas
 
