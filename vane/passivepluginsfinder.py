@@ -25,7 +25,6 @@ from difflib import SequenceMatcher
 plugin_url = re.compile("(https?:)?//([\w%-]+(\.|/))+wp-content/(mu-)?plugins/[^/]+")
 relative_plugin_url = re.compile("/wp-content/(mu-)?plugins/[^/]+")
 plugin_in_comment = re.compile("(\w+\s)+plugin")
-plugin_author_in_comment = re.compile("([\w]+\s)+by ([\w]+\s)+plugin")
 comment_after_document = re.compile("</html>.*<!--.*-->$", re.DOTALL)
 url_pattern = re.compile("https?://([\w-]+\.)+\w+/?([\w-]*/?)*")
 
@@ -60,7 +59,7 @@ class PassivePluginsFinder:
         raw_html = BytesIO(hammertime_response.raw)
         element_tree_iterator = etree.iterparse(raw_html, html=True, events=("comment",))
         for event, comment_element in element_tree_iterator:
-            plugin_key = self._find_existing_plugin_in_string(comment_element.text)
+            plugin_key = self._find_plugin_in_string(comment_element.text)
             if plugin_key is not None:
                 yield plugin_key
         yield from self._search_plugin_in_comments_outside_document(hammertime_response)
@@ -68,11 +67,11 @@ class PassivePluginsFinder:
     def _search_plugin_in_comments_outside_document(self, hammertime_response):
         page_content = hammertime_response.raw.decode("utf-8")
         for comment in comment_after_document.findall(page_content):
-            plugin_key = self._find_existing_plugin_in_string(comment)
+            plugin_key = self._find_plugin_in_string(comment)
             if plugin_key is not None:
                 yield plugin_key
 
-    def _find_existing_plugin_in_string(self, string):
+    def _find_plugin_in_string(self, string):
         if self._contains_plugin_url(string):
             plugin_url = self._get_plugin_url_from_string(string)
             possible_plugin_key = self._get_plugin_key_from_plugin_url(plugin_url)
@@ -83,9 +82,9 @@ class PassivePluginsFinder:
             plugin_key = self._get_plugin_key_from_meta_url_in_string(string)
             if plugin_key is not None:
                 return plugin_key
-        return self._extract_plugin_from_plugin_comment_pattern(string)
+        return self._get_plugin_key_from_name_in_comment(string)
 
-    def _extract_plugin_from_plugin_comment_pattern(self, string):
+    def _get_plugin_key_from_name_in_comment(self, string):
         string = string.lower()
         if plugin_in_comment.search(string):
             end = re.search(" plugin", string)
@@ -166,10 +165,9 @@ class PassivePluginsFinder:
             for meta in possible_metas:
                 meta_url = urlparse(meta.url)
                 if meta_url.path != "":
-                    sequence_matcher = SequenceMatcher(a=meta_url.path, b=parsed_url.path)
-                    match = sequence_matcher.find_longest_match(0, len(meta_url.path), 0, len(parsed_url.path))
-                    if match.size > 0:
-                        matches_length[meta.key] = match.size
+                    match_size = get_size_of_matching_sequence(meta_url.path, parsed_url.path)
+                    if match_size > 0:
+                        matches_length[meta.key] = match_size
             if len(matches_length) > 1:
                 return max(matches_length.items(), key=lambda item: item[1])[0]
             elif len(matches_length) == 1:
@@ -185,7 +183,7 @@ class PassivePluginsFinder:
         return url_pattern.search(string) is not None
 
 
-def get_size_of_matching_sequence(words, _words):
-    sequence_matcher = SequenceMatcher(a=words, b=_words)
-    match = sequence_matcher.find_longest_match(0, len(words), 0, len(_words))
+def get_size_of_matching_sequence(sequence, _sequence):
+    sequence_matcher = SequenceMatcher(a=sequence, b=_sequence)
+    match = sequence_matcher.find_longest_match(0, len(sequence), 0, len(_sequence))
     return match.size

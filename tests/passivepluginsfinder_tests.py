@@ -108,7 +108,7 @@ class TestPassivePluginsFinder(TestCase):
         comment = "this is a comment with a plugin url: http://www.wpsite.com/wp-content/plugins/my-plugin/script.js"
         self.plugin_finder.meta_list = MetaList(key="plugins", metas=[Meta(key="my-plugin")])
 
-        plugin_key = self.plugin_finder._find_existing_plugin_in_string(comment)
+        plugin_key = self.plugin_finder._find_plugin_in_string(comment)
 
         self.assertEqual(plugin_key, "my-plugin")
 
@@ -136,11 +136,11 @@ class TestPassivePluginsFinder(TestCase):
         comment3 = " / Yoast SEO plugin. "
         comment4 = " BEGIN Metadata added by the Add-Meta-Tags WordPress plugin "
 
-        plugin0 = self.plugin_finder._find_existing_plugin_in_string(comment0)
-        plugin1 = self.plugin_finder._find_existing_plugin_in_string(comment1)
-        plugin2 = self.plugin_finder._find_existing_plugin_in_string(comment2)
-        plugin3 = self.plugin_finder._find_existing_plugin_in_string(comment3)
-        plugin4 = self.plugin_finder._find_existing_plugin_in_string(comment4)
+        plugin0 = self.plugin_finder._find_plugin_in_string(comment0)
+        plugin1 = self.plugin_finder._find_plugin_in_string(comment1)
+        plugin2 = self.plugin_finder._find_plugin_in_string(comment2)
+        plugin3 = self.plugin_finder._find_plugin_in_string(comment3)
+        plugin4 = self.plugin_finder._find_plugin_in_string(comment4)
 
         self.assertEqual(plugin0, plugin0_meta.key)
         self.assertEqual(plugin1, plugin1_meta.key)
@@ -196,15 +196,15 @@ class TestPassivePluginsFinder(TestCase):
         string0 = "This site uses the captcha plugin."
         string1 = "This site is optimized with the Yoast SEO plugin v4.0.2 - https://yoast.com/wordpress/plugins/seo/"
 
-        self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string0))
-        self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string1))
+        self.assertIsNone(self.plugin_finder._find_plugin_in_string(string0))
+        self.assertIsNone(self.plugin_finder._find_plugin_in_string(string1))
 
     def test_find_existing_plugin_in_string_return_longest_match(self):
         self.plugin_finder.meta_list = MetaList(key="plugins")
         self.plugin_finder.meta_list.metas = [Meta(key="plugins/captcha"), Meta(key="plugins/wp-captcha")]
         string = "This site uses the wp-captcha plugin."
 
-        self.assertEqual(self.plugin_finder._find_existing_plugin_in_string(string), "plugins/wp-captcha")
+        self.assertEqual(self.plugin_finder._find_plugin_in_string(string), "plugins/wp-captcha")
 
     def test_find_existing_plugin_in_string_return_plugin_key_with_key_in_meta_that_matches_string(self):
         string0 = "BEGIN wp-parsely Plugin Version 1.10.2 "
@@ -215,9 +215,9 @@ class TestPassivePluginsFinder(TestCase):
         self.plugin_finder.meta_list.metas.append(Meta(key="plugins/wp-parsely", name="Parse.ly"))
         self.plugin_finder.meta_list.metas.append(Meta(key="plugins/wp-captcha", name="WP Captcha"))
 
-        plugin_key0 = self.plugin_finder._find_existing_plugin_in_string(string0)
-        plugin_key1 = self.plugin_finder._find_existing_plugin_in_string(string1)
-        plugin_key2 = self.plugin_finder._find_existing_plugin_in_string(string2)
+        plugin_key0 = self.plugin_finder._find_plugin_in_string(string0)
+        plugin_key1 = self.plugin_finder._find_plugin_in_string(string1)
+        plugin_key2 = self.plugin_finder._find_plugin_in_string(string2)
 
         self.assertEqual(plugin_key0, "plugins/wp-parsely")
         self.assertEqual(plugin_key1, "plugins/wp-captcha")
@@ -233,9 +233,9 @@ class TestPassivePluginsFinder(TestCase):
         self.plugin_finder.meta_list.metas.append(Meta(key="plugins/google-analytics-for-wordpress",
                                                        name="Google Analytics by MonsterInsights"))
 
-        self.assertEqual(self.plugin_finder._find_existing_plugin_in_string(string0), "plugins/google-analytics-for-wordpress")
-        self.assertEqual(self.plugin_finder._find_existing_plugin_in_string(string1), "plugins/wordpress-seo")
-        self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string2))
+        self.assertEqual(self.plugin_finder._find_plugin_in_string(string0), "plugins/google-analytics-for-wordpress")
+        self.assertEqual(self.plugin_finder._find_plugin_in_string(string1), "plugins/wordpress-seo")
+        self.assertIsNone(self.plugin_finder._find_plugin_in_string(string2))
 
     def test_find_existing_plugin_in_string_doesnt_find_name_that_are_part_of_larger_word(self):
         """Test that a word like 'secondary' in a comment doesn't match a plugin like 'econda'."""
@@ -245,8 +245,8 @@ class TestPassivePluginsFinder(TestCase):
         string0 = "secondary-toggle"
         string3 = "//fonts.googleapis.com/css"
 
-        self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string0))
-        self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string3))
+        self.assertIsNone(self.plugin_finder._find_plugin_in_string(string0))
+        self.assertIsNone(self.plugin_finder._find_plugin_in_string(string3))
 
     # TODO find a better name
     def test_find_existing_plugin_in_url_doesnt_return_words_containing_plugin_names(self):
@@ -256,8 +256,8 @@ class TestPassivePluginsFinder(TestCase):
         string1 = "external nofollow"
         string2 = "recentcomments"
 
-        self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string1))
-        self.assertIsNone(self.plugin_finder._find_existing_plugin_in_string(string2))
+        self.assertIsNone(self.plugin_finder._find_plugin_in_string(string1))
+        self.assertIsNone(self.plugin_finder._find_plugin_in_string(string2))
 
     def test_get_plugin_key_from_plugin_url(self):
         plugin_url0 = "http://www.mywebsite.com/wp-content/plugins/w3-total-cache"
@@ -280,10 +280,10 @@ class TestPassivePluginsFinder(TestCase):
         plugin3_meta = Meta(key="plugins/google-analytics-for-wordpress", name="Google Analytics by MonsterInsights")
         self.plugin_finder.meta_list = MetaList(key="plugins", metas=[plugin0_meta, plugin1_meta, plugin3_meta])
 
-        plugin0_key = self.plugin_finder._extract_plugin_from_plugin_comment_pattern(plugin_string0)
-        plugin1_key = self.plugin_finder._extract_plugin_from_plugin_comment_pattern(plugin_string1)
-        plugin2_key = self.plugin_finder._extract_plugin_from_plugin_comment_pattern(plugin_string2)
-        plugin3_key = self.plugin_finder._extract_plugin_from_plugin_comment_pattern(plugin_string3)
+        plugin0_key = self.plugin_finder._get_plugin_key_from_name_in_comment(plugin_string0)
+        plugin1_key = self.plugin_finder._get_plugin_key_from_name_in_comment(plugin_string1)
+        plugin2_key = self.plugin_finder._get_plugin_key_from_name_in_comment(plugin_string2)
+        plugin3_key = self.plugin_finder._get_plugin_key_from_name_in_comment(plugin_string3)
 
         self.assertEqual(plugin0_key, plugin0_meta.key)
         self.assertEqual(plugin1_key, plugin1_meta.key)
