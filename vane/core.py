@@ -98,12 +98,15 @@ class Vane:
         site_homepage = await self.hammertime.request(url)
         plugins = self.passive_plugin_enumeration(site_homepage.response, meta_list)
 
-        for plugin in plugins:
-            if plugin not in plugins_version:
-                plugins_version[plugin] = None
-                meta = meta_list.get_meta(plugin)
-                self.output_manager.add_plugin(plugin, plugins_version[plugin], meta)
-
+        for plugin_key, version in plugins.items():
+            if plugin_key not in plugins_version:
+                plugins_version[plugin_key] = version
+                meta = meta_list.get_meta(plugin_key)
+                self.output_manager.add_plugin(plugin_key, version, meta)
+            elif version is not None:
+                plugins_version[plugin_key] = version
+                meta = meta_list.get_meta(plugin_key)
+                self.output_manager.add_plugin(plugin_key, version, meta)
         return plugins_version
 
     async def theme_enumeration(self, url, popular, vulnerable, input_path, passive_only=False):

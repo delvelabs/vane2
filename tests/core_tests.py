@@ -111,8 +111,8 @@ class TestVane(TestCase):
         meta_list.metas = [disqus_meta, wp_postratings_meta, cyclone_slider_meta]
 
         fake_plugin_finder = MagicMock()
-        fake_plugin_finder.list_plugins.return_value = {"plugins/wp-postratings", "plugins/disqus-comment-system",
-                                                        "plugins/cyclone-slider-2"}
+        fake_plugin_finder.list_plugins.return_value = {"plugins/wp-postratings": None, "plugins/disqus-comment-system":
+                                                        "1.0.2", "plugins/cyclone-slider-2": "2.9.1"}
 
         fake_plugin_finder_factory = MagicMock()
         fake_plugin_finder_factory.return_value = fake_plugin_finder
@@ -121,13 +121,17 @@ class TestVane(TestCase):
             plugins = self.vane.passive_plugin_enumeration("html_page", meta_list)
 
             self.assertIn(disqus_meta.key, plugins)
+            self.assertEqual(plugins[disqus_meta.key], "1.0.2")
             self.assertIn(wp_postratings_meta.key, plugins)
+            self.assertIsNone(plugins[wp_postratings_meta.key])
             self.assertIn(cyclone_slider_meta.key, plugins)
+            self.assertEqual(plugins[cyclone_slider_meta.key], "2.9.1")
 
     def test_plugin_enumeration_merge_active_and_passive_detection_results(self):
         self.vane.active_plugin_enumeration = make_mocked_coro(return_value={"plugins/plugin0": "1.2",
                                                                              "plugins/plugin1": "3.2.1"})
-        self.vane.passive_plugin_enumeration = MagicMock(return_value=["plugins/plugin2", "plugins/plugin1"])
+        self.vane.passive_plugin_enumeration = MagicMock(return_value={"plugins/plugin2" : "4.3.1",
+                                                                       "plugins/plugin1": None})
         self.vane.hammertime.request = make_mocked_coro(return_value=MagicMock())
 
         with patch("vane.core.load_model_from_file", self.fake_load):
@@ -135,12 +139,37 @@ class TestVane(TestCase):
                 plugins_version = loop.run_until_complete(self.vane.plugin_enumeration("target", True, True, "path"))
 
                 self.assertEqual(plugins_version, {"plugins/plugin0": "1.2", "plugins/plugin1": "3.2.1",
-                                                   "plugins/plugin2": None})
+                                                   "plugins/plugin2": "4.3.1"})
+
+    def test_plugin_enumeration_overwrite_version_found_during_active_scan_with_passive_detection_results_if_not_none(self):
+        self.vane.active_plugin_enumeration = make_mocked_coro(return_value={"plugins/plugin0": None,
+                                                                             "plugins/plugin1": "3.2.1",
+                                                                             "plugins/plugin2": "1.2.3"})
+        self.vane.passive_plugin_enumeration = MagicMock(return_value={"plugins/plugin0": "4.3.1",
+                                                                       "plugins/plugin1": None,
+                                                                       "plugins/plugin2": "1.2.4"})
+        self.vane.hammertime.request = make_mocked_coro(return_value=MagicMock())
+
+        self.vane.output_manager = OutputManager()
+
+        with patch("vane.core.load_model_from_file", self.fake_load):
+            with loop_context() as loop:
+                plugins_version = loop.run_until_complete(self.vane.plugin_enumeration("target", True, True, "path"))
+
+                self.assertEqual(plugins_version, {"plugins/plugin0": "4.3.1", "plugins/plugin1": "3.2.1",
+                                                   "plugins/plugin2": "1.2.4"})
+
+                plugins_data = self.vane.output_manager.data["plugins"]
+                plugin0_data = [plugin_dict for plugin_dict in plugins_data if plugin_dict["key"] == "plugins/plugin0"][0]
+                plugin2_data = [plugin_dict for plugin_dict in plugins_data if plugin_dict["key"] == "plugins/plugin2"][0]
+                self.assertEqual(plugin0_data["version"], "4.3.1")
+                self.assertEqual(plugin2_data["version"], "1.2.4")
 
     def test_plugin_enumeration_log_plugins_found_in_passive_scan_but_not_in_active_scan(self):
         self.vane.active_plugin_enumeration = make_mocked_coro(return_value={"plugins/plugin0": "1.2",
                                                                              "plugins/plugin1": "3.2.1"})
-        self.vane.passive_plugin_enumeration = MagicMock(return_value=["plugins/plugin2", "plugins/plugin1"])
+        self.vane.passive_plugin_enumeration = MagicMock(return_value={"plugins/plugin2": None,
+                                                                       "plugins/plugin1": None})
         self.vane.hammertime.request = make_mocked_coro(return_value=MagicMock())
 
         with patch("vane.core.load_model_from_file", self.fake_load):
