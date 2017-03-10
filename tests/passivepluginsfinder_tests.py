@@ -28,6 +28,19 @@ class TestPassivePluginsFinder(TestCase):
     def setUp(self):
         self.plugin_finder = PassivePluginsFinder(None)
 
+        self.yoast_seo_meta = Meta(key="plugins/wordpress-seo", name="Yoast SEO",
+                                   url="https://yoast.com/wordpress/plugins/seo/#utm_source=wpadmin&#038;utm_medium="
+                                       "plugin&#038;utm_campaign=wpseoplugin")
+        self.google_analytics_meta = Meta(key="plugins/google-analytics-for-wordpress",
+                                     name="Google Analytics by MonsterInsights",
+                                     url="https://www.monsterinsights.com/pricing/#utm_source=wordpress&#038;utm_medium"
+                                         "=plugin&#038;utm_campaign=wpgaplugin&#038;utm_content=v504")
+        self.postratings_meta = Meta(key="plugins/wp-postratings", name="WP-PostRatings")
+        self.total_cache_meta = Meta(key="plugins/w3-total-cache", name="W3 Total Cache",
+                                     url="http://www.w3-edge.com/wordpress-plugins/w3-total-cache/")
+        self.plugin_finder.meta_list = MetaList(key="plugins", metas=[self.yoast_seo_meta, self.google_analytics_meta,
+                                                                      self.postratings_meta, self.total_cache_meta])
+
     def test_list_plugins_find_plugin_references_and_version_in_page_source(self):
         # yoast seo, disqus comment system and google analytics by monster insights:
         sample_page0 = join(dirname(__file__), "samples/delvelabs.html")
@@ -46,10 +59,7 @@ class TestPassivePluginsFinder(TestCase):
         page2_response = html_file_to_hammertime_response(sample_page2)
 
         disqus_meta = Meta(key="plugins/disqus-comment-system", name="Disqus Comment System")
-        yoast_seo_meta = Meta(key="plugins/wordpress-seo", name="Yoast SEO")
         jetpack_meta = Meta(key="plugins/jetpack", name="Jetpack by WordPress.com")
-        google_analytics_meta = Meta(key="plugins/google-analytics-for-wordpress",
-                                     name="Google Analytics by MonsterInsights")
         cyclone_slider_meta = Meta(key="plugins/cyclone-slider-2", name="Cyclone Slider 2")
         sitepress_meta = Meta(key="plugins/sitepress-multilingual-cms")
         audio_player_meta = Meta(key="plugins/audio-player")
@@ -58,26 +68,20 @@ class TestPassivePluginsFinder(TestCase):
         wp_polls_meta = Meta(key="plugins/wp-polls", name="WP-Polls")
         posts_plugin_meta = Meta(key="plugins/yet-another-related-posts-plugin",
                                  name="Yet Another Related Posts Plugin (YARPP)")
-        postratings_meta = Meta(key="plugins/wp-postratings", name="WP-PostRatings")
         lift_search_meta = Meta(key="plugins/lift-search", name="Lift: Search for WordPress")
-        total_cache_meta = Meta(key="plugins/w3-total-cache", name="W3 Total Cache",
-                                url="http://www.w3-edge.com/wordpress-plugins/w3-total-cache/")
-        self.plugin_finder.meta_list = MetaList(key="plugins", metas=[disqus_meta, yoast_seo_meta, jetpack_meta,
-                                                                      google_analytics_meta, cyclone_slider_meta,
-                                                                      sitepress_meta, audio_player_meta, lightbox_meta,
-                                                                      panopress_meta, wp_polls_meta, posts_plugin_meta,
-                                                                      postratings_meta, lift_search_meta,
-                                                                      total_cache_meta])
+        self.plugin_finder.meta_list.metas.extend([disqus_meta, jetpack_meta, cyclone_slider_meta, sitepress_meta,
+                                                   audio_player_meta, lightbox_meta, panopress_meta, wp_polls_meta,
+                                                   posts_plugin_meta, lift_search_meta])
 
         plugins_in_page0 = self.plugin_finder.list_plugins(page0_response)
         plugins_in_page1 = self.plugin_finder.list_plugins(page1_response)
         plugins_in_page2 = self.plugin_finder.list_plugins(page2_response)
 
         self.assertIn(disqus_meta.key, plugins_in_page0)
-        self.assertIn(yoast_seo_meta.key, plugins_in_page0)
-        self.assertIn(google_analytics_meta.key, plugins_in_page0)
-        self.assertEqual(plugins_in_page0[yoast_seo_meta.key], "4.0.2")
-        self.assertEqual(plugins_in_page0[google_analytics_meta.key], "5.5.4")
+        self.assertIn(self.yoast_seo_meta.key, plugins_in_page0)
+        self.assertIn(self.google_analytics_meta.key, plugins_in_page0)
+        self.assertEqual(plugins_in_page0[self.yoast_seo_meta.key], "4.0.2")
+        self.assertEqual(plugins_in_page0[self.google_analytics_meta.key], "5.5.4")
         self.assertEqual(len(plugins_in_page0), 3)
 
         self.assertIn(cyclone_slider_meta.key, plugins_in_page1)
@@ -85,28 +89,26 @@ class TestPassivePluginsFinder(TestCase):
         self.assertIn(lightbox_meta.key, plugins_in_page1)
         self.assertIn(panopress_meta.key, plugins_in_page1)
         self.assertIn(posts_plugin_meta.key, plugins_in_page1)
-        self.assertIn(yoast_seo_meta.key, plugins_in_page1)
-        self.assertEqual(plugins_in_page1[yoast_seo_meta.key], "3.4.1")
-        self.assertIn(total_cache_meta.key, plugins_in_page1)
+        self.assertIn(self.yoast_seo_meta.key, plugins_in_page1)
+        self.assertEqual(plugins_in_page1[self.yoast_seo_meta.key], "3.4.1")
+        self.assertIn(self.total_cache_meta.key, plugins_in_page1)
         self.assertEqual(len(plugins_in_page1), 7)
 
         self.assertIn(wp_polls_meta.key, plugins_in_page2)
-        self.assertIn(postratings_meta.key, plugins_in_page2)
+        self.assertIn(self.postratings_meta.key, plugins_in_page2)
         self.assertIn(lift_search_meta.key, plugins_in_page2)
         self.assertIn(jetpack_meta.key, plugins_in_page2)
         self.assertIn(audio_player_meta.key, plugins_in_page2)
-        self.assertIn(google_analytics_meta.key, plugins_in_page2)
-        self.assertEqual(plugins_in_page2[google_analytics_meta.key], "5.5.2")
+        self.assertIn(self.google_analytics_meta.key, plugins_in_page2)
+        self.assertEqual(plugins_in_page2[self.google_analytics_meta.key], "5.5.2")
         self.assertEqual(len(plugins_in_page2), 6)
 
     def test_search_in_element_attributes_find_plugins_from_plugin_url_in_attributes_values(self):
         element = etree.fromstring('<img src="http://static.blog.playstation.com/wp-content/plugins/wp-postratings/images/custom/rating_on.png"/>')
-        postratings_meta = Meta(key="plugins/wp-postratings", name="WP-PostRatings")
-        self.plugin_finder.meta_list = MetaList(key="plugins", metas=[postratings_meta])
 
         plugin_key = next(self.plugin_finder._search_in_element_attributes(element))
 
-        self.assertEqual(plugin_key, postratings_meta.key)
+        self.assertEqual(plugin_key, self.postratings_meta.key)
 
     def test_find_existing_plugin_in_string_find_plugin_from_url_in_comment(self):
         comment = "this is a comment with a plugin url: http://www.wpsite.com/wp-content/plugins/my-plugin/script.js"
@@ -118,22 +120,17 @@ class TestPassivePluginsFinder(TestCase):
 
     def test_search_plugin_in_comments_outside_document_parse_comments_outside_html_closing_tag(self):
         sample_page = join(dirname(__file__), "samples/starwars.html")
-        total_cache_meta = Meta(key="plugins/w3-total-cache", name="W3 Total Cache",
-                                url="http://www.w3-edge.com/wordpress-plugins/w3-total-cache/")
-        self.plugin_finder.meta_list = MetaList(key="plugins", metas=[total_cache_meta])
         response = html_file_to_hammertime_response(sample_page)
 
         plugins = next(self.plugin_finder._search_plugin_in_comments_outside_document(response))
 
-        self.assertEqual(plugins, {total_cache_meta.key: None})
+        self.assertEqual(plugins, {self.total_cache_meta.key: None})
 
     def test_find_existing_plugin_in_string_find_plugin_in_comment_that_match_plugin_name_in_meta_list(self):
-        plugin0_meta = Meta(key="plugins/google-analytics-for-wordpress", name="Google Analytics by MonsterInsights")
-        plugin1_meta = Meta(key="plugins/wordpress-seo", name="Yoast SEO")
-        plugin2_meta = Meta(key="plugins/wp-parsely", name="Parse.ly")
-        plugin4_meta = Meta(key="plugins/add-meta-tags", name="Add Meta Tags")
-        self.plugin_finder.meta_list = MetaList(key="plugins", metas=[plugin0_meta, plugin1_meta, plugin2_meta,
-                                                                      plugin4_meta])
+        parsely_meta = Meta(key="plugins/wp-parsely", name="Parse.ly")
+        add_meta_tags_meta = Meta(key="plugins/add-meta-tags", name="Add Meta Tags")
+        self.plugin_finder.meta_list.metas.extend([parsely_meta, add_meta_tags_meta])
+
         comment0 = "This site uses the Google Analytics by MonsterInsights plugin v5.5.4 - Universal enabled - https://www.monsterinsights.com/"
         comment1 = "This site is optimized with the Yoast SEO plugin v4.0.2 - https://yoast.com/wordpress/plugins/seo/"
         comment2 = " BEGIN wp-parsely Plugin Version 1.10.2 "
@@ -146,11 +143,11 @@ class TestPassivePluginsFinder(TestCase):
         plugin3 = self.plugin_finder._find_plugin_in_string(comment3)
         plugin4 = self.plugin_finder._find_plugin_in_string(comment4)
 
-        self.assertEqual(plugin0, {plugin0_meta.key: "5.5.4"})
-        self.assertEqual(plugin1, {plugin1_meta.key: "4.0.2"})
-        self.assertEqual(plugin2, {plugin2_meta.key: "1.10.2"})
-        self.assertEqual(plugin3, {plugin1_meta.key: None})
-        self.assertEqual(plugin4, {plugin4_meta.key: None})
+        self.assertEqual(plugin0, {self.google_analytics_meta.key: "5.5.4"})
+        self.assertEqual(plugin1, {self.yoast_seo_meta.key: "4.0.2"})
+        self.assertEqual(plugin2, {parsely_meta.key: "1.10.2"})
+        self.assertEqual(plugin3, {self.yoast_seo_meta.key: None})
+        self.assertEqual(plugin4, {add_meta_tags_meta.key: None})
 
     def test_contains_plugin_url_return_false_if_no_valid_url(self):
         url = "http://www.mywebsite.com/contact-us.html"
@@ -234,15 +231,11 @@ class TestPassivePluginsFinder(TestCase):
         string1 = "This site is optimized with the Yoast SEO plugin v4.0.2 - https://yoast.com/wordpress/plugins/seo/"
         string2 = "This string contains no plugin name."
 
-        self.plugin_finder.meta_list = MetaList(key="plugins")
-        self.plugin_finder.meta_list.metas.append(Meta(key="plugins/wordpress-seo", name="Yoast SEO"))
-        self.plugin_finder.meta_list.metas.append(Meta(key="plugins/google-analytics-for-wordpress",
-                                                       name="Google Analytics by MonsterInsights"))
-
         plugin0 = self.plugin_finder._find_plugin_in_string(string0)
         plugin1 = self.plugin_finder._find_plugin_in_string(string1)
-        self.assertEqual(plugin0, {"plugins/google-analytics-for-wordpress": "5.5.4"})
-        self.assertEqual(plugin1, {"plugins/wordpress-seo": "4.0.2"})
+
+        self.assertEqual(plugin0, {self.google_analytics_meta.key: "5.5.4"})
+        self.assertEqual(plugin1, {self.yoast_seo_meta.key: "4.0.2"})
         self.assertIsNone(self.plugin_finder._find_plugin_in_string(string2))
 
     def test_find_existing_plugin_in_string_doesnt_find_name_that_are_part_of_larger_word(self):
@@ -285,8 +278,8 @@ class TestPassivePluginsFinder(TestCase):
 
         plugin0_meta = Meta(key="plugins/wp-parsely", name="Parse.ly")
         plugin1_meta = Meta(key="plugins/wp-captcha", name="WP Captcha")
-        plugin3_meta = Meta(key="plugins/google-analytics-for-wordpress", name="Google Analytics by MonsterInsights")
-        self.plugin_finder.meta_list = MetaList(key="plugins", metas=[plugin0_meta, plugin1_meta, plugin3_meta])
+        self.plugin_finder.meta_list = MetaList(key="plugins", metas=[plugin0_meta, plugin1_meta,
+                                                                      self.google_analytics_meta])
 
         plugin0_key = self.plugin_finder._get_plugin_key_from_name_in_comment(plugin_string0)
         plugin1_key = self.plugin_finder._get_plugin_key_from_name_in_comment(plugin_string1)
@@ -296,7 +289,7 @@ class TestPassivePluginsFinder(TestCase):
         self.assertEqual(plugin0_key, plugin0_meta.key)
         self.assertEqual(plugin1_key, plugin1_meta.key)
         self.assertIsNone(plugin2_key)
-        self.assertEqual(plugin3_key, plugin3_meta.key)
+        self.assertEqual(plugin3_key, self.google_analytics_meta.key)
 
     def test_get_plugin_key_from_meta_url_in_string(self):
         plugin0_string = "This site uses the Google Analytics by MonsterInsights plugin v5.5.4 - Universal enabled - https://www.monsterinsights.com/"
@@ -304,39 +297,27 @@ class TestPassivePluginsFinder(TestCase):
         plugin2_string = "Performance optimized by W3 Total Cache. Learn more: http://www.w3-edge.com/wordpress-plugins"
         plugin3_string = "String with a random url: https://www.google.com"
 
-        total_cache_meta = Meta(key="plugins/w3-total-cache", name="W3 Total Cache",
-                                url="http://www.w3-edge.com/wordpress-plugins/w3-total-cache/")
-        yoast_seo_meta = Meta(key="plugins/wordpress-seo", name="Yoast SEO",
-                              url="https://yoast.com/wordpress/plugins/seo/#utm_source=wpadmin&#038;utm_medium=plugin&#038;utm_campaign=wpseoplugin")
-        google_analytics_meta = Meta(key="plugins/google-analytics-for-wordpress",
-                                     name="Google Analytics by MonsterInsights",
-                                     url="https://www.monsterinsights.com/pricing/#utm_source=wordpress&#038;utm_medium=plugin&#038;utm_campaign=wpgaplugin&#038;utm_content=v504")
-        self.plugin_finder.meta_list = MetaList(key="plugins", metas=[total_cache_meta, yoast_seo_meta,
-                                                                      google_analytics_meta])
-
         plugin_key0 = self.plugin_finder._get_plugin_key_from_meta_url_in_string(plugin0_string)
         plugin_key1 = self.plugin_finder._get_plugin_key_from_meta_url_in_string(plugin1_string)
         plugin_key2 = self.plugin_finder._get_plugin_key_from_meta_url_in_string(plugin2_string)
         plugin_key3 = self.plugin_finder._get_plugin_key_from_meta_url_in_string(plugin3_string)
 
-        self.assertEqual(plugin_key0, google_analytics_meta.key)
-        self.assertEqual(plugin_key1, yoast_seo_meta.key)
-        self.assertEqual(plugin_key2, total_cache_meta.key)
+        self.assertEqual(plugin_key0, self.google_analytics_meta.key)
+        self.assertEqual(plugin_key1, self.yoast_seo_meta.key)
+        self.assertEqual(plugin_key2, self.total_cache_meta.key)
         self.assertIsNone(plugin_key3)
 
     def test_get_plugin_key_from_meta_url_in_string_return_key_with_longest_url_match(self):
         # This string has the plugin name and a part of its url:
         string = "This site is optimized with the Yoast SEO plugin v4.0.2 - https://yoast.com/wordpress/plugins/seo/"
-        yoast_seo_meta = Meta(key="plugins/wordpress-seo", name="Yoast SEO",
-                              url="https://yoast.com/wordpress/plugins/seo/#utm_source=wpadmin&#038;utm_medium=plugin&#"
-                                  "038;utm_campaign=wpseoplugin")
         email_commenter_meta = Meta(key="plugins/email-commenters", name="Email Commenters",
-                                    url="http://yoast.com/wordpress/email-commenters/")  # url matches, but shorter than the other match
-        self.plugin_finder.meta_list = MetaList(key="plugins", metas=[email_commenter_meta, yoast_seo_meta])
+                                    # url matches, but shorter than the other match
+                                    url="http://yoast.com/wordpress/email-commenters/")
+        self.plugin_finder.meta_list.metas.append(email_commenter_meta)
 
         plugin_key = self.plugin_finder._get_plugin_key_from_meta_url_in_string(string)
 
-        self.assertEqual(plugin_key, yoast_seo_meta.key)
+        self.assertEqual(plugin_key, self.yoast_seo_meta.key)
 
     def test_contains_url(self):
         string0 = "string with an url: http://www.google.com/"
