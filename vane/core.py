@@ -99,7 +99,8 @@ class Vane:
         try:
             site_homepage = await self._request_target_home_page(url)
             plugins = self.passive_plugin_enumeration(site_homepage, meta_list)
-        except HammerTimeException:
+        except HammerTimeException as e:
+            self.output_manager.log_message("Passive plugin enumeration failed: %s" % repr(e))
             plugins = {}
 
         for plugin_key, version in plugins.items():
@@ -122,11 +123,12 @@ class Vane:
 
         try:
             site_homepage = await self._request_target_home_page(url)
-            themes = self.passive_theme_enumeration(site_homepage, meta_list)
-        except HammerTimeException:
-            themes = {}
+            themes_key = self.passive_theme_enumeration(site_homepage, meta_list)
+        except HammerTimeException as e:
+            self.output_manager.log_message("Passive theme enumeration failed: %s" % repr(e))
+            themes_key = []
 
-        for theme in themes:
+        for theme in themes_key:
             if theme not in themes_version:
                 themes_version[theme] = None
                 meta = meta_list.get_meta(theme)
