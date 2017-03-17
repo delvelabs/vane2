@@ -332,15 +332,15 @@ class TestVane(TestCase):
         self.assertEqual(wordpress, {"version": "4.2.2"})
 
     def test_scan_target_only_use_passive_detection_if_passive_parameter_is_true(self):
-        self.skipTest("TEST TOO SLOW, FIX IT.")
         self.vane.identify_target_version = make_mocked_coro()
         self.vane.active_plugin_enumeration = make_mocked_coro()
-        self.vane.passive_plugin_enumeration = make_mocked_coro()
-        self.vane.passive_theme_enumeration = make_mocked_coro()
+        self.vane.passive_plugin_enumeration = MagicMock(return_value={})
+        self.vane.passive_theme_enumeration = MagicMock(return_value=[])
         self.vane.active_theme_enumeration = make_mocked_coro()
         self.vane.list_component_vulnerabilities = MagicMock()
         self.vane.hammertime.request = make_mocked_coro(return_value=MagicMock())
         self.vane.hammertime.close = make_mocked_coro()
+        self.vane._load_meta_list = MagicMock(return_value=("meta_list", "errors"))
 
         with loop_context() as loop:
             loop.run_until_complete(self.vane.scan_target("target", True, True, passive_only=True))
