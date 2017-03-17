@@ -17,12 +17,13 @@
 
 from hammertime import HammerTime
 from hammertime.rules import RejectStatusCode
+from hammertime.ruleset import HammerTimeException
 from .versionidentification import VersionIdentification
 from .hash import HashResponse
 from .activecomponentfinder import ActiveComponentFinder
 from .retryonerrors import RetryOnErrors
 from openwebvulndb.common.schemas import FileListSchema, VulnerabilityListGroupSchema, VulnerabilitySchema, \
-    MetaListSchema, MetaSchema
+    MetaListSchema
 from openwebvulndb.common.serialize import clean_walk
 from .utils import load_model_from_file
 from .filefetcher import FileFetcher
@@ -95,8 +96,11 @@ class Vane:
         if not passive_only:
             plugins_version = await self.active_plugin_enumeration(url, popular, vulnerable, input_path, meta_list)
 
-        site_homepage = await self.hammertime.request(url)
-        plugins = self.passive_plugin_enumeration(site_homepage.response, meta_list)
+        try:
+            site_homepage = await self._request_target_home_page(url)
+            plugins = self.passive_plugin_enumeration(site_homepage, meta_list)
+        except HammerTimeException:
+            plugins = {}
 
         for plugin_key, version in plugins.items():
             if plugin_key not in plugins_version:
@@ -116,9 +120,11 @@ class Vane:
         if not passive_only:
             themes_version = await self.active_theme_enumeration(url, popular, vulnerable, input_path, meta_list)
 
-        site_homepage = await self.hammertime.request(url)
-
-        themes = self.passive_theme_enumeration(site_homepage.response, meta_list)
+        try:
+            site_homepage = await self._request_target_home_page(url)
+            themes = self.passive_theme_enumeration(site_homepage, meta_list)
+        except HammerTimeException:
+            themes = {}
 
         for theme in themes:
             if theme not in themes_version:
@@ -183,6 +189,13 @@ class Vane:
             if meta is not None:
                 theme_keys.append(meta.key)
         return theme_keys
+
+    async def _request_target_home_page(self, url):
+        try:
+            entry = await self.hammertime.request(url)
+            return entry.response
+        except HammerTimeException:
+            raise
 
     def list_component_vulnerabilities(self, components_version, vulnerability_list_group):
         vulnerability_lister = VulnerabilityLister()

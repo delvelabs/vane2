@@ -249,8 +249,7 @@ class TestPassivePluginsFinder(TestCase):
         self.assertIsNone(self.plugin_finder._find_plugin_in_string(string0))
         self.assertIsNone(self.plugin_finder._find_plugin_in_string(string3))
 
-    # TODO find a better name
-    def test_find_existing_plugin_in_url_doesnt_return_words_containing_plugin_names(self):
+    def test_find_plugin_in_string_doesnt_return_words_containing_plugin_names(self):
         meta_list = MetaList(key="plugins", metas=[Meta(key="plugins/nofollow"),
                                                    Meta(key="plugins/recentcomments")])
         self.plugin_finder.set_plugins_meta_list(meta_list)

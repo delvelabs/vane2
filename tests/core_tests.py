@@ -21,6 +21,8 @@ from vane.core import Vane, OutputManager
 from aiohttp.test_utils import make_mocked_coro, loop_context
 from openwebvulndb.common.models import VulnerabilityList, Vulnerability, Meta, MetaList
 from vane.theme import Theme
+from hammertime.http import Entry
+from hammertime.ruleset import HammerTimeException
 
 
 class TestVane(TestCase):
@@ -347,3 +349,30 @@ class TestVane(TestCase):
             self.vane.active_plugin_enumeration.assert_not_called()
             self.assertEqual(len(self.vane.passive_theme_enumeration.mock_calls), 1)
             self.assertEqual(len(self.vane.passive_plugin_enumeration.mock_calls), 1)
+
+    def test_request_target_home_page_make_hammertime_request_for_target_url(self):
+        with loop_context() as loop:
+            target_url = "http://www.example.com/"
+            self.vane.hammertime.request = make_mocked_coro(return_value=Entry.create(target_url))
+
+            loop.run_until_complete(self.vane._request_target_home_page(target_url))
+
+            self.vane.hammertime.request.assert_called_once_with(target_url)
+
+    def test_request_target_home_page_return_hammertime_response_for_request(self):
+        target_url = "http://www.example.com/"
+        entry = Entry.create(target_url, response="response")
+        with loop_context() as loop:
+            self.vane.hammertime.request = make_mocked_coro(return_value=entry)
+
+            response = loop.run_until_complete(self.vane._request_target_home_page(target_url))
+
+            self.assertEqual(response, "response")
+
+    def test_request_target_home_page_raises_hammertime_exception(self):
+        target_url = "http://www.example.com/"
+        with loop_context() as loop:
+            self.vane.hammertime.request = make_mocked_coro(raise_exception=HammerTimeException())
+
+            with self.assertRaises(HammerTimeException):
+                loop.run_until_complete(self.vane._request_target_home_page(target_url))
