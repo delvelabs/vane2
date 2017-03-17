@@ -25,6 +25,7 @@ from hammertime.http import Entry
 from hammertime.ruleset import HammerTimeException
 
 
+@patch("vane.core.load_model_from_file", MagicMock(return_value=(MagicMock(), "errors")))
 class TestVane(TestCase):
 
     def setUp(self):
@@ -32,8 +33,6 @@ class TestVane(TestCase):
             self.vane = Vane()
         self.vane.output_manager = MagicMock()
         self.fake_meta = Meta(key="meta", name="Name", url="example.com")
-        self.fake_load = MagicMock()
-        self.fake_load.return_value = MagicMock(), "errors"
 
     def test_perform_action_raise_exception_if_no_url_and_action_is_scan(self):
         with self.assertRaises(ValueError):
@@ -105,29 +104,19 @@ class TestVane(TestCase):
             self.assertEqual(plugin0_vuln_list.vulnerabilities, vulns['plugin0'])
             self.assertEqual(plugin1_vuln_list.vulnerabilities, vulns['plugin1'])
 
-    def test_passive_plugin_enumeration_return_plugin_keys(self):
-        meta_list = MetaList(key="plugins")
-        disqus_meta = Meta(key="plugins/disqus-comment-system", name="Disqus Comment System")
-        wp_postratings_meta = Meta(key="plugins/wp-postratings", name="WP-PostRatings")
-        cyclone_slider_meta = Meta(key="plugins/cyclone-slider-2", name="Cyclone Slider 2")
-        meta_list.metas = [disqus_meta, wp_postratings_meta, cyclone_slider_meta]
-
+    def test_passive_plugin_enumeration_return_dict_with_plugins_key_and_version(self):
         fake_plugin_finder = MagicMock()
         fake_plugin_finder.list_plugins.return_value = {"plugins/wp-postratings": None, "plugins/disqus-comment-system":
                                                         "1.0.2", "plugins/cyclone-slider-2": "2.9.1"}
-
         fake_plugin_finder_factory = MagicMock()
         fake_plugin_finder_factory.return_value = fake_plugin_finder
 
         with patch("vane.core.PassivePluginsFinder", fake_plugin_finder_factory):
-            plugins = self.vane.passive_plugin_enumeration("html_page", meta_list)
+            plugins = self.vane.passive_plugin_enumeration("html_page", None)
 
-            self.assertIn(disqus_meta.key, plugins)
-            self.assertEqual(plugins[disqus_meta.key], "1.0.2")
-            self.assertIn(wp_postratings_meta.key, plugins)
-            self.assertIsNone(plugins[wp_postratings_meta.key])
-            self.assertIn(cyclone_slider_meta.key, plugins)
-            self.assertEqual(plugins[cyclone_slider_meta.key], "2.9.1")
+            self.assertEqual(plugins["plugins/disqus-comment-system"], "1.0.2")
+            self.assertIsNone(plugins["plugins/wp-postratings"])
+            self.assertEqual(plugins["plugins/cyclone-slider-2"], "2.9.1")
 
     def test_plugin_enumeration_merge_active_and_passive_detection_results(self):
         self.vane.active_plugin_enumeration = make_mocked_coro(return_value={"plugins/plugin0": "1.2",
@@ -136,12 +125,11 @@ class TestVane(TestCase):
                                                                        "plugins/plugin1": None})
         self.vane.hammertime.request = make_mocked_coro(return_value=MagicMock())
 
-        with patch("vane.core.load_model_from_file", self.fake_load):
-            with loop_context() as loop:
-                plugins_version = loop.run_until_complete(self.vane.plugin_enumeration("target", True, True, "path"))
+        with loop_context() as loop:
+            plugins_version = loop.run_until_complete(self.vane.plugin_enumeration("target", True, True, "path"))
 
-                self.assertEqual(plugins_version, {"plugins/plugin0": "1.2", "plugins/plugin1": "3.2.1",
-                                                   "plugins/plugin2": "4.3.1"})
+            self.assertEqual(plugins_version, {"plugins/plugin0": "1.2", "plugins/plugin1": "3.2.1",
+                                               "plugins/plugin2": "4.3.1"})
 
     def test_plugin_enumeration_overwrite_version_found_during_active_scan_with_passive_detection_results_if_not_none(self):
         self.vane.active_plugin_enumeration = make_mocked_coro(return_value={"plugins/plugin0": None,
@@ -154,67 +142,57 @@ class TestVane(TestCase):
 
         self.vane.output_manager = OutputManager()
 
-        with patch("vane.core.load_model_from_file", self.fake_load):
-            with loop_context() as loop:
-                plugins_version = loop.run_until_complete(self.vane.plugin_enumeration("target", True, True, "path"))
+        with loop_context() as loop:
+            plugins_version = loop.run_until_complete(self.vane.plugin_enumeration("target", True, True, "path"))
 
-                self.assertEqual(plugins_version, {"plugins/plugin0": "4.3.1", "plugins/plugin1": "3.2.1",
-                                                   "plugins/plugin2": "1.2.4"})
+            self.assertEqual(plugins_version, {"plugins/plugin0": "4.3.1", "plugins/plugin1": "3.2.1",
+                                               "plugins/plugin2": "1.2.4"})
 
-                plugins_data = self.vane.output_manager.data["plugins"]
-                plugin0_data = [plugin_dict for plugin_dict in plugins_data if plugin_dict["key"] == "plugins/plugin0"][0]
-                plugin2_data = [plugin_dict for plugin_dict in plugins_data if plugin_dict["key"] == "plugins/plugin2"][0]
-                self.assertEqual(plugin0_data["version"], "4.3.1")
-                self.assertEqual(plugin2_data["version"], "1.2.4")
+            plugins_data = self.vane.output_manager.data["plugins"]
+            plugin0_data = [plugin_dict for plugin_dict in plugins_data if plugin_dict["key"] == "plugins/plugin0"][0]
+            plugin2_data = [plugin_dict for plugin_dict in plugins_data if plugin_dict["key"] == "plugins/plugin2"][0]
+            self.assertEqual(plugin0_data["version"], "4.3.1")
+            self.assertEqual(plugin2_data["version"], "1.2.4")
 
-    def test_plugin_enumeration_log_plugins_found_in_passive_scan_but_not_in_active_scan(self):
+    def test_plugin_enumeration_only_log_plugins_found_in_passive_scan_not_log_by_active_scan(self):
         self.vane.active_plugin_enumeration = make_mocked_coro(return_value={"plugins/plugin0": "1.2",
                                                                              "plugins/plugin1": "3.2.1"})
         self.vane.passive_plugin_enumeration = MagicMock(return_value={"plugins/plugin2": None,
                                                                        "plugins/plugin1": None})
         self.vane.hammertime.request = make_mocked_coro(return_value=MagicMock())
 
-        with patch("vane.core.load_model_from_file", self.fake_load):
-            with loop_context() as loop:
-                loop.run_until_complete(self.vane.plugin_enumeration("target", True, True, "path"))
+        with loop_context() as loop:
+            loop.run_until_complete(self.vane.plugin_enumeration("target", True, True, "path"))
 
-                call_args = self.vane.output_manager.add_plugin.call_args
-                self.assertEqual(len(self.vane.output_manager.add_plugin.mock_calls), 1)
-                self.assertEqual(call_args[0][0], "plugins/plugin2")
-                self.assertIsNone(call_args[0][1])
+            call_args = self.vane.output_manager.add_plugin.call_args
+            self.assertEqual(len(self.vane.output_manager.add_plugin.mock_calls), 1)
+            self.assertEqual(call_args[0][0], "plugins/plugin2")
+            self.assertIsNone(call_args[0][1])
 
-    def test_passive_theme_enumeration_return_theme_keys_from_meta_that_match_found_url(self):
-        meta_list = MetaList(key="themes")
-        twenty_seventeen_meta = Meta(key="themes/twentyseventeen")
-        twenty_sixteen_meta = Meta(key="themes/twentysixteen")
-        meta_list.metas = [twenty_seventeen_meta, twenty_sixteen_meta]
-
+    def test_passive_theme_enumeration_return_set_of_theme_keys(self):
         fake_theme_finder = MagicMock()
-        fake_theme_finder.list_themes.return_value = \
-            {Theme("http://127.0.0.1/wordpress/wp-content/themes/twentyseventeen"),
-             Theme("http://127.0.0.1/wordpress/wp-content/themes/twentysixteen")}
+        fake_theme_finder.list_themes.return_value = {"themes/twentyseventeen", "themes/twentysixteen"}
 
         fake_theme_finder_factory = MagicMock()
         fake_theme_finder_factory.return_value = fake_theme_finder
 
         with patch("vane.core.PassiveThemesFinder", fake_theme_finder_factory):
-            themes = self.vane.passive_theme_enumeration("html_page", meta_list)
+            themes = self.vane.passive_theme_enumeration("html_page", None)
 
-            self.assertIn(twenty_sixteen_meta.key, themes)
-            self.assertIn(twenty_seventeen_meta.key, themes)
+            self.assertIn("themes/twentyseventeen", themes)
+            self.assertIn("themes/twentysixteen", themes)
 
     def test_theme_enumeration_merge_active_and_passive_detection_results(self):
         self.vane.active_theme_enumeration = make_mocked_coro(return_value={"themes/theme0": "1.2",
                                                                              "themes/theme1": "3.2.1"})
-        self.vane.passive_theme_enumeration = MagicMock(return_value=["themes/theme2", "themes/theme1"])
+        self.vane.passive_theme_enumeration = MagicMock(return_value={"themes/theme2", "themes/theme1"})
         self.vane.hammertime.request = make_mocked_coro(return_value=MagicMock())
 
-        with patch("vane.core.load_model_from_file", self.fake_load):
-            with loop_context() as loop:
-                themes_version = loop.run_until_complete(self.vane.theme_enumeration("target", True, True, "path"))
+        with loop_context() as loop:
+            themes_version = loop.run_until_complete(self.vane.theme_enumeration("target", True, True, "path"))
 
-                self.assertEqual(themes_version, {"themes/theme0": "1.2", "themes/theme1": "3.2.1",
-                                                  "themes/theme2": None})
+            self.assertEqual(themes_version, {"themes/theme0": "1.2", "themes/theme1": "3.2.1",
+                                              "themes/theme2": None})
 
     def test_theme_enumeration_log_theme_found_in_passive_scan_but_not_in_active_scan(self):
         self.vane.active_theme_enumeration = make_mocked_coro(return_value={"themes/theme0": "1.2",
@@ -222,14 +200,13 @@ class TestVane(TestCase):
         self.vane.passive_theme_enumeration = MagicMock(return_value=["themes/theme2", "themes/theme1"])
         self.vane.hammertime.request = make_mocked_coro(return_value=MagicMock())
 
-        with patch("vane.core.load_model_from_file", self.fake_load):
-            with loop_context() as loop:
-                loop.run_until_complete(self.vane.theme_enumeration("target", True, True, "path"))
+        with loop_context() as loop:
+            loop.run_until_complete(self.vane.theme_enumeration("target", True, True, "path"))
 
-                call_args = self.vane.output_manager.add_theme.call_args
-                self.assertEqual(len(self.vane.output_manager.add_theme.mock_calls), 1)
-                self.assertEqual(call_args[0][0], "themes/theme2")
-                self.assertIsNone(call_args[0][1])
+            call_args = self.vane.output_manager.add_theme.call_args
+            self.assertEqual(len(self.vane.output_manager.add_theme.mock_calls), 1)
+            self.assertEqual(call_args[0][0], "themes/theme2")
+            self.assertIsNone(call_args[0][1])
 
     def test_output_manager_add_data_create_key_if_key_not_in_data(self):
         output_manager = OutputManager()

@@ -16,10 +16,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from unittest import TestCase
-from unittest.mock import MagicMock
-
+from openwebvulndb.common.models import MetaList, Meta
 from vane.passivethemesfinder import PassiveThemesFinder
-from vane.theme import Theme
 
 from os.path import join, dirname
 
@@ -28,7 +26,8 @@ from fixtures import html_file_to_hammertime_response
 class TestPassiveThemesFinder(TestCase):
 
     def setUp(self):
-        self.themes_finder = PassiveThemesFinder()
+        meta_list = MetaList(key="themes", metas=[Meta(key="themes/twenty11"), Meta(key="themes/kratos")])
+        self.themes_finder = PassiveThemesFinder(meta_list)
 
     def test_contains_theme_url_return_false_if_not_valid_theme_url(self):
         url = "https://www.url.com/path/to/page/"
@@ -63,33 +62,35 @@ class TestPassiveThemesFinder(TestCase):
         self.assertEqual(self.themes_finder._get_theme_url_from_string(url),
                          "http://static.blog.playstation.com/wp-content/themes/twenty11")
 
-    def test_get_theme_url_from_string_return_return_relative_url(self):
+    def test_get_theme_url_from_string_works_with_relative_url(self):
         relative_url = "this is the theme url: /wp-content/themes/my-theme/style.css"
 
         self.assertEqual(self.themes_finder._get_theme_url_from_string(relative_url), "/wp-content/themes/my-theme")
 
-    def test_list_themes_find_themes_in_page_source(self):
-        sample_page0 = join(dirname(__file__), "samples/playstation.html")
-        sample_page1 = join(dirname(__file__), "samples/delvelabs.html")
+    def test_list_themes_return_list_of_theme_keys_found_in_page_source_that_exist_in_metas(self):
+        sample_page = join(dirname(__file__), "samples/playstation.html")
+        page_hammertime_response = html_file_to_hammertime_response(sample_page)
 
-        page0_hammertime_response = html_file_to_hammertime_response(sample_page0)
-        page1_hammertime_response = html_file_to_hammertime_response(sample_page1)
+        themes = self.themes_finder.list_themes(page_hammertime_response)
 
-        themes0 = self.themes_finder.list_themes(page0_hammertime_response)
-        themes1 = self.themes_finder.list_themes(page1_hammertime_response)
-
-        self.assertIn("twenty11", (theme.name for theme in themes0))
-        self.assertIn("kratos", (theme.name for theme in themes0))
-        self.assertEqual(len(themes0), 2)
-
-        self.assertIn("delvelabs", (theme.name for theme in themes1))
-        self.assertEqual(len(themes1), 1)
+        self.assertIn("themes/twenty11", themes)
+        self.assertIn("themes/kratos", themes)
+        self.assertEqual(len(themes), 2)
 
     def test_list_themes_find_theme_in_comments_with_theme_url(self):
         sample_page = join(dirname(__file__), "samples/comment.html")
-
         hammertime_response = html_file_to_hammertime_response(sample_page)
 
         themes = self.themes_finder.list_themes(hammertime_response)
 
-        self.assertIn("twenty11", (theme.name for theme in themes))
+        self.assertEqual({"themes/twenty11"}, themes)
+
+    def test_get_theme_key_from_url(self):
+        url0 = "http://static.blog.playstation.com/wp-content/themes/twenty11"
+        url1 = "/wp-content/themes/my-theme"
+
+        theme0 = self.themes_finder._get_theme_key_from_url(url0)
+        theme1 = self.themes_finder._get_theme_key_from_url(url1)
+
+        self.assertEqual(theme0, "themes/twenty11")
+        self.assertEqual(theme1, "themes/my-theme")

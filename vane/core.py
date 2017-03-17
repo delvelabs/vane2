@@ -182,14 +182,8 @@ class Vane:
         return plugin_keys
 
     def passive_theme_enumeration(self, hammertime_response, meta_list):
-        passive_theme_finder = PassiveThemesFinder()
-        possible_themes = passive_theme_finder.list_themes(hammertime_response)
-        theme_keys = []
-
-        for theme in possible_themes:
-            meta = meta_list.get_meta("themes/" + theme.name)
-            if meta is not None:
-                theme_keys.append(meta.key)
+        passive_theme_finder = PassiveThemesFinder(meta_list)
+        theme_keys = passive_theme_finder.list_themes(hammertime_response)
         return theme_keys
 
     async def _request_target_home_page(self, url):
