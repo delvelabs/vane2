@@ -18,10 +18,9 @@
 from unittest import TestCase
 from openwebvulndb.common.models import MetaList, Meta
 from vane.passivethemesfinder import PassiveThemesFinder
-
 from os.path import join, dirname
-
 from fixtures import html_file_to_hammertime_response
+
 
 class TestPassiveThemesFinder(TestCase):
 
@@ -29,43 +28,43 @@ class TestPassiveThemesFinder(TestCase):
         meta_list = MetaList(key="themes", metas=[Meta(key="themes/twenty11"), Meta(key="themes/kratos")])
         self.themes_finder = PassiveThemesFinder(meta_list)
 
-    def test_contains_theme_url_return_false_if_not_valid_theme_url(self):
+    def test_contains_theme_path_return_false_if_not_valid_theme_url(self):
         url = "https://www.url.com/path/to/page/"
 
-        self.assertFalse(self.themes_finder._contains_theme_url(url))
+        self.assertFalse(self.themes_finder._contains_theme_path(url))
 
-    def test_contains_theme_url_return_true_if_theme_url_in_string(self):
+    def test_contains_theme_path_return_true_if_theme_url_in_string(self):
         url = "A string with a theme url. http://static.blog.playstation.com/wp-content/themes/twenty11/ie8.css?m=1480446942"
 
-        self.assertTrue(self.themes_finder._contains_theme_url(url))
+        self.assertTrue(self.themes_finder._contains_theme_path(url))
 
-    def test_contains_theme_url_return_true_if_vip_theme_url_in_string(self):
+    def test_contains_theme_path_return_true_if_vip_theme_url_in_string(self):
         url = "A string with a vip theme url https://s0.wp.com/wp-content/themes/vip/fortune/static/js/html5shiv.min.js " \
               "and random characters at the end."
 
-        self.assertTrue(self.themes_finder._contains_theme_url(url))
+        self.assertTrue(self.themes_finder._contains_theme_path(url))
 
-    def test_contains_theme_url_return_true_if_theme_url_is_relative(self):
+    def test_contains_theme_path_return_true_if_theme_url_is_relative(self):
         relative_url = "this is the theme url: /wp-content/themes/my-theme/style.css"
 
-        self.assertTrue(self.themes_finder._contains_theme_url(relative_url))
+        self.assertTrue(self.themes_finder._contains_theme_path(relative_url))
 
-    def test_get_theme_url_from_string_remove_beginning_of_string_not_part_of_the_url(self):
+    def test_get_theme_path_from_string_remove_beginning_of_string_not_part_of_the_url(self):
         string = 'beginning of string ... http://static.blog.playstation.com/wp-content/themes/twenty11'
 
-        self.assertEqual(self.themes_finder._get_theme_url_from_string(string),
+        self.assertEqual(self.themes_finder._get_theme_path_from_string(string),
                          "http://static.blog.playstation.com/wp-content/themes/twenty11")
 
-    def test_get_theme_url_from_string_remove_part_after_theme_name(self):
+    def test_get_theme_path_from_string_remove_part_after_theme_name(self):
         url = "http://static.blog.playstation.com/wp-content/themes/twenty11/ie8.css?m=1480446942"
 
-        self.assertEqual(self.themes_finder._get_theme_url_from_string(url),
+        self.assertEqual(self.themes_finder._get_theme_path_from_string(url),
                          "http://static.blog.playstation.com/wp-content/themes/twenty11")
 
-    def test_get_theme_url_from_string_works_with_relative_url(self):
+    def test_get_theme_path_from_string_works_with_relative_url(self):
         relative_url = "this is the theme url: /wp-content/themes/my-theme/style.css"
 
-        self.assertEqual(self.themes_finder._get_theme_url_from_string(relative_url), "/wp-content/themes/my-theme")
+        self.assertEqual(self.themes_finder._get_theme_path_from_string(relative_url), "/wp-content/themes/my-theme")
 
     def test_list_themes_return_list_of_theme_keys_found_in_page_source_that_exist_in_metas(self):
         sample_page = join(dirname(__file__), "samples/playstation.html")
@@ -85,12 +84,12 @@ class TestPassiveThemesFinder(TestCase):
 
         self.assertEqual({"themes/twenty11"}, themes)
 
-    def test_get_theme_key_from_url(self):
+    def test_get_theme_key_from_path(self):
         url0 = "http://static.blog.playstation.com/wp-content/themes/twenty11"
         url1 = "/wp-content/themes/my-theme"
 
-        theme0 = self.themes_finder._get_theme_key_from_url(url0)
-        theme1 = self.themes_finder._get_theme_key_from_url(url1)
+        theme0 = self.themes_finder._get_theme_key_from_path(url0)
+        theme1 = self.themes_finder._get_theme_key_from_path(url1)
 
         self.assertEqual(theme0, "themes/twenty11")
         self.assertEqual(theme1, "themes/my-theme")

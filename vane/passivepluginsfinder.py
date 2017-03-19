@@ -22,8 +22,8 @@ from urllib.parse import urlparse
 from difflib import SequenceMatcher
 
 
-plugin_url = re.compile("(https?:)?//([\w%-]+(\.|/))+wp-content/(mu-)?plugins/[^/]+")
-relative_plugin_url = re.compile("/wp-content/(mu-)?plugins/[^/]+")
+plugin_path = re.compile("(https?:)?//([\w%-]+(\.|/))+wp-content/(mu-)?plugins/[^/]+")
+relative_plugin_path = re.compile("/wp-content/(mu-)?plugins/[^/]+")
 plugin_in_comment = re.compile("(\w+\s)+plugin")
 comment_after_document = re.compile("</html>.*<!--.*-->$", re.DOTALL)
 url_pattern = re.compile("https?://([\w-]+\.)+\w+/?([\w-]*/?)*")
@@ -51,7 +51,6 @@ class PassivePluginsFinder:
         for plugin_key in plugin_keys:
             if plugin_key not in plugins_version:
                 plugins_version[plugin_key] = None
-
         return plugins_version
 
     def _find_plugins_in_elements(self, hammertime_response):
@@ -62,10 +61,9 @@ class PassivePluginsFinder:
 
     def _search_in_element_attributes(self, element):
         for attribute_name, attribute_value in element.items():
-            if self._contains_plugin_url(attribute_value):
-                plugin_url = self._get_plugin_url_from_string(attribute_value)
-                plugin_key = self._get_plugin_key_from_plugin_url(plugin_url)
-                if self.meta_list.get_meta(plugin_key) is not None:
+            if self._contains_plugin_path(attribute_value):
+                plugin_key = self._get_plugin_key_from_plugin_path_in_string(attribute_value)
+                if plugin_key is not None:
                     yield plugin_key
 
     def _find_plugins_in_comments(self, hammertime_response):
@@ -85,117 +83,97 @@ class PassivePluginsFinder:
                 yield plugin_key
 
     def _find_plugin_in_string(self, string):
-        if self._contains_plugin_url(string):
-            plugin_url = self._get_plugin_url_from_string(string)
-            possible_plugin_key = self._get_plugin_key_from_plugin_url(plugin_url)
-            confirmed_plugin_key = self._find_longest_plugin_key_match_in_meta_for_string(possible_plugin_key)
-            if confirmed_plugin_key is not None:
+        if self._contains_plugin_path(string):
+            plugin_key = self._get_plugin_key_from_plugin_path_in_string(string)
+            if plugin_key is not None:
                 version = self._get_version(string)
-                return {confirmed_plugin_key: version}
+                return {plugin_key: version}
         if self._contains_url(string):
             plugin_key = self._get_plugin_key_from_meta_url_in_string(string)
             if plugin_key is not None:
                 version = self._get_version(string)
                 return {plugin_key: version}
-        plugin_key = self._get_plugin_key_from_name_in_comment(string)
+        plugin_key = self._get_plugin_key_from_name_in_string(string)
         if plugin_key is not None:
             return {plugin_key: self._get_version(string)}
         return None
 
-    def _get_plugin_key_from_name_in_comment(self, string):
+    def _get_plugin_key_from_plugin_path_in_string(self, string):
+        path = self._get_plugin_path_from_string(string)
+        possible_plugin_key = self._get_plugin_key_from_plugin_path(path)
+        return possible_plugin_key if self._plugin_exists(possible_plugin_key) else None
+
+    def _contains_plugin_path(self, url):
+        return plugin_path.search(url) is not None or relative_plugin_path.search(url) is not None
+
+    def _get_plugin_path_from_string(self, string):
+        if plugin_path.search(string):
+            return plugin_path.search(string).group()
+        else:
+            return relative_plugin_path.search(string).group()
+
+    def _get_plugin_key_from_plugin_path(self, url):
+        return re.search("plugins/.+$", url).group()
+
+    def _get_plugin_key_from_name_in_string(self, string):
         string = string.lower()
         if plugin_in_comment.search(string):
             end = re.search(" plugin", string)
             string = string[:end.start()]
             words = string.split(" ")
             for word in words:
-                if "-" in word:
-                    plugin_key = self._find_longest_plugin_key_match_in_meta_for_string(word)
-                    if plugin_key is not None:
-                        return plugin_key
-            plugin_key = self._find_plugin_with_longest_name_match_in_string(string)
+                if "-" in word:  # may be the key of the plugin.
+                    possible_plugin_key = "plugins/" + word
+                    if self._plugin_exists(possible_plugin_key):
+                        return possible_plugin_key
+            plugin_key = self._find_longest_match_for_plugin_name_in_string(string)
             if plugin_key is not None:
                 return plugin_key
         return None
 
-    def _contains_plugin_url(self, url):
-        return plugin_url.search(url) is not None or relative_plugin_url.search(url) is not None
-
-    def _get_plugin_url_from_string(self, string):
-        if plugin_url.search(string):
-            return plugin_url.search(string).group()
-        else:
-            return relative_plugin_url.search(string).group()
-
-    def _get_plugin_key_from_plugin_url(self, url):
-        return re.search("plugins/.+$", url).group()
-
-    def _find_longest_plugin_key_match_in_meta_for_string(self, string):
-        possible_keys = self._find_possible_plugin_keys_in_meta(string)
-        if len(possible_keys) > 0:
-            return max(possible_keys, key=len)
-        return None
-
-    def _find_possible_plugin_keys_in_meta(self, string):
-        possible_keys = []
-        if self.meta_list is not None:
-            for plugin_meta in self.meta_list.metas:
-                if plugin_meta.key[len("plugins/"):] in string:
-                    possible_keys.append(plugin_meta.key)
-        return possible_keys
-
-    def _find_plugin_with_longest_name_match_in_string(self, string):
-        possible_metas = self._find_possible_plugin_names_matches_in_meta(string)
+    def _find_longest_match_for_plugin_name_in_string(self, string):
+        possible_metas = self._find_all_possible_matches_for_plugin_name_in_string(string)
         if len(possible_metas) > 1:
-            match = max(possible_metas, key=lambda meta_match: meta_match["match_size"])
-            return match["meta"].key
+            match = max(possible_metas, key=lambda meta_match: len(meta_match.name))
+            return match.key
         elif len(possible_metas) == 1:
-            return possible_metas[0]["meta"].key
+            return possible_metas[0].key
         return None
 
-    def _find_possible_plugin_names_matches_in_meta(self, string):
+    def _find_all_possible_matches_for_plugin_name_in_string(self, string):
         possible_matching_metas = []
-        if self.meta_list is not None:
-            words = string.lower().split(" ")
-            for plugin_meta in self.meta_list.metas:
-                if plugin_meta.name is not None:
-                    _words = plugin_meta.name.lower().split(" ")
-                    match_size = get_size_of_matching_sequence(words, _words)
-                    if match_size >= len(_words):  # Prevent short plugins names to match a part of a longer plugin name.
-                        possible_matching_metas.append({"meta": plugin_meta, "match_size": match_size})
+        words = string.lower().split(" ")
+        for plugin_meta in self.meta_list.metas:
+            if plugin_meta.name is not None:
+                plugin_name = plugin_meta.name.lower().split(" ")
+                if get_size_of_matching_sequence(plugin_name, words) == len(plugin_name):
+                    possible_matching_metas.append(plugin_meta)
         return possible_matching_metas
 
     def _get_plugin_key_from_meta_url_in_string(self, string):
         url = url_pattern.search(string).group()
         parsed_url = urlparse(url)
         possible_metas = []
-        if self.meta_list is not None:
-            for plugin_meta in self.meta_list.metas:
-                if plugin_meta.url is not None:
-                    meta_url = urlparse(plugin_meta.url)
-                    if parsed_url.netloc == meta_url.netloc:
-                        possible_metas.append(plugin_meta)
-        return self._get_best_meta_url_match_based_on_url_path(possible_metas, parsed_url)
+        for plugin_meta in self.meta_list.metas:
+            if plugin_meta.url is not None:
+                meta_url = urlparse(plugin_meta.url)
+                if parsed_url.netloc == meta_url.netloc:
+                    possible_metas.append(plugin_meta)
+        if len(possible_metas) > 1 and len(parsed_url.path) > 0:
+            return self._get_best_meta_url_match_based_on_url_path(possible_metas, parsed_url)
+        return possible_metas[0].key if len(possible_metas) == 1 else None
 
     def _get_best_meta_url_match_based_on_url_path(self, possible_metas, parsed_url):
-        if len(possible_metas) > 1 and parsed_url.path != "":
-            matches_length = {}
-            for meta in possible_metas:
-                meta_url = urlparse(meta.url)
-                if meta_url.path != "":
-                    match_size = get_size_of_matching_sequence(meta_url.path, parsed_url.path)
-                    if match_size > 0:
-                        matches_length[meta.key] = match_size
-            if len(matches_length) > 1:
-                return max(matches_length.items(), key=lambda item: item[1])[0]
-            elif len(matches_length) == 1:
-                return matches_length.keys()[0]
-            else:
-                return None
-        elif len(possible_metas) == 1:
-            return possible_metas[0].key
-        else:
-            return None
+        best_match = None
+        best_match_size = 0
+        for meta in possible_metas:
+            meta_url = urlparse(meta.url)
+            if len(meta_url.path) > 0:
+                match_size = get_size_of_matching_sequence(meta_url.path, parsed_url.path)
+                if match_size > best_match_size:
+                    best_match = meta.key
+                    best_match_size = match_size
+        return best_match
 
     def _contains_url(self, string):
         return url_pattern.search(string) is not None
@@ -207,6 +185,9 @@ class PassivePluginsFinder:
             version = re.sub("^\D+", "", version)
             return version
         return None
+
+    def _plugin_exists(self, plugin_key):
+        return self.meta_list.get_meta(plugin_key) is not None
 
 
 def get_size_of_matching_sequence(sequence, _sequence):

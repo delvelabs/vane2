@@ -19,8 +19,7 @@ from unittest import TestCase
 from unittest.mock import MagicMock, patch, call
 from vane.core import Vane, OutputManager
 from aiohttp.test_utils import make_mocked_coro, loop_context
-from openwebvulndb.common.models import VulnerabilityList, Vulnerability, Meta, MetaList
-from vane.theme import Theme
+from openwebvulndb.common.models import VulnerabilityList, Vulnerability, Meta
 from hammertime.http import Entry
 from hammertime.ruleset import HammerTimeException
 
