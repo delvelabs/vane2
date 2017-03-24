@@ -28,6 +28,8 @@ parser.add_argument('-p', dest="popular", action='store_true',
                     help="Search for popular themes/plugins. Can be combined with vulnerable (-v)")
 parser.add_argument('-v', dest="vulnerable", action='store_true',
                     help="Search for vulnerable themes/plugins. Can be combined with popular (-p)")
+parser.add_argument('--passive', dest='passive', action='store_true',
+                    help="Only use passive detection for themes and plugins")
 args = parser.parse_args()
 
 vane = Vane()

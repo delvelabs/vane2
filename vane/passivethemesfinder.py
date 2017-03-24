@@ -17,40 +17,60 @@
 
 import re
 from lxml import etree
+from io import BytesIO
 
-from vane.theme import Theme
-
-theme_url = re.compile("(https?:)?//([\w%-]+(\.|/))+wp-content/themes/(vip/)?[^/]+")
-relative_theme_url = re.compile("/wp-content/themes/(vip/)?[^/]+")
+theme_path = re.compile("(https?:)?//([\w%-]+(\.|/))+wp-content/themes/(vip/)?[^/]+")
+relative_theme_path = re.compile("/wp-content/themes/(vip/)?[^/]+")
 
 
 class PassiveThemesFinder:
 
-    def list_themes(self, html_page):
-        themes = set(self._find_themes_in_elements(html_page))
-        return themes | set(self._find_themes_in_comments(html_page))
+    def __init__(self, meta_list):
+        self.meta_list = meta_list
 
-    def _find_themes_in_comments(self, html_page):
-        element_tree_iterator = etree.iterparse(html_page, html=True, events=("comment",))
+    def list_themes(self, hammertime_response):
+        themes = set(self._find_themes_in_elements(hammertime_response))
+        return themes | set(self._find_themes_in_comments(hammertime_response))
+
+    def _find_themes_in_comments(self, hammertime_response):
+        raw_html = BytesIO(hammertime_response.raw)
+        element_tree_iterator = etree.iterparse(raw_html, html=True, events=("comment",))
         for event, comment_element in element_tree_iterator:
-            if self._contains_theme_url(comment_element.text):
-                yield Theme(self._get_theme_url_from_string(comment_element.text))
+            theme_key = self._find_theme_in_string(comment_element.text)
+            if theme_key is not None:
+                yield theme_key
 
-    def _find_themes_in_elements(self, html_page):
-        element_tree_iterator = etree.iterparse(html_page, html=True)
+    def _find_themes_in_elements(self, hammertime_response):
+        raw_html = BytesIO(hammertime_response.raw)
+        element_tree_iterator = etree.iterparse(raw_html, html=True)
         for event, element in element_tree_iterator:
             yield from self._find_theme_in_element_attributes(element)
 
     def _find_theme_in_element_attributes(self, element):
         for attribute_name, attribute_value in element.items():
-            if self._contains_theme_url(attribute_value):
-                yield Theme(self._get_theme_url_from_string(attribute_value))
+            theme_key = self._find_theme_in_string(attribute_value)
+            if theme_key is not None:
+                yield theme_key
 
-    def _contains_theme_url(self, string):
-        return theme_url.search(string) is not None or relative_theme_url.search(string) is not None
+    def _find_theme_in_string(self, string):
+        if self._contains_theme_path(string):
+            theme_path = self._get_theme_path_from_string(string)
+            theme_key = self._get_theme_key_from_path(theme_path)
+            if self._theme_exists(theme_key):
+                return theme_key
+        return None
 
-    def _get_theme_url_from_string(self, string):
-        if theme_url.search(string):
-            return theme_url.search(string).group()
+    def _contains_theme_path(self, string):
+        return theme_path.search(string) is not None or relative_theme_path.search(string) is not None
+
+    def _get_theme_path_from_string(self, string):
+        if theme_path.search(string):
+            return theme_path.search(string).group()
         else:
-            return relative_theme_url.search(string).group()
+            return relative_theme_path.search(string).group()
+
+    def _get_theme_key_from_path(self, path):
+        return re.search("themes/.+$", path).group()
+
+    def _theme_exists(self, theme_key):
+        return self.meta_list.get_meta(theme_key) is not None
