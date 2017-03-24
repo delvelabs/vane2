@@ -25,16 +25,15 @@ from .retryonerrors import RetryOnErrors
 from openwebvulndb.common.schemas import FileListSchema, VulnerabilityListGroupSchema, VulnerabilitySchema, \
     MetaListSchema
 from openwebvulndb.common.serialize import clean_walk
-from .utils import load_model_from_file
+from .utils import load_model_from_file, validate_url, normalize_url
 from .filefetcher import FileFetcher
 from .vulnerabilitylister import VulnerabilityLister
 from .passivepluginsfinder import PassivePluginsFinder
 from .passivethemesfinder import PassiveThemesFinder
-from collections import OrderedDict
 
 import json
-
 from os.path import join, dirname
+from collections import OrderedDict
 
 
 class Vane:
@@ -53,20 +52,32 @@ class Vane:
         self._load_database()
         self.output_manager.log_message("scanning %s" % url)
 
+        if not validate_url(url):
+            self.output_manager.log_message("%s is not a valid url" % url)
+            await self.hammertime.close()
+            return
+
+        url = normalize_url(url)
+
         # TODO use user input for path?
         input_path = dirname(__file__)
 
-        wordpress_version = await self.identify_target_version(url, input_path)
-        plugins_version = await self.plugin_enumeration(url, popular, vulnerable, input_path, passive_only=passive_only)
-        theme_versions = await self.theme_enumeration(url, popular, vulnerable, input_path, passive_only=passive_only)
+        try:
+            wordpress_version = await self.identify_target_version(url, input_path)
+            plugins_version = await self.plugin_enumeration(url, popular, vulnerable, input_path,
+                                                            passive_only=passive_only)
+            theme_versions = await self.theme_enumeration(url, popular, vulnerable, input_path,
+                                                          passive_only=passive_only)
 
-        file_name = join(input_path, "vane2_vulnerability_database.json")
-        vulnerability_list_group, errors = load_model_from_file(file_name, VulnerabilityListGroupSchema())
+            file_name = join(input_path, "vane2_vulnerability_database.json")
+            vulnerability_list_group, errors = load_model_from_file(file_name, VulnerabilityListGroupSchema())
 
-        self.list_component_vulnerabilities(wordpress_version, vulnerability_list_group)
-        self.list_component_vulnerabilities(plugins_version, vulnerability_list_group)
-        self.list_component_vulnerabilities(theme_versions, vulnerability_list_group)
+            self.list_component_vulnerabilities(wordpress_version, vulnerability_list_group)
+            self.list_component_vulnerabilities(plugins_version, vulnerability_list_group)
+            self.list_component_vulnerabilities(theme_versions, vulnerability_list_group)
 
+        except ValueError as error:
+            self.output_manager.log_message(str(error))
         await self.hammertime.close()
 
         self.output_manager.log_message("scan done")
@@ -85,6 +96,8 @@ class Vane:
             self.output_manager.log_message(repr(error))
 
         key, fetched_files = await file_fetcher.request_files("wordpress", file_list)
+        if len(fetched_files) == 0:
+            raise ValueError("target is not a valid Wordpress site")
         version = version_identifier.identify_version(fetched_files, file_list)
         self.output_manager.set_wordpress_version(version, meta_list.get_meta("wordpress"))
         return {'wordpress': version}
