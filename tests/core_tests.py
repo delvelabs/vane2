@@ -19,6 +19,7 @@ from unittest import TestCase
 from unittest.mock import MagicMock, patch, call
 from vane.core import Vane, OutputManager
 from aiohttp.test_utils import make_mocked_coro, loop_context
+import asyncio
 from openwebvulndb.common.models import VulnerabilityList, Vulnerability, Meta
 from hammertime.http import Entry
 from hammertime.ruleset import HammerTimeException
@@ -38,10 +39,23 @@ class TestVane(TestCase):
             self.vane.perform_action(action="scan")
 
     def test_perform_action_flush_output(self):
-
         self.vane.perform_action(action="scan", url="test")
 
         self.vane.output_manager.flush.assert_called_once_with()
+
+    def test_perform_action_call_set_proxy_if_proxy_is_not_none(self):
+        self.vane.set_proxy = MagicMock()
+
+        self.vane.perform_action(action="scan", url="test", proxy="http://127.0.0.1:8080")
+
+        self.vane.set_proxy.assert_called_once_with("http://127.0.0.1:8080")
+
+    def test_perform_action_dont_call_set_proxy_if_proxy_is_none(self):
+        self.vane.set_proxy = MagicMock()
+
+        self.vane.perform_action(action="scan", url="test")
+
+        self.vane.set_proxy.assert_not_called()
 
     def test_scan_target_output_database_version(self):
         self.skipTest("Must mock coroutines")
@@ -257,6 +271,11 @@ class TestVane(TestCase):
             self.assertEqual(len(self.vane.output_manager.add_theme.mock_calls), 1)
             self.assertEqual(call_args[0][0], "themes/theme2")
             self.assertIsNone(call_args[0][1])
+
+    def test_set_proxy_set_hammertime_proxy(self):
+        self.vane.set_proxy("http://127.0.0.1:8080")
+
+        self.vane.hammertime.set_proxy.assert_called_once_with("http://127.0.0.1:8080")
 
     def test_output_manager_add_data_create_key_if_key_not_in_data(self):
         output_manager = OutputManager()
