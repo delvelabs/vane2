@@ -19,10 +19,10 @@ from unittest import TestCase
 from unittest.mock import MagicMock, call
 from openwebvulndb.common.models import File, FileList, FileSignature, FileListGroup
 from vane.activecomponentfinder import ActiveComponentFinder
-from aiohttp.test_utils import loop_context
 from os.path import dirname, join
 from hammertime.core import HammerTime
 from vane.filefetcher import FetchedFile
+from src.hammertime.tests.fixtures import async_test
 
 
 class TestActiveComponentFinder(TestCase):
@@ -107,54 +107,54 @@ class TestActiveComponentFinder(TestCase):
 
         self.assertEqual(self.component_finder.components_file_list_group, theme_list)
 
-    def test_enumerate_found_fetch_version_definitions_files_for_component(self):
+    @async_test()
+    async def test_enumerate_found_fetch_version_definitions_files_for_component(self, loop):
 
         async def request_files():
             return self.plugin0_file_list.key, [FetchedFile(path=self.plugin0_readme_file.path, hash="fake-hash")]
 
-        with loop_context() as loop:
-            self.component_finder.loop = loop
-            self.component_finder.file_fetcher.request_files.return_value = loop.create_task(request_files())
-            self.component_finder.components_file_list_group = FileListGroup(key="plugins", producer="",
-                                                                             file_lists=[self.plugin0_file_list])
+        self.component_finder.loop = loop
+        self.component_finder.file_fetcher.request_files.return_value = loop.create_task(request_files())
+        self.component_finder.components_file_list_group = FileListGroup(key="plugins", producer="",
+                                                                         file_lists=[self.plugin0_file_list])
 
-            plugins = loop.run_until_complete(self.return_async_iterator_as_list(self.component_finder.enumerate_found()))
+        plugins = await self.return_async_iterator_as_list(self.component_finder.enumerate_found())
 
-            self.component_finder.file_fetcher.request_files.assert_has_calls(
-                [call(self.plugin0_file_list.key, self.plugin0_file_list)])
-            self.assertIn(self.plugin0_file_list.key, [plugin['key'] for plugin in plugins])
+        self.component_finder.file_fetcher.request_files.assert_has_calls(
+            [call(self.plugin0_file_list.key, self.plugin0_file_list)])
+        self.assertIn(self.plugin0_file_list.key, [plugin['key'] for plugin in plugins])
 
-    def test_enumerate_found_skip_component_with_no_files(self):
-        with loop_context() as loop:
-            self.component_finder.loop = loop
-            plugin0 = FileList(key="plugins/plugin0", producer="", files=[])
-            self.component_finder.components_file_list_group = FileListGroup(key="plugins", producer="",
-                                                                             file_lists=[plugin0])
+    @async_test()
+    async def test_enumerate_found_skip_component_with_no_files(self, loop):
+        self.component_finder.loop = loop
+        plugin0 = FileList(key="plugins/plugin0", producer="", files=[])
+        self.component_finder.components_file_list_group = FileListGroup(key="plugins", producer="",
+                                                                         file_lists=[plugin0])
 
-            plugins = loop.run_until_complete(self.return_async_iterator_as_list(self.component_finder.enumerate_found()))
+        plugins = await self.return_async_iterator_as_list(self.component_finder.enumerate_found())
 
-            self.component_finder.file_fetcher.request_files.assert_not_called()
-            self.assertEqual(len(plugins), 0)
+        self.component_finder.file_fetcher.request_files.assert_not_called()
+        self.assertEqual(len(plugins), 0)
 
-    def test_enumerate_found_return_list_of_dict_with_component_key_and_fetched_files(self):
+    @async_test()
+    async def test_enumerate_found_return_list_of_dict_with_component_key_and_fetched_files(self, loop):
 
         async def fake_perform(entry, *args, **kwargs):
             entry.result.hash = "fake-hash"
             return entry
 
-        with loop_context() as loop:
-            hammertime = HammerTime(loop)
-            hammertime.request_engine = MagicMock()
-            hammertime.request_engine.perform = fake_perform
-            component_finder = ActiveComponentFinder(hammertime, self.target_url)
-            component_finder.components_file_list_group = self.plugin_list
+        hammertime = HammerTime(loop)
+        hammertime.request_engine = MagicMock()
+        hammertime.request_engine.perform = fake_perform
+        component_finder = ActiveComponentFinder(hammertime, self.target_url)
+        component_finder.components_file_list_group = self.plugin_list
 
-            components = loop.run_until_complete(self.return_async_iterator_as_list(component_finder.enumerate_found()))
+        components = await self.return_async_iterator_as_list(component_finder.enumerate_found())
 
-            for component_dict in components:
-                self.assertTrue(component_dict['key'] == self.plugin0_file_list.key or
-                                component_dict['key'] == self.plugin1_file_list.key)
-                self.assertIn('files', component_dict)
+        for component_dict in components:
+            self.assertTrue(component_dict['key'] == self.plugin0_file_list.key or
+                            component_dict['key'] == self.plugin1_file_list.key)
+            self.assertIn('files', component_dict)
 
     def test_get_component_file_list(self):
         self.component_finder.components_file_list_group = self.plugin_list
