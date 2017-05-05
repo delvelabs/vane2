@@ -18,6 +18,8 @@
 from hammertime import HammerTime
 from hammertime.rules import RejectStatusCode
 from hammertime.ruleset import HammerTimeException
+from hammertime.engine.aiohttp import AioHttpEngine
+from hammertime.config import custom_event_loop
 from .versionidentification import VersionIdentification
 from .hash import HashResponse
 from .activecomponentfinder import ActiveComponentFinder
@@ -37,11 +39,22 @@ from os.path import join, dirname
 
 class Vane:
 
-    def __init__(self, proxy=None):
-        self.hammertime = HammerTime(retry_count=3, proxy=proxy)
-        self.config_hammertime()
+    def __init__(self, proxy=None, create_hammertime=True):
+        if create_hammertime:
+            self.hammertime = HammerTime(retry_count=3, proxy=proxy)
+            self.config_hammertime()
         self.database = None
         self.output_manager = OutputManager()
+
+    def initialize_hammertime(self, proxy=None, verify_ssl=True, ca_certificate_file=None):
+        request_engine = None
+        loop = custom_event_loop()
+        if not verify_ssl:
+            request_engine = AioHttpEngine(loop=loop, verify_ssl=verify_ssl)
+        elif ca_certificate_file is not None:
+            loop = custom_event_loop()
+            request_engine = AioHttpEngine(loop=loop, ca_certificate_file=ca_certificate_file)
+        self.hammertime = HammerTime(loop=loop, retry_count=3, proxy=proxy, request_engine=request_engine)
 
     def config_hammertime(self):
         self.hammertime.heuristics.add_multiple([RetryOnErrors(range(502, 503)), RejectStatusCode(range(400, 600)),
@@ -254,8 +267,9 @@ class Vane:
         return load_model_from_file(file_name, MetaListSchema())
 
     def perform_action(self, action="scan", url=None, database_path=None, popular=False, vulnerable=False,
-                       passive=False, proxy=None):
+                       passive=False, proxy=None, verify_ssl=False, ca_certificate_file=None):
         if action == "scan":
+            self.initialize_hammertime(proxy=proxy, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
             if proxy is not None:
                 self.set_proxy(proxy)
             if url is None:

@@ -24,6 +24,7 @@ from hammertime.http import Entry
 from hammertime.ruleset import HammerTimeException
 from vane.outputmanager import OutputManager
 from src.hammertime.tests.fixtures import async_test
+import asyncio
 
 
 @patch("vane.core.load_model_from_file", MagicMock(return_value=(MagicMock(), "errors")))
@@ -36,27 +37,40 @@ class TestVane(TestCase):
         self.vane.output_manager = MagicMock()
 
     def test_perform_action_raise_exception_if_no_url_and_action_is_scan(self):
-        with self.assertRaises(ValueError):
-            self.vane.perform_action(action="scan")
+        with patch("vane.core.custom_event_loop", MagicMock()):
+            with self.assertRaises(ValueError):
+                self.vane.perform_action(action="scan")
 
     def test_perform_action_flush_output(self):
-        self.vane.perform_action(action="scan", url="test")
+        with patch("vane.core.custom_event_loop", MagicMock()):
+            self.vane.perform_action(action="scan", url="test", verify_ssl=False)
 
-        self.vane.output_manager.flush.assert_called_once_with()
+            self.vane.output_manager.flush.assert_called_once_with()
 
     def test_perform_action_call_set_proxy_if_proxy_is_not_none(self):
         self.vane.set_proxy = MagicMock()
 
-        self.vane.perform_action(action="scan", url="test", proxy="http://127.0.0.1:8080")
+        with patch("vane.core.custom_event_loop", MagicMock()):
+            self.vane.perform_action(action="scan", url="test", proxy="http://127.0.0.1:8080")
 
-        self.vane.set_proxy.assert_called_once_with("http://127.0.0.1:8080")
+            self.vane.set_proxy.assert_called_once_with("http://127.0.0.1:8080")
 
     def test_perform_action_dont_call_set_proxy_if_proxy_is_none(self):
         self.vane.set_proxy = MagicMock()
 
-        self.vane.perform_action(action="scan", url="test")
+        with patch("vane.core.custom_event_loop", MagicMock()):
+            self.vane.perform_action(action="scan", url="test")
 
-        self.vane.set_proxy.assert_not_called()
+            self.vane.set_proxy.assert_not_called()
+
+    def test_perform_action_call_initialize_hammertime(self):
+        self.vane.initialize_hammertime = MagicMock()
+
+        self.vane.perform_action(url="target", proxy="http://127.0.0.1:8080", verify_ssl=False,
+                                 ca_certificate_file="file")
+
+        self.vane.initialize_hammertime.assert_called_once_with(proxy="http://127.0.0.1:8080", verify_ssl=False,
+                                                                ca_certificate_file="file")
 
     @async_test()
     async def test_scan_target_output_database_version(self, loop):
