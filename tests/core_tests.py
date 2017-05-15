@@ -188,7 +188,7 @@ class TestVane(TestCase):
                                            "plugins/plugin2": "4.3.1"})
 
     @async_test()
-    async def test_plugin_enumeration_overwrite_version_found_during_active_scan_with_passive_detection_results_if_not_none(self, loop):
+    async def test_plugin_enumeration_version_found_by_passive_scan_overwrite_version_found_by_active_scan(self, loop):
         self.vane.active_plugin_enumeration = make_mocked_coro(return_value={"plugins/plugin0": None,
                                                                              "plugins/plugin1": "3.2.1",
                                                                              "plugins/plugin2": "1.2.3"})
