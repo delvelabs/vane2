@@ -15,38 +15,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-from collections import OrderedDict
-
 from unittest.mock import MagicMock
 
+import asyncio
+from functools import wraps
+from aiohttp.test_utils import loop_context
 
-def wrap_lists_in_unordered_lists(iterable):
-    """Recursively iterate over the contents of a iterable and wrap all lists elements into UnorderedList"""
-    if type(iterable) == dict or type(iterable) == OrderedDict:
-        for key, value in iterable.items():
-            iterable[key] = wrap_lists_in_unordered_lists(value)
-        return iterable
-    elif type(iterable) == list:
-        li = [wrap_lists_in_unordered_lists(element) for element in iterable]
-        return UnorderedList(li)
-    else:
-        return iterable
-
-
-class UnorderedList:
-    """Wrapper for a list, used for equality assertion based on orderless elements occurrence."""
-
-    def __init__(self, list):
-        self.list = list
-
-    def __eq__(self, other):
-        li = list(self.list)
-        try:
-            for element in other:
-                li.remove(element)
-        except ValueError:
-            return False
-        return len(li) == 0
+from easyinject import Injector
 
 
 def html_file_to_hammertime_response(filename):
@@ -55,3 +30,22 @@ def html_file_to_hammertime_response(filename):
         hammertime_response = MagicMock()
         hammertime_response.raw = content.encode("utf-8")
         return hammertime_response
+
+
+def async_test():
+    def setup(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            with loop_context() as loop:
+                injector = Injector(loop=loop,
+                                    fake_future=lambda: fake_future)
+                asyncio.get_child_watcher().attach_loop(loop)
+                loop.run_until_complete(injector.call(f, *args, **kwargs))
+        return wrapper
+    return setup
+
+
+def fake_future(result, loop):
+    f = asyncio.Future(loop=loop)
+    f.set_result(result)
+    return f

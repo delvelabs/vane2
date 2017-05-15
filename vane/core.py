@@ -18,6 +18,8 @@
 from hammertime import HammerTime
 from hammertime.rules import RejectStatusCode
 from hammertime.ruleset import HammerTimeException
+from hammertime.engine.aiohttp import AioHttpEngine
+from hammertime.config import custom_event_loop
 from .versionidentification import VersionIdentification
 from .hash import HashResponse
 from .activecomponentfinder import ActiveComponentFinder
@@ -30,23 +32,32 @@ from .filefetcher import FileFetcher
 from .vulnerabilitylister import VulnerabilityLister
 from .passivepluginsfinder import PassivePluginsFinder
 from .passivethemesfinder import PassiveThemesFinder
+from .outputmanager import OutputManager
 
-import json
 from os.path import join, dirname
-from collections import OrderedDict
 
 
 class Vane:
 
     def __init__(self):
-        self.hammertime = HammerTime(retry_count=3)
-        self.config_hammertime()
         self.database = None
         self.output_manager = OutputManager()
+
+    def initialize_hammertime(self, proxy=None, verify_ssl=True, ca_certificate_file=None):
+        loop = custom_event_loop()
+        if proxy is not None and verify_ssl and ca_certificate_file is None:
+            self.output_manager.log_message("Verifying SSL authentication of the target over a proxy without providing "
+                                            "a CA certificate. Scan may fail if target is a https website.")
+        request_engine = AioHttpEngine(loop=loop, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
+        self.hammertime = HammerTime(loop=loop, retry_count=3, proxy=proxy, request_engine=request_engine)
+        self.config_hammertime()
 
     def config_hammertime(self):
         self.hammertime.heuristics.add_multiple([RetryOnErrors(range(502, 503)), RejectStatusCode(range(400, 600)),
                                                  HashResponse()])
+
+    def set_proxy(self, proxy_address):
+        self.hammertime.set_proxy(proxy_address)
 
     async def scan_target(self, url, popular, vulnerable, passive_only=False):
         self._load_database()
@@ -243,7 +254,6 @@ class Vane:
 
     # TODO
     def _load_database(self):
-        # load database
         if self.database is not None:
             self.output_manager.set_vuln_database_version(self.database.get_version())
 
@@ -251,86 +261,14 @@ class Vane:
         file_name = join(input_path, "vane2_%s_meta.json" % key)
         return load_model_from_file(file_name, MetaListSchema())
 
-    def perform_action(self, action="scan", url=None, database_path=None, popular=False, vulnerable=False, passive=False):
+    def perform_action(self, action="scan", url=None, database_path=None, popular=False, vulnerable=False,
+                       passive=False, proxy=None, verify_ssl=True, ca_certificate_file=None):
         if action == "scan":
             if url is None:
                 raise ValueError("Target url required.")
+            self.initialize_hammertime(proxy=proxy, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
             self.hammertime.loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
                                                                      passive_only=passive))
         elif action == "import_data":
             pass
         self.output_manager.flush()
-
-
-class OutputManager:
-
-    def __init__(self, output_format="json"):
-        self.output_format = output_format
-        self.data = {}
-
-    def log_message(self, message):
-        self._add_data("general_log", message)
-
-    def _format(self, data):
-        if self.output_format == "json":
-            return json.dumps(data, indent=4)
-
-    def set_wordpress_version(self, version, meta):
-        wordpress_dict = OrderedDict([("version", version)])
-        if meta is not None:
-            self._add_meta_to_component(wordpress_dict, meta)
-        self.data["wordpress"] = wordpress_dict
-
-    def set_vuln_database_version(self, version):
-        self.data["vuln_database_version"] = version
-
-    def add_plugin(self, plugin, version, meta):
-        self._add_component("plugins", plugin, version, meta)
-
-    def add_theme(self, theme, version, meta):
-        self._add_component("themes", theme, version, meta)
-
-    def add_vulnerability(self, key, vulnerability):
-        component_dict = self._get_component_dictionary(key)
-        if component_dict is not None:
-            self._add_data("vulnerabilities", vulnerability, component_dict)
-
-    def flush(self):
-        print(self._format(self.data))
-
-    def _add_data(self, key, value, container=None):
-        if container is None:
-            container = self.data
-        if key not in container:
-            container[key] = []
-        if isinstance(value, list):
-            container[key].extend(value)
-        else:
-            container[key].append(value)
-
-    def _get_dictionary_with_key_value_pair_in_list(self, key, value, list):
-        for dictionary in list:
-            if key in dictionary and dictionary[key] == value:
-                return dictionary
-        return None
-
-    def _get_component_dictionary(self, key):
-        if "/" in key:
-            key_path = key.split("/")
-            return self._get_dictionary_with_key_value_pair_in_list("key", key, self.data[key_path[0]])
-        if key in self.data:
-            return self.data[key]
-        return None
-
-    def _add_component(self, key, component_key, version, meta):
-        component_dict = OrderedDict([('key', component_key), ('version', version or "No version found")])
-        if meta is not None:
-            self._add_meta_to_component(component_dict, meta)
-        self._add_data(key, component_dict)
-
-    def _add_meta_to_component(self, component_dict, meta):
-        if meta.name is not None:
-            component_dict["name"] = meta.name
-            component_dict.move_to_end("name", False)
-        if meta.url is not None:
-            component_dict["url"] = meta.url
