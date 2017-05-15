@@ -39,22 +39,18 @@ from os.path import join, dirname
 
 class Vane:
 
-    def __init__(self, proxy=None, create_hammertime=True):
-        if create_hammertime:
-            self.hammertime = HammerTime(retry_count=3, proxy=proxy)
-            self.config_hammertime()
+    def __init__(self):
         self.database = None
         self.output_manager = OutputManager()
 
     def initialize_hammertime(self, proxy=None, verify_ssl=True, ca_certificate_file=None):
-        request_engine = None
         loop = custom_event_loop()
-        if not verify_ssl:
-            request_engine = AioHttpEngine(loop=loop, verify_ssl=verify_ssl)
-        elif ca_certificate_file is not None:
-            loop = custom_event_loop()
-            request_engine = AioHttpEngine(loop=loop, ca_certificate_file=ca_certificate_file)
+        if proxy is not None and verify_ssl and ca_certificate_file is None:
+            self.output_manager.log_message("Verifying SSL authentication of the target over a proxy without providing "
+                                            "a CA certificate. Scan may fail if target is a https website.")
+        request_engine = AioHttpEngine(loop=loop, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
         self.hammertime = HammerTime(loop=loop, retry_count=3, proxy=proxy, request_engine=request_engine)
+        self.config_hammertime()
 
     def config_hammertime(self):
         self.hammertime.heuristics.add_multiple([RetryOnErrors(range(502, 503)), RejectStatusCode(range(400, 600)),
@@ -258,7 +254,6 @@ class Vane:
 
     # TODO
     def _load_database(self):
-        # load database
         if self.database is not None:
             self.output_manager.set_vuln_database_version(self.database.get_version())
 
@@ -267,13 +262,11 @@ class Vane:
         return load_model_from_file(file_name, MetaListSchema())
 
     def perform_action(self, action="scan", url=None, database_path=None, popular=False, vulnerable=False,
-                       passive=False, proxy=None, verify_ssl=False, ca_certificate_file=None):
+                       passive=False, proxy=None, verify_ssl=True, ca_certificate_file=None):
         if action == "scan":
-            self.initialize_hammertime(proxy=proxy, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
-            if proxy is not None:
-                self.set_proxy(proxy)
             if url is None:
                 raise ValueError("Target url required.")
+            self.initialize_hammertime(proxy=proxy, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
             self.hammertime.loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
                                                                      passive_only=passive))
         elif action == "import_data":

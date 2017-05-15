@@ -22,7 +22,7 @@ from aiohttp.test_utils import make_mocked_coro
 import asyncio
 from openwebvulndb.common.models import File, FileSignature, FileList
 from hammertime.ruleset import StopRequest
-from src.hammertime.tests.fixtures import async_test
+from fixtures import async_test
 
 
 class TestFileFetcher(TestCase):

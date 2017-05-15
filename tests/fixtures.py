@@ -19,6 +19,12 @@ from collections import OrderedDict
 
 from unittest.mock import MagicMock
 
+import asyncio
+from functools import wraps
+from aiohttp.test_utils import loop_context
+
+from easyinject import Injector
+
 
 def wrap_lists_in_unordered_lists(iterable):
     """Recursively iterate over the contents of a iterable and wrap all lists elements into UnorderedList"""
@@ -55,3 +61,22 @@ def html_file_to_hammertime_response(filename):
         hammertime_response = MagicMock()
         hammertime_response.raw = content.encode("utf-8")
         return hammertime_response
+
+
+def async_test():
+    def setup(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            with loop_context() as loop:
+                injector = Injector(loop=loop,
+                                    fake_future=lambda: fake_future)
+                asyncio.get_child_watcher().attach_loop(loop)
+                loop.run_until_complete(injector.call(f, *args, **kwargs))
+        return wrapper
+    return setup
+
+
+def fake_future(result, loop):
+    f = asyncio.Future(loop=loop)
+    f.set_result(result)
+    return f

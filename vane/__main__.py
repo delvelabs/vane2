@@ -31,6 +31,11 @@ parser.add_argument('-v', dest="vulnerable", action='store_true',
 parser.add_argument('--passive', dest='passive', action='store_true',
                     help="Only use passive detection for themes and plugins")
 parser.add_argument('--proxy', dest='proxy', help="Address of the HTTP proxy to be used by Vane")
+parser.add_argument('--no_ssl_validation', dest='verify_ssl', action='store_false', help="Don't perform ssl "
+                                                                                         "authentication.")
+parser.add_argument('--ca_cert', dest='ca_certificate_file', help='The ca certificate file of the proxy used for the '
+                                                                  'scan. Required if scanning an https website over a '
+                                                                  'proxy and verifying ssl authentication.')
 args = parser.parse_args()
 
 vane = Vane()

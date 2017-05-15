@@ -23,8 +23,7 @@ from openwebvulndb.common.models import VulnerabilityList, Vulnerability
 from hammertime.http import Entry
 from hammertime.ruleset import HammerTimeException
 from vane.outputmanager import OutputManager
-from src.hammertime.tests.fixtures import async_test
-import asyncio
+from fixtures import async_test
 
 
 @patch("vane.core.load_model_from_file", MagicMock(return_value=(MagicMock(), "errors")))
@@ -33,6 +32,8 @@ class TestVane(TestCase):
     def setUp(self):
         with patch("vane.core.HammerTime", MagicMock()):
             self.vane = Vane()
+            with patch("vane.core.custom_event_loop", MagicMock()):
+                self.vane.initialize_hammertime()
             self.vane.hammertime.close = make_mocked_coro()
         self.vane.output_manager = MagicMock()
 
@@ -46,22 +47,6 @@ class TestVane(TestCase):
             self.vane.perform_action(action="scan", url="test", verify_ssl=False)
 
             self.vane.output_manager.flush.assert_called_once_with()
-
-    def test_perform_action_call_set_proxy_if_proxy_is_not_none(self):
-        self.vane.set_proxy = MagicMock()
-
-        with patch("vane.core.custom_event_loop", MagicMock()):
-            self.vane.perform_action(action="scan", url="test", proxy="http://127.0.0.1:8080")
-
-            self.vane.set_proxy.assert_called_once_with("http://127.0.0.1:8080")
-
-    def test_perform_action_dont_call_set_proxy_if_proxy_is_none(self):
-        self.vane.set_proxy = MagicMock()
-
-        with patch("vane.core.custom_event_loop", MagicMock()):
-            self.vane.perform_action(action="scan", url="test")
-
-            self.vane.set_proxy.assert_not_called()
 
     def test_perform_action_call_initialize_hammertime(self):
         self.vane.initialize_hammertime = MagicMock()

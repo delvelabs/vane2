@@ -22,7 +22,7 @@ from vane.activecomponentfinder import ActiveComponentFinder
 from os.path import dirname, join
 from hammertime.core import HammerTime
 from vane.filefetcher import FetchedFile
-from src.hammertime.tests.fixtures import async_test
+from fixtures import async_test
 
 
 class TestActiveComponentFinder(TestCase):
