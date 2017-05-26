@@ -36,6 +36,9 @@ from .outputmanager import OutputManager
 
 from os.path import join, dirname
 
+from .database import Database
+from aiohttp import ClientSession
+
 
 class Vane:
 
@@ -270,5 +273,8 @@ class Vane:
             self.hammertime.loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
                                                                      passive_only=passive))
         elif action == "import_data":
-            pass
+            self.database = Database(custom_event_loop())
+            self.database.aiohttp_session = ClientSession(loop=self.database.loop)
+            self.database.api_url = "https://api.github.com/repos/NicolasAubry/vane_data_test"
+            self.database.load_data(database_path)
         self.output_manager.flush()
