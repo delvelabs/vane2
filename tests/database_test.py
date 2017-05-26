@@ -107,3 +107,46 @@ class TestDatabase(TestCase):
         filename = self.database.get_data_filename(latest_release)
 
         self.assertEqual(filename, "vane2_data_1.0.tar.gz")
+
+    def test_get_current_database_version_search_in_database_path(self):
+        fake_glob = MagicMock()
+        glob_patch = patch("vane.database.glob.glob", fake_glob)
+        glob_patch.start()
+
+        self.database.get_current_database_version("path/to/vane2/database")
+
+        fake_glob.assert_called_once_with("path/to/vane2/database/vane2_data_*")
+
+        glob_patch.stop()
+
+    def test_get_current_database_version_raise_exception_if_multiple_versions_are_found(self):
+        fake_glob = MagicMock(return_value=["vane2_data_1.0", "vane2_data_1.1"])
+        glob_patch = patch("vane.database.glob.glob", fake_glob)
+        glob_patch.start()
+
+        with self.assertRaises(ValueError):
+            self.database.get_current_database_version("path")
+
+        glob_patch.stop()
+
+    def test_get_current_database_version_return_none_if_no_database_found(self):
+        fake_glob = MagicMock(return_value=[])
+        glob_patch = patch("vane.database.glob.glob", fake_glob)
+        glob_patch.start()
+
+        version = self.database.get_current_database_version("path")
+
+        self.assertIsNone(version)
+
+        glob_patch.stop()
+
+    def test_get_current_database_version_return_version_if_database_found(self):
+        fake_glob = MagicMock(return_value=["vane2_data_1.2"])
+        glob_patch = patch("vane.database.glob.glob", fake_glob)
+        glob_patch.start()
+
+        version = self.database.get_current_database_version("path")
+
+        self.assertEqual(version, "1.2")
+
+        glob_patch.stop()

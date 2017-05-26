@@ -276,5 +276,5 @@ class Vane:
             self.database = Database(custom_event_loop())
             self.database.aiohttp_session = ClientSession(loop=self.database.loop)
             self.database.api_url = "https://api.github.com/repos/NicolasAubry/vane_data_test"
-            self.database.load_data(database_path)
+            print(self.database.get_current_database_version(database_path))
         self.output_manager.flush()

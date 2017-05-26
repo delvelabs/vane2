@@ -1,6 +1,7 @@
 from os import path
 import tarfile
 import re
+import glob
 
 
 class Database:
@@ -52,3 +53,11 @@ class Database:
     def extract_downloaded_files(self, archive_filename):
         with tarfile.open(archive_filename, 'r:gz') as archive:
             archive.extractall(re.sub("\.tar\.gz$", "", archive_filename))
+
+    def get_current_database_version(self, database_path):
+        database_dir = glob.glob(database_path + "/vane2_data_*")
+        if len(database_dir) > 1:
+            raise ValueError("More than one database version found, delete old versions")
+        elif len(database_dir) == 0:
+            return None
+        return re.search("\d+\.\d+$", database_dir[0]).group()
