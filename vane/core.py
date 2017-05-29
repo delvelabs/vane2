@@ -37,7 +37,7 @@ from .outputmanager import OutputManager
 from os.path import join, dirname
 
 from .database import Database
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientError
 
 
 class Vane:
@@ -63,7 +63,7 @@ class Vane:
         self.hammertime.set_proxy(proxy_address)
 
     async def scan_target(self, url, popular, vulnerable, passive_only=False):
-        self._load_database()
+        #self._load_database()
         self.output_manager.log_message("scanning %s" % url)
 
         if not validate_url(url):
@@ -255,10 +255,16 @@ class Vane:
             message = "all"
         self.output_manager.log_message("Active enumeration of {0} {1}.".format(message, key))
 
-    # TODO
-    def _load_database(self):
-        if self.database is not None:
-            self.output_manager.set_vuln_database_version(self.database.get_version())
+    def _load_database(self, database_path, auto_update_frequency=7):
+        loop = custom_event_loop()
+        with ClientSession(loop=loop) as aiohttp_session:
+            self.database = Database(loop, aiohttp_session, auto_update_frequency)
+            self.database.configure_data_repository("NicolasAubry", "vane_data_test")
+            try:
+                self.database.load_data(database_path)
+                self.output_manager.set_vuln_database_version(self.database.current_version)
+            except ClientError:
+                self.output_manager.log_message("Connection error when trying to update the database.")
 
     def _load_meta_list(self, key, input_path):
         file_name = join(input_path, "vane2_%s_meta.json" % key)
@@ -273,8 +279,5 @@ class Vane:
             self.hammertime.loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
                                                                      passive_only=passive))
         elif action == "import_data":
-            self.database = Database(custom_event_loop())
-            self.database.aiohttp_session = ClientSession(loop=self.database.loop)
-            self.database.api_url = "https://api.github.com/repos/NicolasAubry/vane_data_test"
-            print(self.database.get_current_database_version(database_path))
+            self._load_database(database_path)
         self.output_manager.flush()

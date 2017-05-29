@@ -3,6 +3,8 @@ from unittest.mock import patch, MagicMock, ANY
 from vane.database import Database
 from aiohttp.test_utils import make_mocked_coro, loop_context
 from fixtures import async_test, AsyncContextManagerMock
+from datetime import datetime
+from freezegun import freeze_time
 
 
 #auto update à tous les x jours (conserve la date de la dernière update)
@@ -18,7 +20,12 @@ class TestDatabase(TestCase):
         self.database.api_url = "https://api.github.com/repos/Owner/database"
         self.filename = "vane_data.tar.gz"
         self.database.aiohttp_session = MagicMock()
-        self.database.aiohttp_session.get.return_value = AsyncContextManagerMock()
+        response = MagicMock()
+        response.status = 200
+        response.read = make_mocked_coro(return_value="data")
+        self.database.aiohttp_session.get.return_value = AsyncContextManagerMock(aenter_return=response)
+        self.database.save_data_to_file = MagicMock()
+        self.database.extract_downloaded_files = MagicMock()
 
     def test_load_database_download_database_if_update_required(self):
         self.database.download_data_latest_release = make_mocked_coro()
@@ -136,6 +143,17 @@ class TestDatabase(TestCase):
         self.database.aiohttp_session.get.assert_called_once_with(self.database.api_url + "/releases/assets/1", headers=ANY)
 
     @async_test()
+    async def test_download_database_set_current_version_attribute_to_latest_version(self):
+        self.database.get_latest_release = make_mocked_coro(
+            return_value={"tag_name": "1.5", "assets": [{'name': "vane2_data.tar.gz",
+                                                         'url': self.database.api_url + "/releases/assets/1"}]})
+        self.database.get_data_filename = MagicMock(return_value="vane2_data.tar.gz")
+
+        await self.database.download_data_latest_release("path")
+
+        self.assertEqual(self.database.current_version, "1.5")
+
+    @async_test()
     async def test_download_database_set_accept_header_of_request(self):
         self.database.get_latest_release = make_mocked_coro(return_value={"assets": [
             {'name': "vane2_data.tar.gz", 'url': self.database.api_url + "/releases/assets/1"}]})
@@ -173,7 +191,7 @@ class TestDatabase(TestCase):
         glob_patch = patch("vane.database.glob.glob", fake_glob)
         glob_patch.start()
 
-        self.database.get_current_database_version("path/to/vane2/database")
+        self.database.get_current_version("path/to/vane2/database")
 
         fake_glob.assert_called_once_with("path/to/vane2/database/vane2_data_*")
 
@@ -184,7 +202,7 @@ class TestDatabase(TestCase):
         glob_patch = patch("vane.database.glob.glob", fake_glob)
         glob_patch.start()
 
-        version = self.database.get_current_database_version("path")
+        version = self.database.get_current_version("path")
 
         self.assertEqual(version, "1.1")
 
@@ -195,7 +213,7 @@ class TestDatabase(TestCase):
         glob_patch = patch("vane.database.glob.glob", fake_glob)
         glob_patch.start()
 
-        version = self.database.get_current_database_version("path")
+        version = self.database.get_current_version("path")
 
         self.assertIsNone(version)
 
@@ -206,9 +224,20 @@ class TestDatabase(TestCase):
         glob_patch = patch("vane.database.glob.glob", fake_glob)
         glob_patch.start()
 
-        version = self.database.get_current_database_version("path")
+        version = self.database.get_current_version("path")
 
         self.assertEqual(version, "1.2")
+
+        glob_patch.stop()
+
+    def test_get_current_database_version_set_database_version_attribute(self):
+        fake_glob = MagicMock(return_value=["vane2_data_1.2"])
+        glob_patch = patch("vane.database.glob.glob", fake_glob)
+        glob_patch.start()
+
+        version = self.database.get_current_version("path")
+
+        self.assertEqual(self.database.current_version, version)
 
         glob_patch.stop()
 
@@ -219,7 +248,7 @@ class TestDatabase(TestCase):
         glob_patch.start()
         self.database.get_latest_installed_version = MagicMock()
 
-        self.database.get_current_database_version("/absolute_path")
+        self.database.get_current_version("/absolute_path")
 
         self.database.get_latest_installed_version.assert_called_once_with(directory_list)
 
@@ -232,7 +261,7 @@ class TestDatabase(TestCase):
         glob_patch.start()
         self.database.get_latest_installed_version = MagicMock()
 
-        self.database.get_current_database_version("path")
+        self.database.get_current_version("path")
 
         self.database.get_latest_installed_version.assert_called_once_with(["vane2_data_1.2"])
 
@@ -245,3 +274,14 @@ class TestDatabase(TestCase):
 
         self.assertEqual("2.1", latest_version)
 
+    @freeze_time("2017-05-29")
+    def test_get_days_since_last_update_return_time_delta_in_days_between_now_and_database_folder_modification_time(self):
+        database = Database()
+        stat_result = MagicMock()
+        stat_result.st_mtime = datetime(2017, 5, 24).timestamp()
+        os_stat = MagicMock(return_value=stat_result)
+
+        with patch('vane.database.stat', os_stat):
+            days_since_last_update = database.get_days_since_last_update("path")
+
+            self.assertEqual(days_since_last_update, 5)
