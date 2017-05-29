@@ -22,6 +22,7 @@ class TestDatabase(TestCase):
         self.database.aiohttp_session.get.return_value = AsyncContextManagerMock(aenter_return=response)
         self.database.save_data_to_file = MagicMock()
         self.database.extract_downloaded_files = MagicMock()
+        self.database.cleanup_archive_file = MagicMock()
 
     def test_load_database_download_database_if_update_required(self):
         self.database.download_data_latest_release = make_mocked_coro()
@@ -199,6 +200,16 @@ class TestDatabase(TestCase):
         self.database.aiohttp_session.get.assert_called_once_with(ANY, headers={'accept': "application/octet-stream"})
 
     @async_test()
+    async def test_download_database_cleanup_archive_file_after_extraction(self):
+        self.database.get_latest_release = make_mocked_coro(return_value={"assets": [
+            {'name': "vane2_data.tar.gz", 'url': self.database.api_url + "/releases/assets/1"}]})
+        self.database.get_data_filename = MagicMock(return_value="vane2_data.tar.gz")
+
+        await self.database.download_data_latest_release("path")
+
+        self.database.cleanup_archive_file.assert_called_once_with("path/vane2_data.tar.gz")
+
+    @async_test()
     async def test_get_latest_release_make_latest_release_request_to_github_api(self):
         await self.database.get_latest_release()
 
@@ -321,3 +332,12 @@ class TestDatabase(TestCase):
             days_since_last_update = database.get_days_since_last_update("path")
 
             self.assertEqual(days_since_last_update, 5)
+
+    def test_cleanup_archive_file_remove_downloaded_archive_file(self):
+        database = Database()
+        fake_remove = MagicMock()
+        with patch("vane.database.remove", fake_remove):
+
+            database.cleanup_archive_file("filename.tar.gz")
+
+            fake_remove.assert_called_once_with("filename.tar.gz")

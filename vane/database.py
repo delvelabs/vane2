@@ -1,4 +1,4 @@
-from os import path, stat
+from os import path, stat, remove
 import tarfile
 import re
 import glob
@@ -65,6 +65,7 @@ class Database:
             data = await response.read()
             self.save_data_to_file(data, path.join(database_path, data_filename))
             self.extract_downloaded_files(path.join(database_path, data_filename))
+            self.cleanup_archive_file(path.join(database_path, data_filename))
             self.current_version = latest_release['tag_name']
 
     async def get_latest_release(self):
@@ -83,6 +84,9 @@ class Database:
     def extract_downloaded_files(self, archive_filename):
         with tarfile.open(archive_filename, 'r:gz') as archive:
             archive.extractall(re.sub("\.tar\.gz$", "", archive_filename))
+
+    def cleanup_archive_file(self, archive_filename):
+        remove(archive_filename)
 
     def get_current_version(self, database_path):
         database_dir = glob.glob(database_path + "/vane2_data_*")
