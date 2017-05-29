@@ -2,6 +2,10 @@ from os import path
 import tarfile
 import re
 import glob
+from openwebvulndb.common.version import VersionCompare
+from packaging.version import parse
+
+vane2_data_directory_pattern = re.compile("vane2_data_\d+\.\d+$")
 
 
 class Database:
@@ -12,17 +16,24 @@ class Database:
         self.api_url = None
 
     def load_data(self, database_path):
-        missing_file = False
-        if path.isdir(database_path + "/vane2_data"):
-            for file in self.files_to_check:
-                if not path.isfile("{0}/{1}".format("data", file)):
-                    missing_file = True
-                    break
-            if missing_file:
-                self.loop.run_until_complete(self.download_data_latest_release(database_path))
-
-        else:
+        if self.is_update_required(database_path):
             self.loop.run_until_complete(self.download_data_latest_release(database_path))
+
+    def is_update_required(self, database_path):
+        current_version = self.get_current_database_version(database_path)
+        if current_version is None:
+            return True
+        if self.get_days_since_last_update(database_path) > self.auto_update_frequency:
+            latest_version = self.loop.run_until_complete(self.get_latest_release())['tag_name']
+            if parse(latest_version) > parse(current_version):
+                return True
+        return self.missing_files(database_path, current_version)
+
+    def missing_files(self, database_path, current_version):
+        for file in self.files_to_check:
+            if not path.isfile("{0}/{1}".format(path.join(database_path, "vane2_data_%s" % current_version), file)):
+                return True
+        return False
 
     async def download_data_latest_release(self, database_path):
         latest_release = await self.get_latest_release()
@@ -56,8 +67,16 @@ class Database:
 
     def get_current_database_version(self, database_path):
         database_dir = glob.glob(database_path + "/vane2_data_*")
-        if len(database_dir) > 1:
-            raise ValueError("More than one database version found, delete old versions")
-        elif len(database_dir) == 0:
+        directory_list = [directory[directory.rfind("/") + 1:] for directory in database_dir if vane2_data_directory_pattern.search(directory)]
+        if len(directory_list) == 0:
             return None
-        return re.search("\d+\.\d+$", database_dir[0]).group()
+        else:
+            return self.get_latest_installed_version(directory_list)
+
+    def get_latest_installed_version(self, installed_directory_list):
+        versions = []
+        version_pattern = re.compile("\d+\.\d+")
+        for directory in installed_directory_list:
+            versions.append(version_pattern.search(directory).group())
+        sorted_versions = VersionCompare.sorted(versions)
+        return sorted_versions[-1]

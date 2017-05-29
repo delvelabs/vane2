@@ -264,7 +264,7 @@ class Vane:
         file_name = join(input_path, "vane2_%s_meta.json" % key)
         return load_model_from_file(file_name, MetaListSchema())
 
-    def perform_action(self, action="scan", url=None, database_path=None, popular=False, vulnerable=False,
+    def perform_action(self, action="scan", url=None, database_path=".", popular=False, vulnerable=False,
                        passive=False, proxy=None, verify_ssl=True, ca_certificate_file=None):
         if action == "scan":
             if url is None:

@@ -23,7 +23,7 @@ actions_available = ["scan", "import_data"]
 parser = ArgumentParser(description="vane 2.0")
 parser.add_argument("action", choices=actions_available)
 parser.add_argument("--url", dest="url")
-parser.add_argument("--import_path", dest="database_path")
+parser.add_argument("--import_path", dest="database_path", default=".")
 parser.add_argument('-p', dest="popular", action='store_true',
                     help="Search for popular themes/plugins. Can be combined with vulnerable (-v)")
 parser.add_argument('-v', dest="vulnerable", action='store_true',
