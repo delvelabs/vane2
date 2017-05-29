@@ -257,12 +257,14 @@ class Vane:
         loop = custom_event_loop()
         with ClientSession(loop=loop) as aiohttp_session:
             self.database = Database(loop, aiohttp_session, auto_update_frequency)
-            self.database.configure_data_repository("NicolasAubry", "vane_data_test")
+            self.database.configure_data_repository("Nicolas2Aubry", "vane_data_test")
             try:
                 self.database.load_data(database_path, no_update=no_update)
-                self.output_manager.set_vuln_database_version(self.database.current_version)
             except ClientError:
                 self.output_manager.log_message("Connection error when trying to update the database.")
+            except AssertionError:
+                self.output_manager.log_message("Bad status code in response from server")
+            self.output_manager.set_vuln_database_version(self.database.current_version)
 
     def _load_meta_list(self, key, input_path):
         file_name = join(input_path, "vane2_%s_meta.json" % key)
@@ -275,9 +277,10 @@ class Vane:
             if url is None:
                 raise ValueError("Target url required.")
             self._load_database(database_path, int(auto_update_frequency), no_update)
-            self.initialize_hammertime(proxy=proxy, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
-            self.hammertime.loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
-                                                                     passive_only=passive))
+            if self.database.database_path is not None:
+                self.initialize_hammertime(proxy=proxy, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
+                self.hammertime.loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
+                                                                         passive_only=passive))
         elif action == "import_data":
             self._load_database(database_path, Database.ALWAYS_CHECK_FOR_UPDATE)
         self.output_manager.flush()

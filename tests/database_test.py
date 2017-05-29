@@ -5,6 +5,7 @@ from aiohttp.test_utils import make_mocked_coro, loop_context
 from fixtures import async_test, AsyncContextManagerMock
 from datetime import datetime
 from freezegun import freeze_time
+from aiohttp import ClientError
 
 
 class TestDatabase(TestCase):
@@ -43,15 +44,38 @@ class TestDatabase(TestCase):
 
             self.assertEqual(self.database.database_path, "/path/to/database/vane2_data_1.2")
 
+    def test_load_database_fallback_to_older_version_for_database_path_if_download_failed(self):
+        self.database.download_data_latest_release = make_mocked_coro(raise_exception=ClientError())
+        self.database.is_update_required = MagicMock(return_value=True)
+        self.database.current_version = "1.2"
+        with loop_context() as loop:
+            self.database.loop = loop
+
+            with self.assertRaises(ClientError):
+                self.database.load_data("/path/to/database")
+
+            self.assertEqual(self.database.database_path, "/path/to/database/vane2_data_1.2")
+
+    def test_load_database_fallback_to_older_version_for_database_path_if_is_update_required_failed(self):
+        self.database.is_update_required = MagicMock(side_effect=ClientError())
+        self.database.current_version = "1.2"
+        with loop_context() as loop:
+            self.database.loop = loop
+
+            with self.assertRaises(ClientError):
+                self.database.load_data("/path/to/database")
+
+            self.assertEqual(self.database.database_path, "/path/to/database/vane2_data_1.2")
+
     def test_is_update_required_return_true_if_data_folder_not_found(self):
-        self.database.get_current_database_version = MagicMock(return_value=None)
+        self.database.get_current_version = MagicMock(return_value=None)
         with loop_context() as loop:
             self.database.loop = loop
 
             self.assertTrue(self.database.is_update_required("path"))
 
     def test_is_update_required_return_true_if_files_missing(self):
-        self.database.get_current_database_version = MagicMock(return_value="1.0")
+        self.database.get_current_version = MagicMock(return_value="1.0")
         self.database.get_latest_release = make_mocked_coro(
             return_value={'tag_name': '1.0', 'id': "12345", 'assets': []})
         self.database.missing_files = MagicMock(return_value=True)
@@ -109,7 +133,6 @@ class TestDatabase(TestCase):
             self.database.get_latest_release.assert_not_called()
 
     def test_is_update_required_dont_check_for_new_updates_if_no_update_is_true(self):
-        self.database.download_data_latest_release = make_mocked_coro()
         self.database.auto_update_frequency = Database.ALWAYS_CHECK_FOR_UPDATE
         self.database.get_current_version = MagicMock(return_value="1.0")
         self.database.missing_files = MagicMock(return_value=False)
@@ -184,6 +207,7 @@ class TestDatabase(TestCase):
     @async_test()
     async def test_get_latest_release_return_release(self):
         response = MagicMock()
+        response.status = 200
         response.json = make_mocked_coro(return_value={'tag_name': '1.0', 'id': "12345", 'assets': []})
         self.database.aiohttp_session.get.return_value.aenter_return = response
 
@@ -198,7 +222,7 @@ class TestDatabase(TestCase):
 
         self.assertEqual(filename, "vane2_data_1.0.tar.gz")
 
-    def test_get_current_database_version_search_in_database_path(self):
+    def test_get_current_version_search_in_database_path(self):
         fake_glob = MagicMock()
         glob_patch = patch("vane.database.glob.glob", fake_glob)
         glob_patch.start()
@@ -209,7 +233,7 @@ class TestDatabase(TestCase):
 
         glob_patch.stop()
 
-    def test_get_current_database_version_latest_version_if_multiple_versions_are_found(self):
+    def test_get_current_version_latest_version_if_multiple_versions_are_found(self):
         fake_glob = MagicMock(return_value=["vane2_data_1.0", "vane2_data_1.1"])
         glob_patch = patch("vane.database.glob.glob", fake_glob)
         glob_patch.start()
@@ -220,7 +244,7 @@ class TestDatabase(TestCase):
 
         glob_patch.stop()
 
-    def test_get_current_database_version_return_none_if_no_database_found(self):
+    def test_get_current_version_return_none_if_no_database_found(self):
         fake_glob = MagicMock(return_value=[])
         glob_patch = patch("vane.database.glob.glob", fake_glob)
         glob_patch.start()
@@ -231,7 +255,7 @@ class TestDatabase(TestCase):
 
         glob_patch.stop()
 
-    def test_get_current_database_version_return_version_if_database_found(self):
+    def test_get_current_version_return_version_if_database_found(self):
         fake_glob = MagicMock(return_value=["vane2_data_1.2"])
         glob_patch = patch("vane.database.glob.glob", fake_glob)
         glob_patch.start()
@@ -242,7 +266,7 @@ class TestDatabase(TestCase):
 
         glob_patch.stop()
 
-    def test_get_current_database_version_set_database_version_attribute(self):
+    def test_get_current_version_set_database_version_attribute(self):
         fake_glob = MagicMock(return_value=["vane2_data_1.2"])
         glob_patch = patch("vane.database.glob.glob", fake_glob)
         glob_patch.start()

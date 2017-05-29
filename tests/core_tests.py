@@ -24,6 +24,7 @@ from hammertime.http import Entry
 from hammertime.ruleset import HammerTimeException
 from vane.outputmanager import OutputManager
 from fixtures import async_test
+from aiohttp import ClientError
 
 
 @patch("vane.core.load_model_from_file", MagicMock(return_value=(MagicMock(), "errors")))
@@ -59,6 +60,15 @@ class TestVane(TestCase):
 
         self.vane.initialize_hammertime.assert_called_once_with(proxy="http://127.0.0.1:8080", verify_ssl=False,
                                                                 ca_certificate_file="file")
+
+    def test_perform_action_dont_start_scan_if_database_failed_to_download_and_no_older_database_present(self):
+        self.vane.database.database_path = None
+        self.vane.database.load_data = MagicMock(side_effect=ClientError)
+        self.vane.scan_target = make_mocked_coro()
+        with patch("vane.core.custom_event_loop", MagicMock()):
+            self.vane.perform_action(action="scan", url="test", verify_ssl=False)
+
+            self.vane.scan_target.assert_not_called()
 
     @async_test()
     async def test_scan_target_output_database_version(self, loop):

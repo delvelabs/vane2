@@ -5,6 +5,7 @@ import glob
 from openwebvulndb.common.version import VersionCompare
 from packaging.version import parse
 from datetime import datetime
+from aiohttp import ClientError
 
 vane2_data_directory_pattern = re.compile("vane2_data_\d+\.\d+$")
 
@@ -26,8 +27,13 @@ class Database:
         self.api_url = "https://api.github.com/repos/{0}/{1}".format(repository_owner, repository_name)
 
     def load_data(self, database_path, no_update=False):
-        if self.is_update_required(database_path, no_update=no_update):
-            self.loop.run_until_complete(self.download_data_latest_release(database_path))
+        try:
+            if self.is_update_required(database_path, no_update=no_update):
+                self.loop.run_until_complete(self.download_data_latest_release(database_path))
+        except (ClientError, AssertionError) as e:
+            if self.current_version is not None:
+                self.database_path = path.join(database_path, "vane2_data_%s" % self.current_version)
+            raise e
         self.database_path = path.join(database_path, "vane2_data_%s" % self.current_version)
 
     def is_update_required(self, database_path, no_update=False):
@@ -63,6 +69,7 @@ class Database:
 
     async def get_latest_release(self):
         async with self.aiohttp_session.get(self.api_url + "/releases/latest") as response:
+            assert response.status == 200
             return await response.json()
 
     def get_data_filename(self, latest_release):
