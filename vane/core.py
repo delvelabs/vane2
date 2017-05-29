@@ -63,7 +63,6 @@ class Vane:
         self.hammertime.set_proxy(proxy_address)
 
     async def scan_target(self, url, popular, vulnerable, passive_only=False):
-        #self._load_database()
         self.output_manager.log_message("scanning %s" % url)
 
         if not validate_url(url):
@@ -73,8 +72,7 @@ class Vane:
 
         url = normalize_url(url)
 
-        # TODO use user input for path?
-        input_path = dirname(__file__)
+        input_path = self.database.database_path
 
         try:
             wordpress_version = await self.identify_target_version(url, input_path)
@@ -255,13 +253,13 @@ class Vane:
             message = "all"
         self.output_manager.log_message("Active enumeration of {0} {1}.".format(message, key))
 
-    def _load_database(self, database_path, auto_update_frequency=7):
+    def _load_database(self, database_path, auto_update_frequency=7, no_update=False):
         loop = custom_event_loop()
         with ClientSession(loop=loop) as aiohttp_session:
             self.database = Database(loop, aiohttp_session, auto_update_frequency)
             self.database.configure_data_repository("NicolasAubry", "vane_data_test")
             try:
-                self.database.load_data(database_path)
+                self.database.load_data(database_path, no_update=no_update)
                 self.output_manager.set_vuln_database_version(self.database.current_version)
             except ClientError:
                 self.output_manager.log_message("Connection error when trying to update the database.")
@@ -271,13 +269,15 @@ class Vane:
         return load_model_from_file(file_name, MetaListSchema())
 
     def perform_action(self, action="scan", url=None, database_path=".", popular=False, vulnerable=False,
-                       passive=False, proxy=None, verify_ssl=True, ca_certificate_file=None):
+                       passive=False, proxy=None, verify_ssl=True, ca_certificate_file=None, auto_update_frequency=7,
+                       no_update=False):
         if action == "scan":
             if url is None:
                 raise ValueError("Target url required.")
+            self._load_database(database_path, int(auto_update_frequency), no_update)
             self.initialize_hammertime(proxy=proxy, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
             self.hammertime.loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
                                                                      passive_only=passive))
         elif action == "import_data":
-            self._load_database(database_path)
+            self._load_database(database_path, Database.ALWAYS_CHECK_FOR_UPDATE)
         self.output_manager.flush()

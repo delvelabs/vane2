@@ -36,6 +36,9 @@ class TestVane(TestCase):
                 self.vane.initialize_hammertime()
             self.vane.hammertime.close = make_mocked_coro()
         self.vane.output_manager = MagicMock()
+        self.vane.database = MagicMock()
+        self.vane.database.database_path = "/path/to/database"
+        self.vane._load_database = MagicMock()
 
     def test_perform_action_raise_exception_if_no_url_and_action_is_scan(self):
         with patch("vane.core.custom_event_loop", MagicMock()):

@@ -11,6 +11,8 @@ vane2_data_directory_pattern = re.compile("vane2_data_\d+\.\d+$")
 
 class Database:
 
+    ALWAYS_CHECK_FOR_UPDATE = -1
+
     def __init__(self, loop=None, aiohttp_session=None, auto_update_frequency=7):
         self.loop = loop
         self.files_to_check = []
@@ -18,19 +20,21 @@ class Database:
         self.auto_update_frequency = auto_update_frequency
         self.aiohttp_session = aiohttp_session
         self.current_version = None
+        self.database_path = None
 
     def configure_data_repository(self, repository_owner, repository_name):
         self.api_url = "https://api.github.com/repos/{0}/{1}".format(repository_owner, repository_name)
 
-    def load_data(self, database_path):
-        if self.is_update_required(database_path):
+    def load_data(self, database_path, no_update=False):
+        if self.is_update_required(database_path, no_update=no_update):
             self.loop.run_until_complete(self.download_data_latest_release(database_path))
+        self.database_path = path.join(database_path, "vane2_data_%s" % self.current_version)
 
-    def is_update_required(self, database_path):
+    def is_update_required(self, database_path, no_update=False):
         self.current_version = self.get_current_version(database_path)
         if self.current_version is None:
             return True
-        if self.get_days_since_last_update(database_path) > self.auto_update_frequency:
+        if not no_update and self.get_days_since_last_update(database_path) > self.auto_update_frequency:
             latest_version = self.loop.run_until_complete(self.get_latest_release())['tag_name']
             if parse(latest_version) > parse(self.current_version):
                 return True

@@ -7,10 +7,6 @@ from datetime import datetime
 from freezegun import freeze_time
 
 
-#auto update à tous les x jours (conserve la date de la dernière update)
-#download le dernier tarzip, le unpack dans un folder et met à jour la date d'update
-#si pas de database trouvée, fait le download.
-#os.stat pour la date de modif du fichier (ou utiliser la date de publication de la dernière update).
 class TestDatabase(TestCase):
 
     def setUp(self):
@@ -35,6 +31,17 @@ class TestDatabase(TestCase):
             self.database.load_data("path")
 
             self.database.download_data_latest_release.assert_called_once_with("path")
+
+    def test_load_database_set_database_path(self):
+        self.database.download_data_latest_release = make_mocked_coro()
+        self.database.is_update_required = MagicMock(return_value=False)
+        self.database.current_version = "1.2"
+        with loop_context() as loop:
+            self.database.loop = loop
+
+            self.database.load_data("/path/to/database")
+
+            self.assertEqual(self.database.database_path, "/path/to/database/vane2_data_1.2")
 
     def test_is_update_required_return_true_if_data_folder_not_found(self):
         self.database.get_current_database_version = MagicMock(return_value=None)
@@ -100,6 +107,16 @@ class TestDatabase(TestCase):
             self.database.is_update_required("path")
 
             self.database.get_latest_release.assert_not_called()
+
+    def test_is_update_required_dont_check_for_new_updates_if_no_update_is_true(self):
+        self.database.download_data_latest_release = make_mocked_coro()
+        self.database.auto_update_frequency = Database.ALWAYS_CHECK_FOR_UPDATE
+        self.database.get_current_version = MagicMock(return_value="1.0")
+        self.database.missing_files = MagicMock(return_value=False)
+        with loop_context() as loop:
+            self.database.loop = loop
+
+            self.assertFalse(self.database.is_update_required("/path/to/database", no_update=True))
 
     def test_missing_files_look_for_vane_files_in_database_folder(self):
         self.database.files_to_check = ['vane2_wordpress_meta.json', 'vane2_wordpress_versions.json']
