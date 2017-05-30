@@ -28,7 +28,8 @@ from aiohttp import ClientError
 class TestDatabase(TestCase):
 
     def setUp(self):
-        self.database = Database()
+        self.database = Database(MagicMock())
+        self.database.files_to_check = []
         self.database.get_days_since_last_update = MagicMock(return_value=0)
         self.database.configure_data_repository("Owner", "database")
         self.filename = "vane_data.tar.gz"
@@ -91,6 +92,17 @@ class TestDatabase(TestCase):
 
             self.assertEqual(self.database.database_path, "/path/to/database/vane2_data_1.2")
 
+    def test_load_database_log_message_if_download_successful(self):
+        self.database.is_update_required = MagicMock(return_value=True)
+        self.database.download_data_latest_release = make_mocked_coro()
+        self.database.current_version = "1.2"
+        with loop_context() as loop:
+            self.database.loop = loop
+
+            self.database.load_data("/path/to/database")
+
+            self.database.output_manager.log_message.assert_called_once_with("Database update done")
+
     def test_is_update_required_return_true_if_data_folder_not_found(self):
         self.database.get_current_version = MagicMock(return_value=None)
         with loop_context() as loop:
@@ -98,10 +110,17 @@ class TestDatabase(TestCase):
 
             self.assertTrue(self.database.is_update_required("path"))
 
+    def test_is_update_required_log_message_if_data_folder_not_found(self):
+        self.database.get_current_version = MagicMock(return_value=None)
+        with loop_context() as loop:
+            self.database.loop = loop
+
+            self.database.is_update_required("path")
+
+            self.database.output_manager.log_message.assert_called_once_with("No database found")
+
     def test_is_update_required_return_true_if_files_missing(self):
         self.database.get_current_version = MagicMock(return_value="1.0")
-        self.database.get_latest_release = make_mocked_coro(
-            return_value={'tag_name': '1.0', 'id': "12345", 'assets': []})
         self.database.missing_files = MagicMock(return_value=True)
         with loop_context() as loop:
             self.database.loop = loop
@@ -119,27 +138,41 @@ class TestDatabase(TestCase):
     def test_is_update_required_return_true_if_installed_version_is_not_latest_version(self):
         with loop_context() as loop:
             self.database.loop = loop
-            self.database.get_current_database_version = MagicMock(return_value="1.0")
+            self.database.auto_update_frequency = Database.ALWAYS_CHECK_FOR_UPDATE
+            self.database.get_current_version = MagicMock(return_value="1.0")
             self.database.get_latest_release = make_mocked_coro(return_value=
                                                                 {'tag_name': '2.0', 'id': "12345", 'assets': []})
 
             self.assertTrue(self.database.is_update_required("path"))
 
+    def test_is_update_required_log_message_if_new_version_available(self):
+        with loop_context() as loop:
+            self.database.loop = loop
+            self.database.get_current_version = MagicMock(return_value="1.0")
+            self.database.auto_update_frequency = Database.ALWAYS_CHECK_FOR_UPDATE
+            self.database.get_latest_release = make_mocked_coro(return_value=
+                                                                {'tag_name': '2.0', 'id': "12345", 'assets': []})
+
+            self.database.is_update_required("path")
+
+            self.database.output_manager.log_message.assert_called_once_with("New database version available: 2.0")
+
     def test_is_update_required_return_false_if_installed_version_is_latest_version(self):
         with loop_context() as loop:
             self.database.loop = loop
             self.database.get_current_version = MagicMock(return_value="1.0")
+            self.database.get_days_since_last_update.return_value = 8
             self.database.get_latest_release = make_mocked_coro(return_value=
                                                                 {'tag_name': '1.0', 'id': "12345", 'assets': []})
 
             self.assertFalse(self.database.is_update_required("path"))
 
     def test_is_update_required_check_if_new_version_available_if_last_update_older_than_auto_update_frequency(self):
-        self.database.get_days_since_last_update = MagicMock(return_value=8)
+        self.database.get_days_since_last_update = MagicMock(return_value=self.database.auto_update_frequency + 1)
         self.database.get_current_version = MagicMock(return_value="1.0")
         self.database.missing_files = MagicMock(return_value=False)
         self.database.get_latest_release = make_mocked_coro(return_value=
-                                                            {'tag_name': '1.0', 'id': "12345", 'assets': []})
+                                                            {'tag_name': '2.0', 'id': "12345", 'assets': []})
         with loop_context() as loop:
             self.database.loop = loop
 
@@ -147,12 +180,25 @@ class TestDatabase(TestCase):
 
             self.database.get_latest_release.assert_called_once_with()
 
+    def test_is_update_required_log_message_if_current_version_is_up_to_date(self):
+        self.database.auto_update_frequency = Database.ALWAYS_CHECK_FOR_UPDATE
+        self.database.get_current_version = MagicMock(return_value="2.0")
+        self.database.missing_files = MagicMock(return_value=False)
+        self.database.get_latest_release = make_mocked_coro(return_value=
+                                                            {'tag_name': '2.0', 'id': "12345", 'assets': []})
+        with loop_context() as loop:
+            self.database.loop = loop
+
+            self.database.is_update_required("path")
+
+            self.database.output_manager.log_message.assert_called_once_with(
+                "Database version is latest version available")
+
     def test_is_update_required_dont_check_for_new_version_if_last_update_newer_than_auto_update_frequency(self):
-        self.database.get_days_since_last_update = MagicMock(return_value=6)
         self.database.get_current_version = MagicMock(return_value="1.0")
         self.database.missing_files = MagicMock(return_value=False)
         self.database.get_latest_release = make_mocked_coro(return_value=
-                                                            {'tag_name': '1.0', 'id': "12345", 'assets': []})
+                                                            {'tag_name': '2.0', 'id': "12345", 'assets': []})
         with loop_context() as loop:
             self.database.loop = loop
 
@@ -163,6 +209,8 @@ class TestDatabase(TestCase):
     def test_is_update_required_dont_check_for_new_updates_if_no_update_is_true(self):
         self.database.auto_update_frequency = Database.ALWAYS_CHECK_FOR_UPDATE
         self.database.get_current_version = MagicMock(return_value="1.0")
+        self.database.get_latest_release = make_mocked_coro(return_value=
+                                                            {'tag_name': '2.0', 'id': "12345", 'assets': []})
         self.database.missing_files = MagicMock(return_value=False)
         with loop_context() as loop:
             self.database.loop = loop
@@ -194,9 +242,18 @@ class TestDatabase(TestCase):
         with patch("vane.database.path.isfile", isfile):
             self.assertTrue(self.database.missing_files("/path/to/database", "1.2"))
 
+    def test_missing_files_log_missing_files(self):
+        self.database.files_to_check = ["file.txt"]
+        isfile = MagicMock(return_value=False)
+
+        with patch("vane.database.path.isfile", isfile):
+            self.database.missing_files("/path/to/database", "1.2")
+
+            self.database.output_manager.log_message.assert_called_once_with("File file.txt is missing from database")
+
     @async_test()
     async def test_download_database_request_vane_data_of_latest_release(self):
-        self.database.get_latest_release = make_mocked_coro(return_value={"assets": [
+        self.database.get_latest_release = make_mocked_coro(return_value={"tag_name": "2.0", "assets": [
             {'name': "vane2_data.tar.gz", 'url': self.database.api_url + "/releases/assets/1"},
             {'name': "other_asset", 'url': self.database.api_url + "/releases//assets/2"}]})
         self.database.get_data_filename = MagicMock(return_value="vane2_data.tar.gz")
@@ -207,10 +264,20 @@ class TestDatabase(TestCase):
                                                                   headers=ANY)
 
     @async_test()
+    async def test_download_database_log_message_with_latest_version_before_download(self):
+        self.database.get_latest_release = make_mocked_coro(return_value={"tag_name": "2.0", "assets": [
+            {'name': "vane2_data.tar.gz", 'url': self.database.api_url + "/releases/assets/1"},
+            {'name': "other_asset", 'url': self.database.api_url + "/releases//assets/2"}]})
+        self.database.get_data_filename = MagicMock(return_value="vane2_data.tar.gz")
+
+        await self.database.download_data_latest_release("path")
+
+        self.database.output_manager.log_message.assert_called_once_with("Downloading database version 2.0")
+
+    @async_test()
     async def test_download_database_set_current_version_attribute_to_latest_version(self):
-        self.database.get_latest_release = make_mocked_coro(
-            return_value={"tag_name": "1.5", "assets": [{'name': "vane2_data.tar.gz",
-                                                         'url': self.database.api_url + "/releases/assets/1"}]})
+        self.database.get_latest_release = make_mocked_coro(return_value={"tag_name": "1.5", "assets": [
+            {"tag_name": "2.0", 'name': "vane2_data.tar.gz", 'url': self.database.api_url + "/releases/assets/1"}]})
         self.database.get_data_filename = MagicMock(return_value="vane2_data.tar.gz")
 
         await self.database.download_data_latest_release("path")
@@ -219,7 +286,7 @@ class TestDatabase(TestCase):
 
     @async_test()
     async def test_download_database_set_accept_header_of_request(self):
-        self.database.get_latest_release = make_mocked_coro(return_value={"assets": [
+        self.database.get_latest_release = make_mocked_coro(return_value={"tag_name": "2.0", "assets": [
             {'name': "vane2_data.tar.gz", 'url': self.database.api_url + "/releases/assets/1"}]})
         self.database.get_data_filename = MagicMock(return_value="vane2_data.tar.gz")
 
@@ -229,7 +296,7 @@ class TestDatabase(TestCase):
 
     @async_test()
     async def test_download_database_cleanup_archive_file_after_extraction(self):
-        self.database.get_latest_release = make_mocked_coro(return_value={"assets": [
+        self.database.get_latest_release = make_mocked_coro(return_value={"tag_name": "2.0", "assets": [
             {'name': "vane2_data.tar.gz", 'url': self.database.api_url + "/releases/assets/1"}]})
         self.database.get_data_filename = MagicMock(return_value="vane2_data.tar.gz")
 
@@ -321,7 +388,7 @@ class TestDatabase(TestCase):
 
     @freeze_time("2017-05-29")
     def test_get_days_since_last_update_return_time_in_days_between_now_and_database_folder_modification_time(self):
-        database = Database()
+        database = Database(None)
         stat_result = MagicMock()
         stat_result.st_mtime = datetime(2017, 5, 24).timestamp()
         os_stat = MagicMock(return_value=stat_result)
@@ -332,7 +399,7 @@ class TestDatabase(TestCase):
             self.assertEqual(days_since_last_update, 5)
 
     def test_cleanup_archive_file_remove_downloaded_archive_file(self):
-        database = Database()
+        database = Database(None)
         fake_remove = MagicMock()
         with patch("vane.database.remove", fake_remove):
 

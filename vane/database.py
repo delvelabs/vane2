@@ -31,14 +31,15 @@ class Database:
 
     ALWAYS_CHECK_FOR_UPDATE = -1
 
-    def __init__(self, loop=None, aiohttp_session=None, auto_update_frequency=7):
+    def __init__(self, output_manager, loop=None, aiohttp_session=None, auto_update_frequency=7):
         self.loop = loop
-        self.files_to_check = []
+        self.files_to_check = ["test.json"]
         self.api_url = None
         self.auto_update_frequency = auto_update_frequency
         self.aiohttp_session = aiohttp_session
         self.current_version = None
         self.database_path = None
+        self.output_manager = output_manager
 
     def configure_data_repository(self, repository_owner, repository_name):
         self.api_url = "https://api.github.com/repos/{0}/{1}".format(repository_owner, repository_name)
@@ -47,6 +48,7 @@ class Database:
         try:
             if self.is_update_required(database_path, no_update=no_update):
                 self.loop.run_until_complete(self.download_data_latest_release(database_path))
+                self.output_manager.log_message("Database update done")
         except (ClientError, AssertionError) as e:
             if self.current_version is not None:
                 self.database_path = path.join(database_path, "vane2_data_%s" % self.current_version)
@@ -56,21 +58,27 @@ class Database:
     def is_update_required(self, database_path, no_update=False):
         self.current_version = self.get_current_version(database_path)
         if self.current_version is None:
+            self.output_manager.log_message("No database found")
             return True
         if not no_update and self.get_days_since_last_update(database_path) > self.auto_update_frequency:
             latest_version = self.loop.run_until_complete(self.get_latest_release())['tag_name']
             if parse(latest_version) > parse(self.current_version):
+                self.output_manager.log_message("New database version available: %s" % latest_version)
                 return True
+            else:
+                self.output_manager.log_message("Database version is latest version available")
         return self.missing_files(database_path, self.current_version)
 
     def missing_files(self, database_path, current_version):
         for file in self.files_to_check:
             if not path.isfile("{0}/{1}".format(path.join(database_path, "vane2_data_%s" % current_version), file)):
+                self.output_manager.log_message("File %s is missing from database" % file)
                 return True
         return False
 
     async def download_data_latest_release(self, database_path):
         latest_release = await self.get_latest_release()
+        self.output_manager.log_message("Downloading database version %s" % latest_release['tag_name'])
         data_filename = self.get_data_filename(latest_release)
         asset_url = None
         for asset in latest_release['assets']:
@@ -107,7 +115,11 @@ class Database:
 
     def get_current_version(self, database_path):
         database_dir = glob.glob(database_path + "/vane2_data_*")
-        directory_list = [directory[directory.rfind("/") + 1:] for directory in database_dir if vane2_data_directory_pattern.search(directory)]
+        directory_list = []
+        for abs_directory_path in database_dir:
+            if vane2_data_directory_pattern.search(abs_directory_path):
+                directory_name = abs_directory_path[abs_directory_path.rfind("/") + 1:]
+                directory_list.append(directory_name)
         if len(directory_list) == 0:
             return None
         else:
