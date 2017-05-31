@@ -256,6 +256,7 @@ class Vane:
     async def _load_database(self, loop, database_path, auto_update_frequency=7, no_update=False):
         async with ClientSession(loop=loop) as aiohttp_session:
             self.database = Database(self.output_manager, aiohttp_session, auto_update_frequency)
+            # TODO don't forget to change this to the real Vane data repository when it will exist.
             self.database.configure_update_repository("NicolasAubry", "vane_data_test")
             try:
                 await self.database.load_data(database_path, no_update=no_update)

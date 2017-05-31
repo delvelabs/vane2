@@ -64,7 +64,7 @@ class TestVane(TestCase):
 
     def test_perform_action_dont_start_scan_if_database_failed_to_download_and_no_older_database_present(self):
         self.vane.database.database_directory = None
-        self.vane.database.load_data = MagicMock(side_effect=ClientError)
+        self.vane.database._load_data = make_mocked_coro(raise_exception=ClientError())
         self.vane.scan_target = make_mocked_coro()
         with loop_context()as loop, patch("vane.core.custom_event_loop", MagicMock(return_value=loop)):
             self.vane.perform_action(action="scan", url="test", verify_ssl=False)

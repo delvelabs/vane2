@@ -37,7 +37,7 @@ class Database:
                          "vane2_themes_versions.json"]
 
     def __init__(self, output_manager, aiohttp_session=None, auto_update_frequency=7):
-        self.files_to_check = Database.files_in_database
+        self.required_files = Database.files_in_database
         self.api_url = None
         self.auto_update_frequency = auto_update_frequency
         self.aiohttp_session = aiohttp_session
@@ -76,7 +76,7 @@ class Database:
 
     def _missing_files(self, database_path):
         database_directory = self._get_database_directory(database_path)
-        for file in self.files_to_check:
+        for file in self.required_files:
             if not path.isfile(path.join(database_directory, file)):
                 self.output_manager.log_message("File %s is missing from database" % file)
                 return True
@@ -125,8 +125,7 @@ class Database:
         if len(database_directory_list) == 0:
             return None
         else:
-            self.current_version = self._get_latest_installed_version(database_directory_list)
-            return self.current_version
+            return self._get_latest_installed_version(database_directory_list)
 
     def _list_all_installed_database_versions(self, database_path):
         database_path_content = glob.glob(database_path + "/vane2_data_*")

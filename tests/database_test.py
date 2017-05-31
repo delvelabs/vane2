@@ -29,7 +29,7 @@ class TestDatabase(TestCase):
 
     def setUp(self):
         self.database = Database(MagicMock())
-        self.database.files_to_check = []
+        self.database.required_files = []
         self.database._get_days_since_last_update = MagicMock(return_value=0)
         self.database.aiohttp_session = MagicMock()
         self.response = MagicMock()
@@ -150,7 +150,7 @@ class TestDatabase(TestCase):
         self.assertFalse(await self.database.is_update_required("path"))
 
     @async_test()
-    async def test_is_update_required_check_if_new_version_is_available_if_last_update_older_than_auto_update_frequency(self):
+    async def test_is_update_required_check_for_new_version_if_last_update_older_than_auto_update_frequency(self):
         self.database._get_days_since_last_update = MagicMock(return_value=self.database.auto_update_frequency + 1)
         self.database._get_current_version = MagicMock(return_value="1.0")
         self.database._missing_files = MagicMock(return_value=False)
@@ -193,20 +193,20 @@ class TestDatabase(TestCase):
 
         self.database.get_latest_release.assert_not_called()
 
-    def test_missing_files_look_for_vane_files_in_database_directory(self):
-        self.database.files_to_check = ['vane2_wordpress_meta.json', 'vane2_wordpress_versions.json']
+    def test_missing_files_look_for_required_files_in_database_directory(self):
+        self.database.required_files = ['vane2_wordpress_meta.json', 'vane2_wordpress_versions.json']
         isfile = MagicMock()
         self.database.current_version = "1.2"
 
         with patch("vane.database.path.isfile", isfile):
             self.database._missing_files("/path/to/database")
             calls = isfile.call_args_list
-            for call, file in zip(calls, self.database.files_to_check):
+            for call, file in zip(calls, self.database.required_files):
                 args, kwargs = call
                 self.assertIn("/path/to/database/vane2_data_1.2/%s" % file, args)
 
-    def test_missing_files_return_false_if_no_files_missing(self):
-        self.database.files_to_check = ['vane2_wordpress_meta.json', 'vane2_wordpress_versions.json']
+    def test_missing_files_return_false_if_no_file_missing(self):
+        self.database.required_files = ['vane2_wordpress_meta.json', 'vane2_wordpress_versions.json']
         isfile = MagicMock(return_value=True)
         self.database.current_version = "1.2"
 
@@ -214,7 +214,7 @@ class TestDatabase(TestCase):
             self.assertFalse(self.database._missing_files("/path/to/database"))
 
     def test_missing_files_return_true_if_files_missing(self):
-        self.database.files_to_check = ['vane2_wordpress_meta.json', 'vane2_wordpress_versions.json']
+        self.database.required_files = ['vane2_wordpress_meta.json', 'vane2_wordpress_versions.json']
         isfile = MagicMock(return_value=False)
         self.database.current_version = "1.2"
 
@@ -222,7 +222,7 @@ class TestDatabase(TestCase):
             self.assertTrue(self.database._missing_files("/path/to/database"))
 
     def test_missing_files_log_missing_files(self):
-        self.database.files_to_check = ["file.txt"]
+        self.database.required_files = ["file.txt"]
         isfile = MagicMock(return_value=False)
         self.database.current_version = "1.2"
 
@@ -236,7 +236,6 @@ class TestDatabase(TestCase):
         self.database.get_latest_release = make_mocked_coro(return_value={"tag_name": "2.0", "assets": [
             {'name': "vane2_data.tar.gz", 'url': "http://api_url/releases/assets/1"},
             {'name': "other_asset", 'url': "http://api_url/releases/assets/2"}]})
-
 
         await self.database.download_data_latest_release("path")
 
@@ -295,7 +294,7 @@ class TestDatabase(TestCase):
 
         self.assertEqual(release, await self.response.json())
 
-    def test_get_data_filename_return_basename_and_latest_release_version(self):
+    def test_get_data_filename_return_archive_name_for_latest_release(self):
         database = Database(None)
         latest_release = {'tag_name': "1.0"}
 
@@ -330,13 +329,6 @@ class TestDatabase(TestCase):
         version = self.database._get_current_version("path")
 
         self.assertEqual(version, "1.2")
-
-    def test_get_current_version_set_database_version_attribute(self):
-        self.database._list_all_installed_database_versions = MagicMock(return_value=["vane2_data_1.2"])
-
-        version = self.database._get_current_version("path")
-
-        self.assertEqual(self.database.current_version, version)
 
     def test_list_all_installed_database_versions_returns_database_directories_relative_names(self):
         directory_list = ["vane2_data_1.2", "vane2_data_1.3", "vane2_data_1.5"]

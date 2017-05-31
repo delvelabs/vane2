@@ -37,7 +37,7 @@ parser.add_argument('--ca_cert', dest='ca_certificate_file', help='The ca certif
                                                                   'scan. Required if scanning an https website over a '
                                                                   'proxy and verifying ssl authentication.')
 parser.add_argument('--auto_update_frequency', dest='auto_update_frequency',
-                    help='The delay in days between two auto update of the database (default is 7 days)', default=7)
+                    help='The delay in days between two auto updates of the database (default is 7 days)', default=7)
 
 parser.add_argument('--no_update', dest='no_update', help="Don't check if a newer version of the database is available."
                                                           " Only update if database is not found", action='store_true')
