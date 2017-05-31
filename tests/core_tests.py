@@ -38,7 +38,7 @@ class TestVane(TestCase):
             self.vane.hammertime.close = make_mocked_coro()
         self.vane.output_manager = MagicMock()
         self.vane.database = MagicMock()
-        self.vane.database.database_path = "/path/to/database"
+        self.vane.database.database_directory = "/path/to/database/vane2_data_1.0"
         self.vane._load_database = MagicMock()
 
     def test_perform_action_raise_exception_if_no_url_and_action_is_scan(self):
@@ -62,7 +62,7 @@ class TestVane(TestCase):
                                                                 ca_certificate_file="file")
 
     def test_perform_action_dont_start_scan_if_database_failed_to_download_and_no_older_database_present(self):
-        self.vane.database.database_path = None
+        self.vane.database.database_directory = None
         self.vane.database.load_data = MagicMock(side_effect=ClientError)
         self.vane.scan_target = make_mocked_coro()
         with patch("vane.core.custom_event_loop", MagicMock()):

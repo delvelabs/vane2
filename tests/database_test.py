@@ -36,16 +36,14 @@ class TestDatabase(TestCase):
         self.response.status = 200
         self.response.read = make_mocked_coro(return_value="data")
         self.database.aiohttp_session.get.return_value = AsyncContextManagerMock(aenter_return=self.response)
-        self.database.save_data_to_file = MagicMock()
+        self.database.save_data_to_archive_file = MagicMock()
         self.database.extract_downloaded_files = MagicMock()
         self.database.cleanup_archive_file = MagicMock()
         self.database.get_data_archive_name = MagicMock(return_value="vane2_data.tar.gz")
         self.glob_mock = MagicMock()
-        self.glob_patch = patch("vane.database.glob.glob", self.glob_mock)
-        self.glob_patch.start()
-
-    def tearDown(self):
-        self.glob_patch.stop()
+        glob_patch = patch("vane.database.glob.glob", self.glob_mock)
+        glob_patch.start()
+        self.addCleanup(glob_patch.stop)
 
     def test_load_database_download_database_if_update_required(self):
         self.database.download_data_latest_release = make_mocked_coro()
@@ -57,7 +55,7 @@ class TestDatabase(TestCase):
 
             self.database.download_data_latest_release.assert_called_once_with("path")
 
-    def test_load_database_set_database_path(self):
+    def test_load_database_set_database_directory(self):
         self.database.download_data_latest_release = make_mocked_coro()
         self.database.is_update_required = MagicMock(return_value=False)
         self.database.current_version = "1.2"
@@ -66,9 +64,9 @@ class TestDatabase(TestCase):
 
             self.database.load_data("/path/to/database")
 
-            self.assertEqual(self.database.database_path, "/path/to/database/vane2_data_1.2")
+            self.assertEqual(self.database.database_directory, "/path/to/database/vane2_data_1.2")
 
-    def test_load_database_fallback_to_older_version_for_database_path_if_download_failed(self):
+    def test_load_database_fallback_to_older_version_for_database_directory_if_download_failed(self):
         self.database.download_data_latest_release = make_mocked_coro(raise_exception=ClientError())
         self.database.is_update_required = MagicMock(return_value=True)
         self.database.current_version = "1.2"
@@ -78,9 +76,9 @@ class TestDatabase(TestCase):
             with self.assertRaises(ClientError):
                 self.database.load_data("/path/to/database")
 
-            self.assertEqual(self.database.database_path, "/path/to/database/vane2_data_1.2")
+            self.assertEqual(self.database.database_directory, "/path/to/database/vane2_data_1.2")
 
-    def test_load_database_fallback_to_older_version_for_database_path_if_is_update_required_failed(self):
+    def test_load_database_fallback_to_older_version_for_database_directory_if_is_update_required_failed(self):
         self.database.is_update_required = MagicMock(side_effect=ClientError())
         self.database.current_version = "1.2"
         with loop_context() as loop:
@@ -89,7 +87,7 @@ class TestDatabase(TestCase):
             with self.assertRaises(ClientError):
                 self.database.load_data("/path/to/database")
 
-            self.assertEqual(self.database.database_path, "/path/to/database/vane2_data_1.2")
+            self.assertEqual(self.database.database_directory, "/path/to/database/vane2_data_1.2")
 
     def test_load_database_log_message_if_download_successful(self):
         self.database.is_update_required = MagicMock(return_value=True)
@@ -212,7 +210,7 @@ class TestDatabase(TestCase):
 
             self.database.get_latest_release.assert_not_called()
 
-    def test_missing_files_look_for_vane_files_in_database_folder(self):
+    def test_missing_files_look_for_vane_files_in_database_directory(self):
         self.database.files_to_check = ['vane2_wordpress_meta.json', 'vane2_wordpress_versions.json']
         isfile = MagicMock()
         self.database.current_version = "1.2"
@@ -322,61 +320,69 @@ class TestDatabase(TestCase):
 
         self.assertEqual(filename, "vane2_data_1.0.tar.gz")
 
-    def test_get_current_version_search_in_database_path(self):
+    def test_get_current_version_call_list_all_installed_database_versions(self):
+        self.database._list_all_installed_database_versions = MagicMock()
         self.database.get_current_version("path/to/vane2/database")
 
-        self.glob_mock.assert_called_once_with("path/to/vane2/database/vane2_data_*")
+        self.database._list_all_installed_database_versions.assert_called_once_with("path/to/vane2/database")
 
     def test_get_current_version_latest_version_if_multiple_versions_are_found(self):
-        self.glob_mock.return_value = ["vane2_data_1.0", "vane2_data_1.1"]
+        self.database._list_all_installed_database_versions = MagicMock(return_value=["vane2_data_1.0",
+                                                                                      "vane2_data_1.1"])
 
         version = self.database.get_current_version("path")
 
         self.assertEqual(version, "1.1")
 
     def test_get_current_version_return_none_if_no_database_found(self):
-        self.glob_mock.return_value = []
+        self.database._list_all_installed_database_versions = MagicMock(return_value=[])
 
         version = self.database.get_current_version("path")
 
         self.assertIsNone(version)
 
     def test_get_current_version_return_version_if_database_found(self):
-        self.glob_mock.return_value = ["vane2_data_1.2"]
+        self.database._list_all_installed_database_versions = MagicMock(return_value=["vane2_data_1.2"])
 
         version = self.database.get_current_version("path")
 
         self.assertEqual(version, "1.2")
 
     def test_get_current_version_set_database_version_attribute(self):
-        self.glob_mock.return_value = ["vane2_data_1.2"]
+        self.database._list_all_installed_database_versions = MagicMock(return_value=["vane2_data_1.2"])
 
         version = self.database.get_current_version("path")
 
         self.assertEqual(self.database.current_version, version)
 
-    def test_get_current_version_calls_get_latest_installed_version_with_database_directories_relative_names(self):
+    def test_list_all_installed_database_versions_returns_database_directories_relative_names(self):
         directory_list = ["vane2_data_1.2", "vane2_data_1.3", "vane2_data_1.5"]
         self.glob_mock.return_value = list("/absolute_path/" + directory for directory in directory_list)
-        self.database.get_latest_installed_version = MagicMock()
+        self.database._get_latest_installed_version = MagicMock()
 
         self.database.get_current_version("/absolute_path")
 
-        self.database.get_latest_installed_version.assert_called_once_with(directory_list)
+        self.database._get_latest_installed_version.assert_called_once_with(directory_list)
 
-    def test_get_current_version_dont_pass_targz_database_files_to_get_latest_installed_version(self):
+    def test_list_all_installed_database_versions_search_in_database_path(self):
+        self.database._list_all_installed_database_versions("path/to/vane2/database")
+
+        self.glob_mock.assert_called_once_with("path/to/vane2/database/vane2_data_*")
+
+    def test_list_all_installed_database_versions_dont_return_targz_database_files(self):
         directory_list = ["vane2_data_1.2", "vane2_data_1.2.tar.gz", "vane2_data_1.3.tar.gz"]
         self.glob_mock.return_value = directory_list
-        self.database.get_latest_installed_version = MagicMock()
 
-        self.database.get_current_version("path")
+        database_directory_list = self.database._list_all_installed_database_versions("path/to/vane2/database")
 
-        self.database.get_latest_installed_version.assert_called_once_with(["vane2_data_1.2"])
+        self.assertIn("vane2_data_1.2", database_directory_list)
+        self.assertNotIn("vane2_data_1.2.tar.gz", database_directory_list)
+        self.assertNotIn("vane2_data_1.3.tar.gz", database_directory_list)
 
     def test_get_latest_installed_version_return_latest_version_from_directory_name(self):
         database_directory = ["vane2_data_1.1", "vane2_data_1.2", "vane2_data_2.1"]
 
-        latest_version = self.database.get_latest_installed_version(database_directory)
+        latest_version = self.database._get_latest_installed_version(database_directory)
 
         self.assertEqual("2.1", latest_version)
 
@@ -401,9 +407,9 @@ class TestDatabase(TestCase):
 
             fake_remove.assert_called_once_with("filename.tar.gz")
 
-    def test_get_database_path_return_database_path_based_on_current_version(self):
+    def test_get_database_directory_return_database_directory_based_on_current_version(self):
         self.database.current_version = "3.2"
 
-        path = self.database._get_database_path("/path/to/database")
+        path = self.database._get_database_directory("/path/to/database")
 
         self.assertEqual(path, "/path/to/database/vane2_data_3.2")

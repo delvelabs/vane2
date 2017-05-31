@@ -72,7 +72,7 @@ class Vane:
 
         url = normalize_url(url)
 
-        input_path = self.database.database_path
+        input_path = self.database.database_directory
 
         try:
             wordpress_version = await self.identify_target_version(url, input_path)
@@ -277,10 +277,10 @@ class Vane:
             if url is None:
                 raise ValueError("Target url required.")
             self._load_database(database_path, int(auto_update_frequency), no_update)
-            if self.database.database_path is not None:
+            if self.database.database_directory is not None:
                 self.initialize_hammertime(proxy=proxy, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
-                self.hammertime.loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
-                                                                         passive_only=passive))
+                #self.hammertime.loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
+                                                                         #passive_only=passive))
         elif action == "import_data":
             self._load_database(database_path, Database.ALWAYS_CHECK_FOR_UPDATE)
         self.output_manager.flush()

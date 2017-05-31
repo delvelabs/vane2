@@ -29,7 +29,7 @@ vane2_data_directory_pattern = re.compile("vane2_data_\d+\.\d+$")
 
 class Database:
 
-    ALWAYS_CHECK_FOR_UPDATE = -1
+    ALWAYS_CHECK_FOR_UPDATE = 0
     files_in_database = ["vane2_plugins_meta.json", "vane2_vulnerability_database.json", "vane2_plugins_versions.json",
                          "vane2_vulnerable_plugins_versions.json", "vane2_popular_plugins_versions.json",
                          "vane2_vulnerable_themes_versions.json", "vane2_popular_themes_versions.json",
@@ -43,7 +43,7 @@ class Database:
         self.auto_update_frequency = auto_update_frequency
         self.aiohttp_session = aiohttp_session
         self.current_version = None
-        self.database_path = None
+        self.database_directory = None
         self.output_manager = output_manager
 
     def configure_update_repository(self, repository_owner, repository_name):
@@ -56,16 +56,16 @@ class Database:
                 self.output_manager.log_message("Database update done")
         except (ClientError, AssertionError) as e:
             if self.current_version is not None:
-                self.database_path = self._get_database_path(database_path)
+                self.database_directory = self._get_database_directory(database_path)
             raise e
-        self.database_path = self._get_database_path(database_path)
+        self.database_directory = self._get_database_directory(database_path)
 
     def is_update_required(self, database_path, no_update=False):
         self.current_version = self.get_current_version(database_path)
         if self.current_version is None:
             self.output_manager.log_message("No database found")
             return True
-        if not no_update and self.get_days_since_last_update(database_path) > self.auto_update_frequency:
+        if not no_update and self.get_days_since_last_update(database_path) >= self.auto_update_frequency:
             latest_release = self.loop.run_until_complete(self.get_latest_release())
             latest_version = latest_release['tag_name']
             if parse(latest_version) > parse(self.current_version):
@@ -76,8 +76,9 @@ class Database:
         return self.missing_files(database_path)
 
     def missing_files(self, database_path):
+        database_directory = self._get_database_directory(database_path)
         for file in self.files_to_check:
-            if not path.isfile(path.join(self._get_database_path(database_path), file)):
+            if not path.isfile(path.join(database_directory, file)):
                 self.output_manager.log_message("File %s is missing from database" % file)
                 return True
         return False
@@ -95,7 +96,7 @@ class Database:
             assert response.status == 200
             data = await response.read()
             data_archive_path = path.join(database_path, archive_filename)
-            self.save_data_to_file(data, data_archive_path)
+            self.save_data_to_archive_file(data, data_archive_path)
             self.extract_downloaded_files(data_archive_path)
             self.cleanup_archive_file(data_archive_path)
             self.current_version = latest_release['tag_name']
@@ -109,31 +110,35 @@ class Database:
         version = latest_release['tag_name']
         return "vane2_data_%s.tar.gz" % version
 
-    def save_data_to_file(self, data, filename):
+    def save_data_to_archive_file(self, data, filename):
         with open(filename, 'wb') as file:
             file.write(data)
 
     def extract_downloaded_files(self, archive_filename):
-        with tarfile.open(archive_filename, 'r:gz') as archive:
+        with tarfile.open(archive_filename, 'r:gz', errorlevel=1) as archive:
             archive.extractall(re.sub("\.tar\.gz$", "", archive_filename))
 
     def cleanup_archive_file(self, archive_filename):
         remove(archive_filename)
 
     def get_current_version(self, database_path):
-        database_dir = glob.glob(database_path + "/vane2_data_*")
-        directory_list = []
-        for abs_directory_path in database_dir:
-            if vane2_data_directory_pattern.search(abs_directory_path):
-                directory_name = abs_directory_path[abs_directory_path.rfind("/") + 1:]
-                directory_list.append(directory_name)
-        if len(directory_list) == 0:
+        database_directory_list = self._list_all_installed_database_versions(database_path)
+        if len(database_directory_list) == 0:
             return None
         else:
-            self.current_version = self.get_latest_installed_version(directory_list)
+            self.current_version = self._get_latest_installed_version(database_directory_list)
             return self.current_version
 
-    def get_latest_installed_version(self, installed_directory_list):
+    def _list_all_installed_database_versions(self, database_path):
+        database_path_content = glob.glob(database_path + "/vane2_data_*")
+        database_directory_list = []
+        for abs_directory_path in database_path_content:
+            if vane2_data_directory_pattern.search(abs_directory_path):
+                relative_directory_name = abs_directory_path[abs_directory_path.rfind("/") + 1:]
+                database_directory_list.append(relative_directory_name)
+        return database_directory_list
+
+    def _get_latest_installed_version(self, installed_directory_list):
         versions = []
         version_pattern = re.compile("\d+\.\d+")
         for directory in installed_directory_list:
@@ -142,12 +147,13 @@ class Database:
         return sorted_versions[-1]
 
     def get_days_since_last_update(self, vane_data_path):
-        last_update_date_in_seconds = stat(vane_data_path).st_mtime
+        vane_data_directory = self._get_database_directory(vane_data_path)
+        last_update_date_in_seconds = stat(vane_data_directory).st_mtime
         last_update_date = datetime.fromtimestamp(last_update_date_in_seconds)
         now = datetime.now()
         elapsed_days = now - last_update_date
         return elapsed_days.days
 
-    def _get_database_path(self, database_path):
+    def _get_database_directory(self, database_path):
         directory_name = "vane2_data_%s" % self.current_version
         return path.join(database_path, directory_name)
