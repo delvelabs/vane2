@@ -60,11 +60,11 @@ class Database:
         self.database_directory = self._get_database_directory(database_path)
 
     async def is_update_required(self, database_path, no_update=False):
-        self.current_version = self.get_current_version(database_path)
+        self.current_version = self._get_current_version(database_path)
         if self.current_version is None:
             self.output_manager.log_message("No database found")
             return True
-        if not no_update and self.get_days_since_last_update(database_path) >= self.auto_update_frequency:
+        if not no_update and self._get_days_since_last_update(database_path) >= self.auto_update_frequency:
             latest_release = await self.get_latest_release()
             latest_version = latest_release['tag_name']
             if parse(latest_version) > parse(self.current_version):
@@ -72,9 +72,9 @@ class Database:
                 return True
             else:
                 self.output_manager.log_message("Database version is latest version available")
-        return self.missing_files(database_path)
+        return self._missing_files(database_path)
 
-    def missing_files(self, database_path):
+    def _missing_files(self, database_path):
         database_directory = self._get_database_directory(database_path)
         for file in self.files_to_check:
             if not path.isfile(path.join(database_directory, file)):
@@ -120,7 +120,7 @@ class Database:
     def cleanup_archive_file(self, archive_filename):
         remove(archive_filename)
 
-    def get_current_version(self, database_path):
+    def _get_current_version(self, database_path):
         database_directory_list = self._list_all_installed_database_versions(database_path)
         if len(database_directory_list) == 0:
             return None
@@ -145,7 +145,7 @@ class Database:
         sorted_versions = VersionCompare.sorted(versions)
         return sorted_versions[-1]
 
-    def get_days_since_last_update(self, vane_data_path):
+    def _get_days_since_last_update(self, vane_data_path):
         vane_data_directory = self._get_database_directory(vane_data_path)
         last_update_date_in_seconds = stat(vane_data_directory).st_mtime
         last_update_date = datetime.fromtimestamp(last_update_date_in_seconds)
