@@ -34,7 +34,7 @@ from .passivepluginsfinder import PassivePluginsFinder
 from .passivethemesfinder import PassiveThemesFinder
 from .outputmanager import OutputManager
 
-from os.path import join, dirname
+from os.path import join
 
 from .database import Database
 from aiohttp import ClientSession, ClientError
@@ -253,17 +253,18 @@ class Vane:
             message = "all"
         self.output_manager.log_message("Active enumeration of {0} {1}.".format(message, key))
 
-    def _load_database(self, database_path, auto_update_frequency=7, no_update=False):
-        loop = custom_event_loop()
-        with ClientSession(loop=loop) as aiohttp_session:
-            self.database = Database(self.output_manager, loop, aiohttp_session, auto_update_frequency)
+    async def _load_database(self, loop, database_path, auto_update_frequency=7, no_update=False):
+        async with ClientSession(loop=loop) as aiohttp_session:
+            self.database = Database(self.output_manager, aiohttp_session, auto_update_frequency)
             self.database.configure_update_repository("NicolasAubry", "vane_data_test")
             try:
-                self.database.load_data(database_path, no_update=no_update)
+                await self.database.load_data(database_path, no_update=no_update)
             except ClientError:
                 self.output_manager.log_message("Database update failed: connection error.")
             except AssertionError:
                 self.output_manager.log_message("Database update failed: bad status code in server's response.")
+            except OSError as e:
+                self.output_manager.log_message("Database installation failed:\n%s" % e)
             self.output_manager.set_vuln_database_version(self.database.current_version)
 
     def _load_meta_list(self, key, input_path):
@@ -273,14 +274,15 @@ class Vane:
     def perform_action(self, action="scan", url=None, database_path=".", popular=False, vulnerable=False,
                        passive=False, proxy=None, verify_ssl=True, ca_certificate_file=None, auto_update_frequency=7,
                        no_update=False):
+        loop = custom_event_loop()
         if action == "scan":
             if url is None:
                 raise ValueError("Target url required.")
-            self._load_database(database_path, int(auto_update_frequency), no_update)
+            loop.run_until_complete(self._load_database(loop, database_path, int(auto_update_frequency), no_update))
             if self.database.database_directory is not None:
                 self.initialize_hammertime(proxy=proxy, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
-                #self.hammertime.loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
-                                                                         #passive_only=passive))
+                loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
+                                                         passive_only=passive))
         elif action == "import_data":
-            self._load_database(database_path, Database.ALWAYS_CHECK_FOR_UPDATE)
+            loop.run_until_complete(self._load_database(loop, database_path, Database.ALWAYS_CHECK_FOR_UPDATE))
         self.output_manager.flush()

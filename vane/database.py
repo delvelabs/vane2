@@ -36,8 +36,7 @@ class Database:
                          "vane2_wordpress_meta.json", "vane2_themes_meta.json", "vane2_wordpress_versions.json",
                          "vane2_themes_versions.json"]
 
-    def __init__(self, output_manager, loop=None, aiohttp_session=None, auto_update_frequency=7):
-        self.loop = loop
+    def __init__(self, output_manager, aiohttp_session=None, auto_update_frequency=7):
         self.files_to_check = Database.files_in_database
         self.api_url = None
         self.auto_update_frequency = auto_update_frequency
@@ -49,10 +48,10 @@ class Database:
     def configure_update_repository(self, repository_owner, repository_name):
         self.api_url = "https://api.github.com/repos/{0}/{1}".format(repository_owner, repository_name)
 
-    def load_data(self, database_path, no_update=False):
+    async def load_data(self, database_path, no_update=False):
         try:
-            if self.is_update_required(database_path, no_update=no_update):
-                self.loop.run_until_complete(self.download_data_latest_release(database_path))
+            if await self.is_update_required(database_path, no_update=no_update):
+                await self.download_data_latest_release(database_path)
                 self.output_manager.log_message("Database update done")
         except (ClientError, AssertionError) as e:
             if self.current_version is not None:
@@ -60,13 +59,13 @@ class Database:
             raise e
         self.database_directory = self._get_database_directory(database_path)
 
-    def is_update_required(self, database_path, no_update=False):
+    async def is_update_required(self, database_path, no_update=False):
         self.current_version = self.get_current_version(database_path)
         if self.current_version is None:
             self.output_manager.log_message("No database found")
             return True
         if not no_update and self.get_days_since_last_update(database_path) >= self.auto_update_frequency:
-            latest_release = self.loop.run_until_complete(self.get_latest_release())
+            latest_release = await self.get_latest_release()
             latest_version = latest_release['tag_name']
             if parse(latest_version) > parse(self.current_version):
                 self.output_manager.log_message("New database version available: %s" % latest_version)

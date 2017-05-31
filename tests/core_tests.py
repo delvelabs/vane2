@@ -55,11 +55,12 @@ class TestVane(TestCase):
     def test_perform_action_call_initialize_hammertime(self):
         self.vane.initialize_hammertime = MagicMock()
 
-        self.vane.perform_action(url="target", proxy="http://127.0.0.1:8080", verify_ssl=False,
-                                 ca_certificate_file="file")
+        with patch("vane.core.custom_event_loop", MagicMock()):
+            self.vane.perform_action(url="target", proxy="http://127.0.0.1:8080", verify_ssl=False,
+                                     ca_certificate_file="file")
 
-        self.vane.initialize_hammertime.assert_called_once_with(proxy="http://127.0.0.1:8080", verify_ssl=False,
-                                                                ca_certificate_file="file")
+            self.vane.initialize_hammertime.assert_called_once_with(proxy="http://127.0.0.1:8080", verify_ssl=False,
+                                                                    ca_certificate_file="file")
 
     def test_perform_action_dont_start_scan_if_database_failed_to_download_and_no_older_database_present(self):
         self.vane.database.database_directory = None
