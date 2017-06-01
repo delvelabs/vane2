@@ -5,3 +5,6 @@ man/*
 share/*
 *.pyc
 .idea/*
+src/
+include/
+pip-selfcheck.json

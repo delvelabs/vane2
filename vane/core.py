@@ -109,7 +109,8 @@ class Vane:
         key, fetched_files = await file_fetcher.request_files("wordpress", file_list)
         if len(fetched_files) == 0:
             raise ValueError("target is not a valid Wordpress site")
-        version = version_identifier.identify_version(fetched_files, file_list)
+        files_containing_version = await self._get_files_for_version_identification(url)
+        version = version_identifier.identify_version(fetched_files, file_list, files_containing_version)
         self.output_manager.set_wordpress_version(version, meta_list.get_meta("wordpress"))
         return {'wordpress': version}
 
@@ -209,6 +210,22 @@ class Vane:
         passive_theme_finder = PassiveThemesFinder(meta_list)
         theme_keys = passive_theme_finder.list_themes(hammertime_response)
         return theme_keys
+
+    async def _get_files_for_version_identification(self, url):
+        files_path = ["wp-login.php"]
+        files = []
+        try:
+            homepage_response = await self._request_target_home_page(url)
+            files.append(homepage_response)
+        except HammerTimeException:
+            pass
+        for path in files_path:
+            try:
+                entry = await self.hammertime.request(url + path)
+                files.append(entry.response)
+            except HammerTimeException:
+                pass
+        return files
 
     async def _request_target_home_page(self, url):
         try:
