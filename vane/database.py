@@ -49,8 +49,13 @@ class Database:
         self.api_url = "https://api.github.com/repos/{0}/{1}".format(repository_owner, repository_name)
 
     async def load_data(self, database_path, no_update=False):
+        database_present = self._is_database_present(database_path)
+        if no_update:
+            if database_present:
+                self.database_directory = self._get_database_directory(database_path)
+            return
         try:
-            if await self.is_update_required(database_path, no_update=no_update):
+            if not database_present or await self.is_update_required(database_path):
                 await self.download_data_latest_release(database_path)
                 self.output_manager.log_message("Database update done")
         except (ClientError, AssertionError) as e:
@@ -59,12 +64,8 @@ class Database:
             raise e
         self.database_directory = self._get_database_directory(database_path)
 
-    async def is_update_required(self, database_path, no_update=False):
-        self.current_version = self._get_current_version(database_path)
-        if self.current_version is None:
-            self.output_manager.log_message("No database found")
-            return True
-        if not no_update and self._get_days_since_last_update(database_path) >= self.auto_update_frequency:
+    async def is_update_required(self, database_path):
+        if self._get_days_since_last_update(database_path) >= self.auto_update_frequency:
             latest_release = await self.get_latest_release()
             latest_version = latest_release['tag_name']
             if parse(latest_version) > parse(self.current_version):
@@ -72,7 +73,17 @@ class Database:
                 return True
             else:
                 self.output_manager.log_message("Database version is latest version available")
-        return self._missing_files(database_path)
+        return False
+
+    def _is_database_present(self, database_path):
+        self.current_version = self._get_current_version(database_path)
+        if self.current_version is None:
+            self.output_manager.log_message("No database found")
+            return False
+        if self._missing_files(database_path):
+            self.current_version = None
+            return False
+        return True
 
     def _missing_files(self, database_path):
         database_directory = self._get_database_directory(database_path)

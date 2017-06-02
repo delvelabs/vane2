@@ -55,10 +55,34 @@ class TestDatabase(TestCase):
         self.database.download_data_latest_release.assert_called_once_with("path")
 
     @async_test()
+    async def test_load_database_dont_call_is_update_required_and_dont_download_update_if_no_update_is_true(self):
+        self.database.current_version = "1.0"
+        self.database._is_database_present = MagicMock(return_value=True)
+        self.database.is_update_required = make_mocked_coro(return_value=True)
+        self.database.download_data_latest_release = make_mocked_coro()
+
+        await self.database.load_data("/path/to/database", no_update=True)
+
+        self.database.download_data_latest_release.assert_not_called()
+        self.database.is_update_required.assert_not_called()
+
+    @async_test()
+    async def test_load_database_set_database_directory_to_none_if_no_database_found_and_no_update_is_true(self):
+        self.database.download_data_latest_release = make_mocked_coro()
+        self.database._is_database_present = MagicMock(return_value=False)
+        self.database.is_update_required = make_mocked_coro()
+
+        await self.database.load_data("path", no_update=True)
+
+        self.database.download_data_latest_release.assert_not_called()
+        self.assertIsNone(self.database.database_directory)
+
+    @async_test()
     async def test_load_database_set_database_directory(self):
         self.database.download_data_latest_release = make_mocked_coro()
         self.database.is_update_required = make_mocked_coro(return_value=False)
         self.database.current_version = "1.2"
+        self.database._is_database_present = MagicMock(return_value=True)
 
         await self.database.load_data("/path/to/database")
 
@@ -67,6 +91,7 @@ class TestDatabase(TestCase):
     @async_test()
     async def test_load_database_fallback_to_older_version_for_database_directory_if_download_failed(self):
         self.database.download_data_latest_release = make_mocked_coro(raise_exception=ClientError())
+        self.database._is_database_present = MagicMock(return_value=True)
         self.database.is_update_required = make_mocked_coro(return_value=True)
         self.database.current_version = "1.2"
 
@@ -79,6 +104,7 @@ class TestDatabase(TestCase):
     async def test_load_database_fallback_to_older_version_for_database_directory_if_is_update_required_failed(self):
         self.database.is_update_required = make_mocked_coro(raise_exception=ClientError())
         self.database.current_version = "1.2"
+        self.database._is_database_present = MagicMock(return_value=True)
 
         with self.assertRaises(ClientError):
             await self.database.load_data("/path/to/database")
@@ -90,31 +116,11 @@ class TestDatabase(TestCase):
         self.database.is_update_required = make_mocked_coro(return_value=True)
         self.database.download_data_latest_release = make_mocked_coro()
         self.database.current_version = "1.2"
+        self.database._is_database_present = MagicMock(return_value=True)
 
         await self.database.load_data("/path/to/database")
 
         self.database.output_manager.log_message.assert_called_once_with("Database update done")
-
-    @async_test()
-    async def test_is_update_required_return_true_if_data_folder_not_found(self):
-        self.database._get_current_version = MagicMock(return_value=None)
-
-        self.assertTrue(await self.database.is_update_required("path"))
-
-    @async_test()
-    async def test_is_update_required_log_message_if_data_folder_not_found(self):
-        self.database._get_current_version = MagicMock(return_value=None)
-
-        await self.database.is_update_required("path")
-
-        self.database.output_manager.log_message.assert_called_once_with("No database found")
-
-    @async_test()
-    async def test_is_update_required_return_true_if_files_missing(self):
-        self.database._get_current_version = MagicMock(return_value="1.0")
-        self.database._missing_files = MagicMock(return_value=True)
-
-        self.assertTrue(await self.database.is_update_required("path"))
 
     @async_test()
     async def test_is_update_required_return_false_if_no_files_missing(self):
@@ -126,14 +132,14 @@ class TestDatabase(TestCase):
     @async_test()
     async def test_is_update_required_return_true_if_installed_version_is_not_latest_version(self):
         self.database.auto_update_frequency = Database.ALWAYS_CHECK_FOR_UPDATE
-        self.database._get_current_version = MagicMock(return_value="1.0")
+        self.database.current_version = "1.0"
         self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '2.0'})
 
         self.assertTrue(await self.database.is_update_required("path"))
 
     @async_test()
     async def test_is_update_required_log_message_if_new_version_available(self):
-        self.database._get_current_version = MagicMock(return_value="1.0")
+        self.database.current_version = "1.0"
         self.database.auto_update_frequency = Database.ALWAYS_CHECK_FOR_UPDATE
         self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '2.0'})
 
@@ -143,7 +149,7 @@ class TestDatabase(TestCase):
 
     @async_test()
     async def test_is_update_required_return_false_if_current_version_is_latest_version(self):
-        self.database._get_current_version = MagicMock(return_value="1.0")
+        self.database.current_version = "1.0"
         self.database.auto_update_frequency = Database.ALWAYS_CHECK_FOR_UPDATE
         self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '1.0'})
 
@@ -152,8 +158,7 @@ class TestDatabase(TestCase):
     @async_test()
     async def test_is_update_required_check_for_new_version_if_last_update_older_than_auto_update_frequency(self):
         self.database._get_days_since_last_update = MagicMock(return_value=self.database.auto_update_frequency + 1)
-        self.database._get_current_version = MagicMock(return_value="1.0")
-        self.database._missing_files = MagicMock(return_value=False)
+        self.database.current_version = "1.0"
         self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '2.0'})
 
         await self.database.is_update_required("path")
@@ -163,8 +168,7 @@ class TestDatabase(TestCase):
     @async_test()
     async def test_is_update_required_log_message_if_current_version_is_up_to_date(self):
         self.database.auto_update_frequency = Database.ALWAYS_CHECK_FOR_UPDATE
-        self.database._get_current_version = MagicMock(return_value="2.0")
-        self.database._missing_files = MagicMock(return_value=False)
+        self.database.current_version = "2.0"
         self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '2.0'})
 
         await self.database.is_update_required("path")
@@ -182,16 +186,38 @@ class TestDatabase(TestCase):
 
         self.database.get_latest_release.assert_not_called()
 
-    @async_test()
-    async def test_is_update_required_dont_check_for_new_updates_if_no_update_is_true(self):
-        self.database.auto_update_frequency = Database.ALWAYS_CHECK_FOR_UPDATE
-        self.database._get_current_version = MagicMock(return_value="1.0")
-        self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '2.0'})
+    def test_is_database_present_set_current_version_to_none_and_return_false_if_no_database_found(self):
+        self.database._get_current_version = MagicMock(return_value=None)
+
+        database_present = self.database._is_database_present("/path/to/database")
+
+        self.assertFalse(database_present)
+        self.assertIsNone(self.database.current_version)
+
+    def test_is_database_present_set_current_version_to_none_and_return_false_if_files_missing(self):
+        self.database._get_current_version = MagicMock(return_value="1.2")
+        self.database._missing_files = MagicMock(return_value=True)
+
+        database_present = self.database._is_database_present("/path/to/database")
+
+        self.assertFalse(database_present)
+        self.assertIsNone(self.database.current_version)
+
+    def test_is_database_present_set_current_version_and_return_true_if_database_found_and_no_files_missing(self):
+        self.database._get_current_version = MagicMock(return_value="1.2")
         self.database._missing_files = MagicMock(return_value=False)
 
-        await self.database.is_update_required("/path/to/database", no_update=True)
+        database_present = self.database._is_database_present("/path/to/database")
 
-        self.database.get_latest_release.assert_not_called()
+        self.assertTrue(database_present)
+        self.assertEqual(self.database.current_version, "1.2")
+
+    def test_is_database_present_log_message_if_data_folder_not_found(self):
+        self.database._get_current_version = MagicMock(return_value=None)
+
+        self.database._is_database_present("path")
+
+        self.database.output_manager.log_message.assert_called_once_with("No database found")
 
     def test_missing_files_look_for_required_files_in_database_directory(self):
         self.database.required_files = ['vane2_wordpress_meta.json', 'vane2_wordpress_versions.json']
