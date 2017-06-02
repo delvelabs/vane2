@@ -123,13 +123,6 @@ class TestDatabase(TestCase):
         self.database.output_manager.log_message.assert_called_once_with("Database update done")
 
     @async_test()
-    async def test_is_update_required_return_false_if_no_files_missing(self):
-        self.database._get_current_version = MagicMock(return_value="1.0")
-        self.database._missing_files = MagicMock(return_value=False)
-
-        self.assertFalse(await self.database.is_update_required("path"))
-
-    @async_test()
     async def test_is_update_required_return_true_if_installed_version_is_not_latest_version(self):
         self.database.auto_update_frequency = Database.ALWAYS_CHECK_FOR_UPDATE
         self.database.current_version = "1.0"
@@ -414,3 +407,10 @@ class TestDatabase(TestCase):
         path = self.database._get_database_directory("/path/to/database")
 
         self.assertEqual(path, "/path/to/database/vane2_data_3.2")
+
+    def test_get_database_directory_return_none_if_current_version_is_none(self):
+        self.database.current_version = None
+
+        path = self.database._get_database_directory("/path/to/database")
+
+        self.assertIsNone(path)

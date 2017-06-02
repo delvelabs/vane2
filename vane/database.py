@@ -50,18 +50,14 @@ class Database:
 
     async def load_data(self, database_path, no_update=False):
         database_present = self._is_database_present(database_path)
-        if no_update:
-            if database_present:
+        if not no_update:
+            try:
+                if not database_present or await self.is_update_required(database_path):
+                    await self.download_data_latest_release(database_path)
+                    self.output_manager.log_message("Database update done")
+            except (ClientError, AssertionError) as e:
                 self.database_directory = self._get_database_directory(database_path)
-            return
-        try:
-            if not database_present or await self.is_update_required(database_path):
-                await self.download_data_latest_release(database_path)
-                self.output_manager.log_message("Database update done")
-        except (ClientError, AssertionError) as e:
-            if self.current_version is not None:
-                self.database_directory = self._get_database_directory(database_path)
-            raise e
+                raise e
         self.database_directory = self._get_database_directory(database_path)
 
     async def is_update_required(self, database_path):
@@ -164,5 +160,8 @@ class Database:
         return elapsed_days.days
 
     def _get_database_directory(self, database_path):
-        directory_name = "vane2_data_%s" % self.current_version
-        return path.join(database_path, directory_name)
+        if self.current_version is None:
+            return None
+        else:
+            directory_name = "vane2_data_%s" % self.current_version
+            return path.join(database_path, directory_name)
