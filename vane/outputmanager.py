@@ -92,3 +92,42 @@ class OutputManager:
             component_dict.move_to_end("name", False)
         if meta.url is not None:
             component_dict["url"] = meta.url
+
+    def _to_pretty_output(self, data):
+        output = ""
+        for key, value in data.items():
+            if type(value) is list:
+                output += key + ":\n"
+                for component in value:
+                    output += "\t{0} version {1}\turl:{2}\n".format(component['name'], component['version'], component['url'])
+            elif type(value) is OrderedDict:
+                output = "{0} version {1}\turl:{2}\n".format(value['name'], value['version'], value['url'])
+        return output
+
+    def _format_vulnerability_to_pretty_output(self, vulnerability):
+        formatted_vulnerability = ""
+        if "title" in vulnerability:
+            formatted_vulnerability += vulnerability['title'] + "\n"
+        else:
+            formatted_vulnerability += vulnerability['id'] + "\n"
+        if "description" in vulnerability:
+            formatted_vulnerability += "\t%s\n" % vulnerability['description']
+        if "affected_versions" in vulnerability:
+            versions = vulnerability["affected_versions"][0]
+            if "introduced_in" in versions:
+                formatted_vulnerability += "\tIntroduced in: %s\n" % versions["introduced_in"]
+            if "fixed_in" in versions:
+                formatted_vulnerability += "\tFixed in: %s\n" % versions["fixed_in"]
+        if "references" in vulnerability:
+            references = vulnerability["references"]
+            formatted_vulnerability += "\tReferences:\n"
+            for reference in references:
+                if reference["type"] == "other":
+                    formatted_vulnerability += "\t\t%s\n" % reference["url"]
+                else:
+                    formatted_vulnerability += "\t\t{0}: {1}".format(reference["type"], reference["id"])
+                    if "url" in reference:
+                        formatted_vulnerability += " url: %s\n" % reference["url"]
+                    else:
+                        formatted_vulnerability += "\n"
+        return formatted_vulnerability
