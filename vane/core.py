@@ -109,8 +109,8 @@ class Vane:
         key, fetched_files = await file_fetcher.request_files("wordpress", file_list)
         if len(fetched_files) == 0:
             raise ValueError("target is not a valid Wordpress site")
-        files_containing_version = await self._get_files_for_version_identification(url)
-        version = version_identifier.identify_version(fetched_files, file_list, files_containing_version)
+        files_with_version = await self._get_files_for_version_identification(url)
+        version = version_identifier.identify_version(fetched_files, file_list, files_with_version)
         self.output_manager.set_wordpress_version(version, meta_list.get_meta("wordpress"))
         return {'wordpress': version}
 
@@ -213,19 +213,19 @@ class Vane:
 
     async def _get_files_for_version_identification(self, url):
         files_path = ["wp-login.php"]
-        files = []
+        file_response_list = []
         try:
             homepage_response = await self._request_target_home_page(url)
-            files.append(homepage_response)
+            file_response_list.append(homepage_response)
         except HammerTimeException:
             pass
         for path in files_path:
             try:
                 entry = await self.hammertime.request(url + path)
-                files.append(entry.response)
+                file_response_list.append(entry.response)
             except HammerTimeException:
                 pass
-        return files
+        return file_response_list
 
     async def _request_target_home_page(self, url):
         try:

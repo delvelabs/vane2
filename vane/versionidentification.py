@@ -22,11 +22,13 @@ import re
 
 class VersionIdentification:
 
-    def identify_version(self, fetched_files, version_identification_file_list, source_files=None):
+    def identify_version(self, fetched_files, version_identification_file_list, files_exposing_version=None):
         possible_versions = self._get_possible_versions(fetched_files, version_identification_file_list)
 
-        if source_files and len(possible_versions) > 1:
-            possible_versions = self.find_version_from_source_files(source_files, possible_versions)
+        if files_exposing_version and len(possible_versions) > 1:
+            versions = self.find_versions_in_source_files(files_exposing_version)
+            if len(versions & possible_versions) > 0:
+                possible_versions &= versions
 
         if len(possible_versions) > 1:
             return self._get_lowest_version(possible_versions)
@@ -64,13 +66,13 @@ class VersionIdentification:
                 return file
         return None
 
-    def find_version_from_source_files(self, files_hammertime_response, possible_versions):
+    def find_versions_in_source_files(self, file_response_list):
         versions_from_files = set()
-        for response in files_hammertime_response:
-            versions_from_files |= self.find_possible_versions_from_source_file(response)
-        return versions_from_files & possible_versions
+        for response in file_response_list:
+            versions_from_files |= self._find_version_in_file(response)
+        return versions_from_files
 
-    def find_possible_versions_from_source_file(self, file_hammertime_response):
-        version_string_list = re.findall("ver=\d+\.\d+\.\d+", file_hammertime_response.content)
+    def _find_version_in_file(self, file_response):
+        version_string_list = re.findall("ver=\d+\.\d+(?:\.\d+)", file_response.content)
         version_set = set(re.sub("ver=", "", version_string) for version_string in version_string_list)
         return version_set
