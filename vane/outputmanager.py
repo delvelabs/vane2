@@ -32,6 +32,8 @@ class OutputManager:
     def _format(self, data):
         if self.output_format == "json":
             return json.dumps(data, indent=4)
+        if self.output_format == "pretty":
+            return self._to_pretty_output(data)
 
     def set_wordpress_version(self, version, meta):
         wordpress_dict = OrderedDict([("version", version)])
@@ -99,35 +101,51 @@ class OutputManager:
             if type(value) is list:
                 output += key + ":\n"
                 for component in value:
-                    output += "\t{0} version {1}\turl:{2}\n".format(component['name'], component['version'], component['url'])
+                    output += self.print_component(component, 1)
             elif type(value) is OrderedDict:
-                output = "{0} version {1}\turl:{2}\n".format(value['name'], value['version'], value['url'])
+                output += self.print_component(value, 0)
         return output
 
-    def _format_vulnerability_to_pretty_output(self, vulnerability):
+    def print_component(self, component, indent_level=0):
+        string = "{0}{1} version {2}\turl:{3}\n".format("\t" * indent_level, component['name'], component['version'],
+                                                        component['url'])
+        if "vulnerabilities" in component:
+            string += "{0}Vulnerabilities:\n".format("\t" * indent_level)
+            for vulnerability in component["vulnerabilities"]:
+                string += self._format_vulnerability_to_pretty_output(vulnerability, indent_level + 1)
+        return string
+
+    def _format_vulnerability_to_pretty_output(self, vulnerability, indent_level=0):
         formatted_vulnerability = ""
         if "title" in vulnerability:
-            formatted_vulnerability += vulnerability['title'] + "\n"
+            formatted_vulnerability += self.print_indented_line(vulnerability['title'], indent_level)
         else:
-            formatted_vulnerability += vulnerability['id'] + "\n"
+            formatted_vulnerability += self.print_indented_line(vulnerability['id'], indent_level)
         if "description" in vulnerability:
-            formatted_vulnerability += "\t%s\n" % vulnerability['description']
+            formatted_vulnerability += self.print_indented_line(vulnerability['description'], indent_level + 1)
         if "affected_versions" in vulnerability:
             versions = vulnerability["affected_versions"][0]
             if "introduced_in" in versions:
-                formatted_vulnerability += "\tIntroduced in: %s\n" % versions["introduced_in"]
+                formatted_vulnerability += self.print_indented_line("Introduced in: %s" % versions["introduced_in"], indent_level + 1)
             if "fixed_in" in versions:
-                formatted_vulnerability += "\tFixed in: %s\n" % versions["fixed_in"]
+                formatted_vulnerability += self.print_indented_line("Fixed in: %s" % versions["fixed_in"], indent_level + 1)
         if "references" in vulnerability:
             references = vulnerability["references"]
-            formatted_vulnerability += "\tReferences:\n"
+            formatted_vulnerability += self.print_indented_line("References:", indent_level + 1)
             for reference in references:
-                if reference["type"] == "other":
-                    formatted_vulnerability += "\t\t%s\n" % reference["url"]
-                else:
-                    formatted_vulnerability += "\t\t{0}: {1}".format(reference["type"], reference["id"])
-                    if "url" in reference:
-                        formatted_vulnerability += " url: %s\n" % reference["url"]
-                    else:
-                        formatted_vulnerability += "\n"
+                formatted_vulnerability += self.print_vulnerability_reference(reference, indent_level + 2)
         return formatted_vulnerability
+
+    def print_vulnerability_reference(self, reference, indent_level=2):
+        formatted_reference = ""
+        if reference["type"] == "other":
+            formatted_reference += self.print_indented_line(reference["url"], indent_level)
+        else:
+            ref = "{0}: {1}".format(reference["type"], reference["id"])
+            if "url" in reference:
+                ref += " url: %s" % reference["url"]
+            formatted_reference += self.print_indented_line(ref, indent_level)
+        return formatted_reference
+
+    def print_indented_line(self, value, indent_level):
+        return "{0}{1}\n".format("\t" * indent_level, value)
