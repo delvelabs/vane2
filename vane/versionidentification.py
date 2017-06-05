@@ -69,10 +69,10 @@ class VersionIdentification:
     def find_versions_in_source_files(self, file_response_list):
         versions_from_files = set()
         for response in file_response_list:
-            versions_from_files |= self._find_version_in_file(response)
+            versions_from_files |= self._find_versions_in_file(response)
         return versions_from_files
 
-    def _find_version_in_file(self, file_response):
+    def _find_versions_in_file(self, file_response):
         version_string_list = re.findall("ver=\d+\.\d+(?:\.\d+)", file_response.content)
         version_set = set(re.sub("ver=", "", version_string) for version_string in version_string_list)
         return version_set

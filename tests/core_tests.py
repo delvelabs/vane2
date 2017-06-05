@@ -126,7 +126,7 @@ class TestVane(TestCase):
             self.vane._get_files_for_version_identification.assert_called_once_with("url")
 
     @async_test()
-    async def test_identify_target_version_pass_files_that_expose_version_to_identify_version(self):
+    async def test_identify_target_version_calls_identify_version_with_files_that_expose_version(self):
         fake_fetcher = MagicMock()
         fake_fetcher.request_files = make_mocked_coro(return_value=("key", ["files"]))
         fake_fetcher_factory = MagicMock(return_value=fake_fetcher)
@@ -341,38 +341,19 @@ class TestVane(TestCase):
             await self.vane._request_target_home_page(target_url)
 
     @async_test()
-    async def test_get_files_for_version_identification_request_target_homepage(self):
+    async def test_get_files_for_version_identification_fetch_target_homepage(self):
         target_url = "http://www.example.com/"
         self.vane.hammertime.request = make_mocked_coro(return_value=MagicMock())
-        self.vane._request_target_home_page = make_mocked_coro()
-
-        await self.vane._get_files_for_version_identification(target_url)
-
-        self.vane._request_target_home_page.assert_called_once_with(target_url)
-
-    @async_test()
-    async def test_get_files_for_version_identification_return_homepage_hammertime_response_in_response_list(self):
-        target_url = "http://www.example.com/"
         homepage_response = MagicMock()
-        self.vane.hammertime.request = make_mocked_coro(return_value=MagicMock())
         self.vane._request_target_home_page = make_mocked_coro(return_value=homepage_response)
 
         response_list = await self.vane._get_files_for_version_identification(target_url)
 
+        self.vane._request_target_home_page.assert_called_once_with(target_url)
         self.assertIn(homepage_response, response_list)
 
     @async_test()
-    async def test_get_files_for_version_identification_request_files_exposing_version(self):
-        target_url = "http://www.example.com/"
-        self.vane.hammertime.request = make_mocked_coro(return_value=MagicMock())
-        self.vane._request_target_home_page = make_mocked_coro()
-
-        await self.vane._get_files_for_version_identification(target_url)
-
-        self.vane.hammertime.request.assert_called_once_with(target_url + "wp-login.php")
-
-    @async_test()
-    async def test_get_files_for_version_identification_return_response_of_files_exposing_version(self):
+    async def test_get_files_for_version_identification_fetch_files_exposing_version(self):
         target_url = "http://www.example.com/"
         file_entry = MagicMock()
         self.vane.hammertime.request = make_mocked_coro(return_value=file_entry)
@@ -380,6 +361,7 @@ class TestVane(TestCase):
 
         response_list = await self.vane._get_files_for_version_identification(target_url)
 
+        self.vane.hammertime.request.assert_called_once_with(target_url + "wp-login.php")
         self.assertIn(file_entry.response, response_list)
 
     @async_test()
