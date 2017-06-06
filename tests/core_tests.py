@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from unittest import TestCase
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch, call, ANY
 from vane.core import Vane
 from aiohttp.test_utils import make_mocked_coro, loop_context
 from openwebvulndb.common.models import VulnerabilityList, Vulnerability
@@ -114,7 +114,33 @@ class TestVane(TestCase):
         fake_fetcher_factory.return_value = fake_fetcher
         with patch("vane.core.FileFetcher", fake_fetcher_factory):
             with self.assertRaises(ValueError):
-                await self.vane.identify_target_version("invalid url", "input path")
+                await self.vane.identify_target_version("url", "input path")
+
+    @async_test()
+    async def test_identify_target_version_request_files_that_expose_version(self):
+        fake_fetcher = MagicMock()
+        fake_fetcher.request_files = make_mocked_coro(return_value=("key", ["files"]))
+        fake_fetcher_factory = MagicMock(return_value=fake_fetcher)
+        self.vane._get_files_for_version_identification = make_mocked_coro()
+        with patch("vane.core.FileFetcher", fake_fetcher_factory), patch("vane.core.VersionIdentification", MagicMock):
+
+            await self.vane.identify_target_version("url", "input path")
+
+            self.vane._get_files_for_version_identification.assert_called_once_with("url")
+
+    @async_test()
+    async def test_identify_target_version_calls_identify_version_with_files_that_expose_version(self):
+        fake_fetcher = MagicMock()
+        fake_fetcher.request_files = make_mocked_coro(return_value=("key", ["files"]))
+        fake_fetcher_factory = MagicMock(return_value=fake_fetcher)
+        version_identification = MagicMock()
+        version_identification_factory = MagicMock(return_value=version_identification)
+        self.vane._get_files_for_version_identification = make_mocked_coro(return_value=["file0", "file1"])
+        with patch("vane.core.FileFetcher", fake_fetcher_factory), patch("vane.core.VersionIdentification",
+                                                                         version_identification_factory):
+            await self.vane.identify_target_version("url", "input path")
+
+            version_identification.identify_version.assert_called_once_with(["files"], ANY, ["file0", "file1"])
 
     def test_list_component_vulnerabilitites_call_list_vulnerabilities_for_each_component(self):
         components_version = {'plugin0': "1.2.3", 'theme0': "3.2.1", 'plugin1': "1.4.0", 'theme1': "6.9"}
@@ -316,3 +342,49 @@ class TestVane(TestCase):
 
         with self.assertRaises(HammerTimeException):
             await self.vane._request_target_home_page(target_url)
+
+    @async_test()
+    async def test_get_files_for_version_identification_fetch_target_homepage(self):
+        target_url = "http://www.example.com/"
+        self.vane.hammertime.request = make_mocked_coro(return_value=MagicMock())
+        homepage_response = MagicMock()
+        self.vane._request_target_home_page = make_mocked_coro(return_value=homepage_response)
+
+        response_list = await self.vane._get_files_for_version_identification(target_url)
+
+        self.vane._request_target_home_page.assert_called_once_with(target_url)
+        self.assertIn(homepage_response, response_list)
+
+    @async_test()
+    async def test_get_files_for_version_identification_fetch_files_exposing_version(self):
+        target_url = "http://www.example.com/"
+        file_entry = MagicMock()
+        self.vane.hammertime.request = make_mocked_coro(return_value=file_entry)
+        self.vane._request_target_home_page = make_mocked_coro()
+
+        response_list = await self.vane._get_files_for_version_identification(target_url)
+
+        self.vane.hammertime.request.assert_called_once_with(target_url + "wp-login.php")
+        self.assertIn(file_entry.response, response_list)
+
+    @async_test()
+    async def test_get_files_for_version_identification_dont_fail_if_request_homepage_raise_exception(self):
+        target_url = "http://www.example.com/"
+        file_entry = MagicMock()
+        self.vane.hammertime.request = make_mocked_coro(return_value=file_entry)
+        self.vane._request_target_home_page = make_mocked_coro(raise_exception=HammerTimeException())
+
+        response_list = await self.vane._get_files_for_version_identification(target_url)
+
+        self.assertIn(file_entry.response, response_list)
+
+    @async_test()
+    async def test_get_files_for_version_identification_dont_fail_if_hammertime_request_raise_exception(self):
+        target_url = "http://www.example.com/"
+        file_response = MagicMock()
+        self.vane.hammertime.request = make_mocked_coro(raise_exception=HammerTimeException())
+        self.vane._request_target_home_page = make_mocked_coro(return_value=file_response)
+
+        response_list = await self.vane._get_files_for_version_identification(target_url)
+
+        self.assertIn(file_response, response_list)

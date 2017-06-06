@@ -16,9 +16,12 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from unittest import TestCase
+from unittest.mock import MagicMock, call
 from vane.versionidentification import VersionIdentification
 from openwebvulndb.common.models import FileSignature, File, FileList
 from vane.filefetcher import FetchedFile
+from os.path import join, dirname
+from fixtures import html_file_to_hammertime_response
 
 
 class TestVersionIdentification(TestCase):
@@ -68,6 +71,28 @@ class TestVersionIdentification(TestCase):
 
         self.assertEqual(version, "1.0")
 
+    def test_identify_version_use_exposed_version_in_source_files_to_choose_between_multiple_possible_versions(self):
+        self.version_identification._get_possible_versions = MagicMock(return_value={"4.7.1", "4.7.2", "4.7.3"})
+        source_files = ["homepage.html", "wp-login.php"]
+        self.version_identification.find_versions_in_source_files = MagicMock(return_value={"4.7.2"})
+
+        version = self.version_identification.identify_version("fetched_files", "identification_files",
+                                                               files_exposing_version=source_files)
+
+        self.assertEqual(version, "4.7.2")
+        self.version_identification.find_versions_in_source_files.assert_called_once_with(source_files)
+
+    def test_identify_version_ignore_version_from_source_files_if_no_version_in_common(self):
+        self.version_identification._get_possible_versions = MagicMock(return_value={"4.7.1", "4.7.2", "4.7.3"})
+        source_files = ["homepage.html", "wp-login.php"]
+        self.version_identification.find_versions_in_source_files = MagicMock(return_value={"3.1.2", "6.7.3", "1.2.3"})
+
+        version = self.version_identification.identify_version("fetched_files", "identification_files",
+                                                               files_exposing_version=source_files)
+
+        self.assertEqual(version, "4.7.1")
+        self.version_identification.find_versions_in_source_files.assert_called_once_with(source_files)
+
     def test_identify_version_return_lowest_version_if_cant_identify_precise_version(self):
         style_css_signature = FileSignature(hash=self.style_css_fetched_file.hash, versions=["2.0.0", "2.0.1"])
         style_css_file = File(path="style.css", signatures=[style_css_signature])
@@ -91,3 +116,38 @@ class TestVersionIdentification(TestCase):
         version = self.version_identification._get_lowest_version(versions)
 
         self.assertEqual(version, "1.0.12")
+
+    def test_find_versions_in_source_files_search_versions_in_each_source_file(self):
+        self.version_identification._find_versions_in_file = MagicMock(return_value=set())
+
+        self.version_identification.find_versions_in_source_files(["source_file0", "source_file1"])
+
+        self.version_identification._find_versions_in_file.assert_has_calls([call("source_file0"), call("source_file1")])
+
+    def test_find_versions_in_source_files_return_versions_present_in_any_file(self):
+        versions_from_file = {"1.2.1", "1.11.2", "4.7.5"}
+        self.version_identification._find_versions_in_file = MagicMock(return_value=versions_from_file)
+
+        version = self.version_identification.find_versions_in_source_files(["source_file0", "source_file1"])
+
+        self.assertEqual(version, versions_from_file)
+
+    def test_find_versions_in_file_return_set_of_strings_that_match_version_pattern(self):
+        homepage0 = html_file_to_hammertime_response(join(dirname(__file__), "samples/delvelabs_homepage.html"))
+        homepage1 = html_file_to_hammertime_response(join(dirname(__file__), "samples/canola_homepage.html"))
+        login_page0 = html_file_to_hammertime_response(join(dirname(__file__), "samples/delvelabs_login.html"))
+        login_page1 = html_file_to_hammertime_response(join(dirname(__file__), "samples/canola_login.html"))
+        homepage0_versions = {"4.7.5"}
+        login_page0_versions = {"4.7.5"}
+        homepage1_versions = {"4.2.2", "1.11.2", "1.2.1"}
+        login_page1_versions = {"4.2.2"}
+
+        homepage0_result = self.version_identification._find_versions_in_file(homepage0)
+        login_page0_result = self.version_identification._find_versions_in_file(login_page0)
+        homepage1_result = self.version_identification._find_versions_in_file(homepage1)
+        login_page1_result = self.version_identification._find_versions_in_file(login_page1)
+
+        self.assertEqual(homepage0_versions, homepage0_result)
+        self.assertEqual(login_page0_versions, login_page0_result)
+        self.assertEqual(homepage1_versions, homepage1_result)
+        self.assertEqual(login_page1_versions, login_page1_result)
