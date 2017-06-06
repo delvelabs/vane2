@@ -101,45 +101,59 @@ class OutputManager:
 
     def _to_pretty_output(self, data):
         output = ""
-        for key, value in data.items():
-            if type(value) is list:
-                output += self.print_indented_line(key + ":", 0)
-                for component in value:
-                    if type(component) is OrderedDict:
-                        output += self.print_component(component)
-                    elif type(component) is str:
-                        output += self.print_indented_line(component)
-            elif type(value) is OrderedDict:
-                output += self.print_component(value)
+        if "wordpress" in data:
+            output += self.print_component(data["wordpress"])
+        if "plugins" in data:
+            output += self._format_line("Plugins:", color="blue", bold=True)
+            output += self._format_components(data["plugins"])
+        if "themes" in data:
+            output += self._format_line("Themes:", color="blue", bold=True)
+            output += self._format_components(data["themes"])
+        if "general_log" in data:
+            output += self._format_line("General Log:", color="blue", bold=True)
+            output += self._format_log(data["general_log"])
+        return output
+
+    def _format_components(self, components):
+        output = ""
+        for component in components:
+            output += self.print_component(component)
+        return output
+
+    def _format_log(self, log):
+        output = ""
+        for message in log:
+            output += self._format_line(message)
         return output
 
     def print_component(self, component):
-        string = self.print_indented_line("{0} version {1}\turl:{2}".format(component['name'], component['version'],
-                                                                            component['url']))
+        string = "{0} version {1}\turl: {2}".format(component['name'], component['version'], component['url'])
+        output = self._format_line(string, color="green", bold=True)
+
         if "vulnerabilities" in component:
-            string += self.print_indented_line("Vulnerabilities:")
+            output += self._format_line("Vulnerabilities:", color="red", bold=True)
             for vulnerability in component["vulnerabilities"]:
-                string += self._format_vulnerability_to_pretty_output(vulnerability)
-        string += "\n"
-        return string
+                output += self._format_vulnerability_to_pretty_output(vulnerability)
+        output += "\n"
+        return output
 
     def _format_vulnerability_to_pretty_output(self, vulnerability):
         formatted_vulnerability = ""
         if "title" in vulnerability:
-            formatted_vulnerability += self.print_indented_line(vulnerability['title'])
+            formatted_vulnerability += self._format_line(vulnerability['title'], color="yellow", bold=True)
         else:
-            formatted_vulnerability += self.print_indented_line(vulnerability['id'])
+            formatted_vulnerability += self._format_line(vulnerability['id'])
         if "description" in vulnerability:
-            formatted_vulnerability += self.print_indented_line(vulnerability['description'])
+            formatted_vulnerability += self._format_line(vulnerability['description'])
         if "affected_versions" in vulnerability:
             versions = vulnerability["affected_versions"][0]
             if "introduced_in" in versions:
-                formatted_vulnerability += self.print_indented_line("Introduced in: %s" % versions["introduced_in"])
+                formatted_vulnerability += self._format_line("Introduced in: %s" % versions["introduced_in"])
             if "fixed_in" in versions:
-                formatted_vulnerability += self.print_indented_line("Fixed in: %s" % versions["fixed_in"])
+                formatted_vulnerability += self._format_line("Fixed in: %s" % versions["fixed_in"])
         if "references" in vulnerability:
             references = vulnerability["references"]
-            formatted_vulnerability += self.print_indented_line("References:")
+            formatted_vulnerability += self._format_line("References:")
             for reference in references:
                 formatted_vulnerability += self.print_vulnerability_reference(reference, indent_level=1)
         return formatted_vulnerability
@@ -147,13 +161,22 @@ class OutputManager:
     def print_vulnerability_reference(self, reference, indent_level):
         formatted_reference = ""
         if reference["type"] == "other":
-            formatted_reference += self.print_indented_line(reference["url"], indent_level)
+            formatted_reference += self._format_line(reference["url"], indent_level)
         else:
             ref = "{0}: {1}".format(reference["type"], reference["id"])
             if "url" in reference:
                 ref += " url: %s" % reference["url"]
-            formatted_reference += self.print_indented_line(ref, indent_level)
+            formatted_reference += self._format_line(ref, indent_level)
         return formatted_reference
 
-    def print_indented_line(self, value, indent_level=0):
+    def _format_line(self, value, indent_level=0, color=None, highlight_color=None, bold=False):
+        if color:
+            if bold:
+                attrs = ["bold"]
+            else:
+                attrs=[]
+            if highlight_color:
+                value = termcolor.colored(value, color, highlight_color, attrs=attrs)
+            else:
+                value = termcolor.colored(value, color, attrs=attrs)
         return "{0}{1}\n".format("\t" * indent_level, value)
