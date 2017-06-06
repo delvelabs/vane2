@@ -28,6 +28,7 @@ def html_file_to_hammertime_response(filename):
     with open(filename, 'rt') as html_page:
         content = html_page.read()
         hammertime_response = MagicMock()
+        hammertime_response.content = content
         hammertime_response.raw = content.encode("utf-8")
         return hammertime_response
 
@@ -49,3 +50,18 @@ def fake_future(result, loop):
     f = asyncio.Future(loop=loop)
     f.set_result(result)
     return f
+
+
+class AsyncContextManagerMock(MagicMock):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        for key in ('aenter_return', 'aexit_return'):
+            setattr(self, key,  kwargs[key] if key in kwargs else MagicMock())
+
+    async def __aenter__(self):
+        return self.aenter_return
+
+    async def __aexit__(self, *args):
+        return self.aexit_return

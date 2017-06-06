@@ -18,12 +18,12 @@
 from argparse import ArgumentParser
 from .core import Vane
 
-actions_available = ["scan", "import_data"]
+actions_available = ["scan", "import-data"]
 
 parser = ArgumentParser(description="vane 2.0")
 parser.add_argument("action", choices=actions_available)
 parser.add_argument("--url", dest="url")
-parser.add_argument("--import_path", dest="database_path")
+parser.add_argument("--import-path", dest="database_path", default=".")
 parser.add_argument('-p', dest="popular", action='store_true',
                     help="Search for popular themes/plugins. Can be combined with vulnerable (-v)")
 parser.add_argument('-v', dest="vulnerable", action='store_true',
@@ -31,11 +31,15 @@ parser.add_argument('-v', dest="vulnerable", action='store_true',
 parser.add_argument('--passive', dest='passive', action='store_true',
                     help="Only use passive detection for themes and plugins")
 parser.add_argument('--proxy', dest='proxy', help="Address of the HTTP proxy to be used by Vane")
-parser.add_argument('--no_ssl_validation', dest='verify_ssl', action='store_false', help="Don't perform ssl "
+parser.add_argument('--no-ssl-validation', dest='verify_ssl', action='store_false', help="Don't perform ssl "
                                                                                          "authentication.")
-parser.add_argument('--ca_cert', dest='ca_certificate_file', help='The ca certificate file of the proxy used for the '
+parser.add_argument('--ca-cert', dest='ca_certificate_file', help='The ca certificate file of the proxy used for the '
                                                                   'scan. Required if scanning an https website over a '
                                                                   'proxy and verifying ssl authentication.')
+parser.add_argument('--auto-update-frequency', dest='auto_update_frequency',
+                    help='The delay in days between two auto updates of the database (default is 7 days)', default=7)
+parser.add_argument('--no-update', dest='no_update', help="Don't attempt a data update. Program terminated if files are"
+                                                          " missing or no database is found, ", action='store_true')
 parser.add_argument('--output-format', dest='output_format', default='pretty', help='Format for the scan output("pretty'
                                                                                     '" or "json"), default is pretty')
 args = parser.parse_args()

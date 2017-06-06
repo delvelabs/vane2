@@ -16,14 +16,15 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from unittest import TestCase
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch, call, ANY
 from vane.core import Vane
-from aiohttp.test_utils import make_mocked_coro
+from aiohttp.test_utils import make_mocked_coro, loop_context
 from openwebvulndb.common.models import VulnerabilityList, Vulnerability
 from hammertime.http import Entry
 from hammertime.ruleset import HammerTimeException
 from vane.outputmanager import OutputManager
 from fixtures import async_test
+from aiohttp import ClientError
 
 
 @patch("vane.core.load_model_from_file", MagicMock(return_value=(MagicMock(), "errors")))
@@ -36,6 +37,9 @@ class TestVane(TestCase):
                 self.vane.initialize_hammertime()
             self.vane.hammertime.close = make_mocked_coro()
         self.vane.output_manager = MagicMock()
+        self.vane.database = MagicMock()
+        self.vane.database.database_directory = "/path/to/database/vane2_data_1.0"
+        self.vane._load_database = make_mocked_coro()
 
     def test_perform_action_raise_exception_if_no_url_and_action_is_scan(self):
         with patch("vane.core.custom_event_loop", MagicMock()):
@@ -51,25 +55,24 @@ class TestVane(TestCase):
     def test_perform_action_call_initialize_hammertime(self):
         self.vane.initialize_hammertime = MagicMock()
 
-        self.vane.perform_action(url="target", proxy="http://127.0.0.1:8080", verify_ssl=False,
-                                 ca_certificate_file="file")
+        with patch("vane.core.custom_event_loop", MagicMock()):
+            self.vane.perform_action(url="target", proxy="http://127.0.0.1:8080", verify_ssl=False,
+                                     ca_certificate_file="file")
 
-        self.vane.initialize_hammertime.assert_called_once_with(proxy="http://127.0.0.1:8080", verify_ssl=False,
-                                                                ca_certificate_file="file")
+            self.vane.initialize_hammertime.assert_called_once_with(proxy="http://127.0.0.1:8080", verify_ssl=False,
+                                                                    ca_certificate_file="file")
+
+    def test_perform_action_dont_start_scan_if_database_failed_to_download_and_no_older_database_present(self):
+        self.vane.database.database_directory = None
+        self.vane.database._load_data = make_mocked_coro(raise_exception=ClientError())
+        self.vane.scan_target = make_mocked_coro()
+        with loop_context()as loop, patch("vane.core.custom_event_loop", MagicMock(return_value=loop)):
+            self.vane.perform_action(action="scan", url="test", verify_ssl=False)
+
+            self.vane.scan_target.assert_not_called()
 
     @async_test()
-    async def test_scan_target_output_database_version(self, loop):
-        self.vane.database = MagicMock()
-        self.vane.database.get_version.return_value = "1.2"
-
-        with patch("vane.core.Vane.identify_target_version", make_mocked_coro()):
-            await self.vane.scan_target("test", popular=True, vulnerable=True)
-
-            self.vane.output_manager.set_vuln_database_version.assert_called_once_with(
-                self.vane.database.get_version.return_value)
-
-    @async_test()
-    async def test_scan_target_abort_after_version_identification_if_identification_fails(self, loop):
+    async def test_scan_target_abort_after_version_identification_if_identification_fails(self):
         self.vane.active_plugin_enumeration = make_mocked_coro()
         self.vane.active_theme_enumeration = make_mocked_coro()
         self.vane.identify_target_version = make_mocked_coro(raise_exception=
@@ -82,7 +85,7 @@ class TestVane(TestCase):
         self.vane.hammertime.close.assert_called_once_with()
 
     @async_test()
-    async def test_scan_target_log_message_if_scan_aborted(self, loop):
+    async def test_scan_target_log_message_if_scan_aborted(self):
         exception = ValueError("target is not a valid Wordpress site.")
         self.vane.identify_target_version = make_mocked_coro(raise_exception=exception)
 
@@ -91,7 +94,7 @@ class TestVane(TestCase):
         self.vane.output_manager.log_message.assert_any_call(str(exception))
 
     @async_test()
-    async def test_scan_target_abort_if_target_is_not_valid_url(self, loop):
+    async def test_scan_target_abort_if_target_is_not_valid_url(self):
         self.vane.active_plugin_enumeration = make_mocked_coro()
         self.vane.active_theme_enumeration = make_mocked_coro()
         self.vane.identify_target_version = make_mocked_coro()
@@ -104,14 +107,40 @@ class TestVane(TestCase):
         self.vane.hammertime.close.assert_called_once_with()
 
     @async_test()
-    async def test_identify_target_version_raise_value_error_if_version_identification_return_no_fetched_files(self, loop):
+    async def test_identify_target_version_raise_value_error_if_version_identification_return_no_fetched_files(self):
         fake_fetcher = MagicMock()
         fake_fetcher.request_files = make_mocked_coro(return_value=("key", []))
         fake_fetcher_factory = MagicMock()
         fake_fetcher_factory.return_value = fake_fetcher
         with patch("vane.core.FileFetcher", fake_fetcher_factory):
             with self.assertRaises(ValueError):
-                await self.vane.identify_target_version("invalid url", "input path")
+                await self.vane.identify_target_version("url", "input path")
+
+    @async_test()
+    async def test_identify_target_version_request_files_that_expose_version(self):
+        fake_fetcher = MagicMock()
+        fake_fetcher.request_files = make_mocked_coro(return_value=("key", ["files"]))
+        fake_fetcher_factory = MagicMock(return_value=fake_fetcher)
+        self.vane._get_files_for_version_identification = make_mocked_coro()
+        with patch("vane.core.FileFetcher", fake_fetcher_factory), patch("vane.core.VersionIdentification", MagicMock):
+
+            await self.vane.identify_target_version("url", "input path")
+
+            self.vane._get_files_for_version_identification.assert_called_once_with("url")
+
+    @async_test()
+    async def test_identify_target_version_calls_identify_version_with_files_that_expose_version(self):
+        fake_fetcher = MagicMock()
+        fake_fetcher.request_files = make_mocked_coro(return_value=("key", ["files"]))
+        fake_fetcher_factory = MagicMock(return_value=fake_fetcher)
+        version_identification = MagicMock()
+        version_identification_factory = MagicMock(return_value=version_identification)
+        self.vane._get_files_for_version_identification = make_mocked_coro(return_value=["file0", "file1"])
+        with patch("vane.core.FileFetcher", fake_fetcher_factory), patch("vane.core.VersionIdentification",
+                                                                         version_identification_factory):
+            await self.vane.identify_target_version("url", "input path")
+
+            version_identification.identify_version.assert_called_once_with(["files"], ANY, ["file0", "file1"])
 
     def test_list_component_vulnerabilitites_call_list_vulnerabilities_for_each_component(self):
         components_version = {'plugin0': "1.2.3", 'theme0': "3.2.1", 'plugin1': "1.4.0", 'theme1': "6.9"}
@@ -175,7 +204,7 @@ class TestVane(TestCase):
             self.assertEqual(plugins["plugins/cyclone-slider-2"], "2.9.1")
 
     @async_test()
-    async def test_plugin_enumeration_merge_active_and_passive_detection_results(self, loop):
+    async def test_plugin_enumeration_merge_active_and_passive_detection_results(self):
         self.vane.active_plugin_enumeration = make_mocked_coro(return_value={"plugins/plugin0": "1.2",
                                                                              "plugins/plugin1": "3.2.1"})
         self.vane.passive_plugin_enumeration = MagicMock(return_value={"plugins/plugin2" : "4.3.1",
@@ -188,7 +217,7 @@ class TestVane(TestCase):
                                            "plugins/plugin2": "4.3.1"})
 
     @async_test()
-    async def test_plugin_enumeration_version_found_by_passive_scan_overwrite_version_found_by_active_scan(self, loop):
+    async def test_plugin_enumeration_version_found_by_passive_scan_overwrite_version_found_by_active_scan(self):
         self.vane.active_plugin_enumeration = make_mocked_coro(return_value={"plugins/plugin0": None,
                                                                              "plugins/plugin1": "3.2.1",
                                                                              "plugins/plugin2": "1.2.3"})
@@ -211,7 +240,7 @@ class TestVane(TestCase):
         self.assertEqual(plugin2_data["version"], "1.2.4")
 
     @async_test()
-    async def test_plugin_enumeration_only_log_plugins_found_in_passive_scan_not_log_by_active_scan(self, loop):
+    async def test_plugin_enumeration_only_log_plugins_found_in_passive_scan_not_log_by_active_scan(self):
         self.vane.active_plugin_enumeration = make_mocked_coro(return_value={"plugins/plugin0": "1.2",
                                                                              "plugins/plugin1": "3.2.1"})
         self.vane.passive_plugin_enumeration = MagicMock(return_value={"plugins/plugin2": None,
@@ -239,7 +268,7 @@ class TestVane(TestCase):
             self.assertIn("themes/twentysixteen", themes)
 
     @async_test()
-    async def test_theme_enumeration_merge_active_and_passive_detection_results(self, loop):
+    async def test_theme_enumeration_merge_active_and_passive_detection_results(self):
         self.vane.active_theme_enumeration = make_mocked_coro(return_value={"themes/theme0": "1.2",
                                                                              "themes/theme1": "3.2.1"})
         self.vane.passive_theme_enumeration = MagicMock(return_value={"themes/theme2", "themes/theme1"})
@@ -251,7 +280,7 @@ class TestVane(TestCase):
                                           "themes/theme2": None})
 
     @async_test()
-    async def test_theme_enumeration_log_theme_found_in_passive_scan_but_not_in_active_scan(self, loop):
+    async def test_theme_enumeration_log_theme_found_in_passive_scan_but_not_in_active_scan(self):
         self.vane.active_theme_enumeration = make_mocked_coro(return_value={"themes/theme0": "1.2",
                                                                             "themes/theme1": "3.2.1"})
         self.vane.passive_theme_enumeration = MagicMock(return_value=["themes/theme2", "themes/theme1"])
@@ -270,7 +299,7 @@ class TestVane(TestCase):
         self.vane.hammertime.set_proxy.assert_called_once_with("http://127.0.0.1:8080")
 
     @async_test()
-    async def test_scan_target_only_use_passive_detection_if_passive_parameter_is_true(self, loop):
+    async def test_scan_target_only_use_passive_detection_if_passive_parameter_is_true(self):
         self.vane.identify_target_version = make_mocked_coro()
         self.vane.active_plugin_enumeration = make_mocked_coro()
         self.vane.passive_plugin_enumeration = MagicMock(return_value={})
@@ -288,7 +317,7 @@ class TestVane(TestCase):
         self.assertEqual(len(self.vane.passive_plugin_enumeration.mock_calls), 1)
 
     @async_test()
-    async def test_request_target_home_page_make_hammertime_request_for_target_url(self, loop):
+    async def test_request_target_home_page_make_hammertime_request_for_target_url(self):
         target_url = "http://www.example.com/"
         self.vane.hammertime.request = make_mocked_coro(return_value=Entry.create(target_url))
 
@@ -297,7 +326,7 @@ class TestVane(TestCase):
         self.vane.hammertime.request.assert_called_once_with(target_url)
 
     @async_test()
-    async def test_request_target_home_page_return_hammertime_response_for_request(self, loop):
+    async def test_request_target_home_page_return_hammertime_response_for_request(self):
         target_url = "http://www.example.com/"
         entry = Entry.create(target_url, response="response")
         self.vane.hammertime.request = make_mocked_coro(return_value=entry)
@@ -307,9 +336,55 @@ class TestVane(TestCase):
         self.assertEqual(response, "response")
 
     @async_test()
-    async def test_request_target_home_page_raises_hammertime_exception(self, loop):
+    async def test_request_target_home_page_raises_hammertime_exception(self):
         target_url = "http://www.example.com/"
         self.vane.hammertime.request = make_mocked_coro(raise_exception=HammerTimeException())
 
         with self.assertRaises(HammerTimeException):
             await self.vane._request_target_home_page(target_url)
+
+    @async_test()
+    async def test_get_files_for_version_identification_fetch_target_homepage(self):
+        target_url = "http://www.example.com/"
+        self.vane.hammertime.request = make_mocked_coro(return_value=MagicMock())
+        homepage_response = MagicMock()
+        self.vane._request_target_home_page = make_mocked_coro(return_value=homepage_response)
+
+        response_list = await self.vane._get_files_for_version_identification(target_url)
+
+        self.vane._request_target_home_page.assert_called_once_with(target_url)
+        self.assertIn(homepage_response, response_list)
+
+    @async_test()
+    async def test_get_files_for_version_identification_fetch_files_exposing_version(self):
+        target_url = "http://www.example.com/"
+        file_entry = MagicMock()
+        self.vane.hammertime.request = make_mocked_coro(return_value=file_entry)
+        self.vane._request_target_home_page = make_mocked_coro()
+
+        response_list = await self.vane._get_files_for_version_identification(target_url)
+
+        self.vane.hammertime.request.assert_called_once_with(target_url + "wp-login.php")
+        self.assertIn(file_entry.response, response_list)
+
+    @async_test()
+    async def test_get_files_for_version_identification_dont_fail_if_request_homepage_raise_exception(self):
+        target_url = "http://www.example.com/"
+        file_entry = MagicMock()
+        self.vane.hammertime.request = make_mocked_coro(return_value=file_entry)
+        self.vane._request_target_home_page = make_mocked_coro(raise_exception=HammerTimeException())
+
+        response_list = await self.vane._get_files_for_version_identification(target_url)
+
+        self.assertIn(file_entry.response, response_list)
+
+    @async_test()
+    async def test_get_files_for_version_identification_dont_fail_if_hammertime_request_raise_exception(self):
+        target_url = "http://www.example.com/"
+        file_response = MagicMock()
+        self.vane.hammertime.request = make_mocked_coro(raise_exception=HammerTimeException())
+        self.vane._request_target_home_page = make_mocked_coro(return_value=file_response)
+
+        response_list = await self.vane._get_files_for_version_identification(target_url)
+
+        self.assertIn(file_response, response_list)

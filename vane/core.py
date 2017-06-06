@@ -34,7 +34,10 @@ from .passivepluginsfinder import PassivePluginsFinder
 from .passivethemesfinder import PassiveThemesFinder
 from .outputmanager import OutputManager
 
-from os.path import join, dirname
+from os.path import join
+
+from .database import Database
+from aiohttp import ClientSession, ClientError
 
 
 class Vane:
@@ -60,7 +63,6 @@ class Vane:
         self.hammertime.set_proxy(proxy_address)
 
     async def scan_target(self, url, popular, vulnerable, passive_only=False):
-        self._load_database()
         self.output_manager.log_message("scanning %s" % url)
 
         if not validate_url(url):
@@ -70,8 +72,7 @@ class Vane:
 
         url = normalize_url(url)
 
-        # TODO use user input for path?
-        input_path = dirname(__file__)
+        input_path = self.database.database_directory
 
         try:
             wordpress_version = await self.identify_target_version(url, input_path)
@@ -109,7 +110,8 @@ class Vane:
         key, fetched_files = await file_fetcher.request_files("wordpress", file_list)
         if len(fetched_files) == 0:
             raise ValueError("target is not a valid Wordpress site")
-        version = version_identifier.identify_version(fetched_files, file_list)
+        files_with_version = await self._get_files_for_version_identification(url)
+        version = version_identifier.identify_version(fetched_files, file_list, files_with_version)
         self.output_manager.set_wordpress_version(version, meta_list.get_meta("wordpress"))
         return {'wordpress': version}
 
@@ -210,6 +212,22 @@ class Vane:
         theme_keys = passive_theme_finder.list_themes(hammertime_response)
         return theme_keys
 
+    async def _get_files_for_version_identification(self, url):
+        files_path = ["wp-login.php"]
+        file_response_list = []
+        try:
+            homepage_response = await self._request_target_home_page(url)
+            file_response_list.append(homepage_response)
+        except HammerTimeException:
+            pass
+        for path in files_path:
+            try:
+                entry = await self.hammertime.request(url + path)
+                file_response_list.append(entry.response)
+            except HammerTimeException:
+                pass
+        return file_response_list
+
     async def _request_target_home_page(self, url):
         try:
             entry = await self.hammertime.request(url)
@@ -252,23 +270,37 @@ class Vane:
             message = "all"
         self.output_manager.log_message("Active enumeration of {0} {1}.".format(message, key))
 
-    # TODO
-    def _load_database(self):
-        if self.database is not None:
-            self.output_manager.set_vuln_database_version(self.database.get_version())
+    async def _load_database(self, loop, database_path, auto_update_frequency=7, no_update=False):
+        async with ClientSession(loop=loop) as aiohttp_session:
+            self.database = Database(self.output_manager, aiohttp_session, auto_update_frequency)
+            # TODO don't forget to change this to the real Vane data repository when it will exist.
+            self.database.configure_update_repository("NicolasAubry", "vane_data_test")
+            try:
+                await self.database.load_data(database_path, no_update=no_update)
+            except ClientError:
+                self.output_manager.log_message("Database update failed: connection error.")
+            except AssertionError:
+                self.output_manager.log_message("Database update failed: bad status code in server's response.")
+            except OSError as e:
+                self.output_manager.log_message("Database installation failed:\n%s" % e)
+            self.output_manager.set_vuln_database_version(self.database.current_version)
 
     def _load_meta_list(self, key, input_path):
         file_name = join(input_path, "vane2_%s_meta.json" % key)
         return load_model_from_file(file_name, MetaListSchema())
 
-    def perform_action(self, action="scan", url=None, database_path=None, popular=False, vulnerable=False,
-                       passive=False, proxy=None, verify_ssl=True, ca_certificate_file=None, **kwargs):
+    def perform_action(self, action="scan", url=None, database_path=".", popular=False, vulnerable=False,
+                       passive=False, proxy=None, verify_ssl=True, ca_certificate_file=None, auto_update_frequency=7,
+                       no_update=False, **kwargs):
+        loop = custom_event_loop()
         if action == "scan":
             if url is None:
                 raise ValueError("Target url required.")
-            self.initialize_hammertime(proxy=proxy, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
-            self.hammertime.loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
-                                                                     passive_only=passive))
+            loop.run_until_complete(self._load_database(loop, database_path, int(auto_update_frequency), no_update))
+            if self.database.database_directory is not None:
+                self.initialize_hammertime(proxy=proxy, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
+                loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
+                                                         passive_only=passive))
         elif action == "import_data":
-            pass
+            loop.run_until_complete(self._load_database(loop, database_path, Database.ALWAYS_CHECK_FOR_UPDATE))
         self.output_manager.flush()
