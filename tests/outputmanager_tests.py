@@ -132,9 +132,9 @@ class TestOutputManager(TestCase):
 
         pretty_output = self.output_manager._to_pretty_output(self.output_manager.data)
 
-        self.assertEqual(pretty_output, "Wordpress version 4.7.5\turl:https://wordpress.org/\n")
+        self.assertEqual(pretty_output, "Wordpress version 4.7.5\turl:https://wordpress.org/\n\n")
 
-    def test_to_pretty_output_regroup_related_components_in_indented_list(self):
+    def test_to_pretty_output_regroup_related_components(self):
         plugin0_meta = Meta(key="plugins/plugin0", name="Plugin 0", url="https://www.plugin0.com/")
         plugin1_meta = Meta(key="plugins/plugin1", name="Plugin 1", url="https://www.plugin1.com/")
         self.output_manager.add_plugin("plugins/plugin0", "1.2.3", plugin0_meta)
@@ -146,10 +146,10 @@ class TestOutputManager(TestCase):
 
         output = self.output_manager._to_pretty_output(self.output_manager.data)
 
-        self.assertIn("plugins:\n\tPlugin 0 version 1.2.3\turl:https://www.plugin0.com/\n"
-                      "\tPlugin 1 version 4.5.6\turl:https://www.plugin1.com/\n", output)
-        self.assertIn("themes:\n\tTheme 0 version 3.2.1\turl:https://www.theme0.com/\n"
-                      "\tTheme 1 version 1.2.0\turl:https://www.theme1.com/\n", output)
+        self.assertIn("plugins:\nPlugin 0 version 1.2.3\turl:https://www.plugin0.com/\n\n"
+                      "Plugin 1 version 4.5.6\turl:https://www.plugin1.com/\n\n", output)
+        self.assertIn("themes:\nTheme 0 version 3.2.1\turl:https://www.theme0.com/\n\n"
+                      "Theme 1 version 1.2.0\turl:https://www.theme1.com/\n\n", output)
 
     def test_to_pretty_output_format_vulnerabilities_of_component(self):
         plugin0_meta = Meta(key="plugins/plugin0", name="Plugin 0", url="https://www.plugin0.com/")
@@ -161,8 +161,17 @@ class TestOutputManager(TestCase):
 
         output = self.output_manager._to_pretty_output(self.output_manager.data)
 
-        self.assertEqual("plugins:\n\tPlugin 0 version 1.2.3\turl:https://www.plugin0.com/\n\tVulnerabilities:\n\t\tvuln\n"
-                      "\tPlugin 1 version 4.5.6\turl:https://www.plugin1.com/\n\tVulnerabilities:\n\t\tvuln\n", output)
+        self.assertEqual("plugins:\nPlugin 0 version 1.2.3\turl:https://www.plugin0.com/\nVulnerabilities:\nvuln\n\n"
+                         "Plugin 1 version 4.5.6\turl:https://www.plugin1.com/\nVulnerabilities:\nvuln\n\n", output)
+
+    def test_to_pretty_output_format_general_log(self):
+        self.output_manager.log_message("message 0")
+        self.output_manager.log_message("message 1")
+        self.output_manager.log_message("message 2")
+
+        output = self.output_manager._to_pretty_output(self.output_manager.data)
+
+        self.assertEqual(output, "general_log:\nmessage 0\nmessage 1\nmessage 2\n")
 
     def test_format_vulnerability_to_pretty_output(self):
         vuln0 = {"id": "6556", "title": "Title of the vulnerability", "reported_type": "type",
@@ -182,20 +191,23 @@ class TestOutputManager(TestCase):
         pretty_vuln0 = self.output_manager._format_vulnerability_to_pretty_output(vuln0)
         pretty_vuln1 = self.output_manager._format_vulnerability_to_pretty_output(vuln1)
 
-        self.assertEqual(pretty_vuln0, "Title of the vulnerability\n\tIntroduced in: 3.8.9.5\n\tReferences:\n\t\tosvdb:"
-                                       " 102484\n\t\twpvulndb: 6556\n")
-        self.assertEqual(pretty_vuln1, "Title of the vulnerability\n\tDescription of the vulnerability\n"
-                                       "\tIntroduced in: 4.7.0\n\tFixed in: 4.7.5\n\tReferences:\n\t\tcve: 2017-8295"
+        self.assertEqual(pretty_vuln0, "Title of the vulnerability\nIntroduced in: 3.8.9.5\nReferences:\n\tosvdb:"
+                                       " 102484\n\twpvulndb: 6556\n")
+        self.assertEqual(pretty_vuln1, "Title of the vulnerability\nDescription of the vulnerability\n"
+                                       "Introduced in: 4.7.0\nFixed in: 4.7.5\nReferences:\n\tcve: 2017-8295"
                                        " url: https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2017-8295\n"
-                                       "\t\tbugtraqid: 98295\n")
+                                       "\tbugtraqid: 98295\n")
 
-    def test_format_vulnerability_to_pretty_output_indent_vulnerability_to_specified_value(self):
-        vuln0 = {"id": "6556", "title": "Title of the vulnerability", "description": "Description of the vulnerability"}
-        vuln1 = {"id": "CVE-2017-8295", "title": "Title of the vulnerability",
-                 "references": [{"type": "cve", "id": "2017-8295"}]}
+    def test_print_vulnerability_reference_indent_references(self):
+        ref = {"type": "cve", "id": "2017-8295"}
 
-        pretty_vuln0 = self.output_manager._format_vulnerability_to_pretty_output(vuln0, indent_level=0)
-        pretty_vuln1 = self.output_manager._format_vulnerability_to_pretty_output(vuln1, indent_level=2)
+        pretty_ref = self.output_manager.print_vulnerability_reference(ref, indent_level=1)
 
-        self.assertEqual(pretty_vuln0, "Title of the vulnerability\n\tDescription of the vulnerability\n")
-        self.assertEqual(pretty_vuln1, "\t\tTitle of the vulnerability\n\t\t\tReferences:\n\t\t\t\tcve: 2017-8295\n")
+        self.assertEqual(pretty_ref, "\tcve: 2017-8295\n")
+
+    def test_print_component_add_emptyline_at_end(self):
+        component = {'name': 'Name', 'version': '1.0', 'url': 'http://url.something.'}
+
+        output = self.output_manager.print_component(component)
+
+        self.assertTrue(output.endswith("\n\n"))

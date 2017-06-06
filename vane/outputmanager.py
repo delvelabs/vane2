@@ -18,6 +18,7 @@
 
 import json
 from collections import OrderedDict
+import termcolor
 
 
 class OutputManager:
@@ -25,6 +26,9 @@ class OutputManager:
     def __init__(self, output_format="json"):
         self.output_format = output_format
         self.data = {}
+
+    def set_output_format(self, output_format):
+        self.output_format = output_format
 
     def log_message(self, message):
         self._add_data("general_log", message)
@@ -99,44 +103,48 @@ class OutputManager:
         output = ""
         for key, value in data.items():
             if type(value) is list:
-                output += key + ":\n"
+                output += self.print_indented_line(key + ":", 0)
                 for component in value:
-                    output += self.print_component(component, 1)
+                    if type(component) is OrderedDict:
+                        output += self.print_component(component)
+                    elif type(component) is str:
+                        output += self.print_indented_line(component)
             elif type(value) is OrderedDict:
-                output += self.print_component(value, 0)
+                output += self.print_component(value)
         return output
 
-    def print_component(self, component, indent_level=0):
-        string = "{0}{1} version {2}\turl:{3}\n".format("\t" * indent_level, component['name'], component['version'],
-                                                        component['url'])
+    def print_component(self, component):
+        string = self.print_indented_line("{0} version {1}\turl:{2}".format(component['name'], component['version'],
+                                                                            component['url']))
         if "vulnerabilities" in component:
-            string += "{0}Vulnerabilities:\n".format("\t" * indent_level)
+            string += self.print_indented_line("Vulnerabilities:")
             for vulnerability in component["vulnerabilities"]:
-                string += self._format_vulnerability_to_pretty_output(vulnerability, indent_level + 1)
+                string += self._format_vulnerability_to_pretty_output(vulnerability)
+        string += "\n"
         return string
 
-    def _format_vulnerability_to_pretty_output(self, vulnerability, indent_level=0):
+    def _format_vulnerability_to_pretty_output(self, vulnerability):
         formatted_vulnerability = ""
         if "title" in vulnerability:
-            formatted_vulnerability += self.print_indented_line(vulnerability['title'], indent_level)
+            formatted_vulnerability += self.print_indented_line(vulnerability['title'])
         else:
-            formatted_vulnerability += self.print_indented_line(vulnerability['id'], indent_level)
+            formatted_vulnerability += self.print_indented_line(vulnerability['id'])
         if "description" in vulnerability:
-            formatted_vulnerability += self.print_indented_line(vulnerability['description'], indent_level + 1)
+            formatted_vulnerability += self.print_indented_line(vulnerability['description'])
         if "affected_versions" in vulnerability:
             versions = vulnerability["affected_versions"][0]
             if "introduced_in" in versions:
-                formatted_vulnerability += self.print_indented_line("Introduced in: %s" % versions["introduced_in"], indent_level + 1)
+                formatted_vulnerability += self.print_indented_line("Introduced in: %s" % versions["introduced_in"])
             if "fixed_in" in versions:
-                formatted_vulnerability += self.print_indented_line("Fixed in: %s" % versions["fixed_in"], indent_level + 1)
+                formatted_vulnerability += self.print_indented_line("Fixed in: %s" % versions["fixed_in"])
         if "references" in vulnerability:
             references = vulnerability["references"]
-            formatted_vulnerability += self.print_indented_line("References:", indent_level + 1)
+            formatted_vulnerability += self.print_indented_line("References:")
             for reference in references:
-                formatted_vulnerability += self.print_vulnerability_reference(reference, indent_level + 2)
+                formatted_vulnerability += self.print_vulnerability_reference(reference, indent_level=1)
         return formatted_vulnerability
 
-    def print_vulnerability_reference(self, reference, indent_level=2):
+    def print_vulnerability_reference(self, reference, indent_level):
         formatted_reference = ""
         if reference["type"] == "other":
             formatted_reference += self.print_indented_line(reference["url"], indent_level)
@@ -147,5 +155,5 @@ class OutputManager:
             formatted_reference += self.print_indented_line(ref, indent_level)
         return formatted_reference
 
-    def print_indented_line(self, value, indent_level):
+    def print_indented_line(self, value, indent_level=0):
         return "{0}{1}\n".format("\t" * indent_level, value)

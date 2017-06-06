@@ -39,9 +39,9 @@ from os.path import join, dirname
 
 class Vane:
 
-    def __init__(self):
+    def __init__(self, output_format="json"):
         self.database = None
-        self.output_manager = OutputManager()
+        self.output_manager = OutputManager(output_format)
 
     def initialize_hammertime(self, proxy=None, verify_ssl=True, ca_certificate_file=None):
         loop = custom_event_loop()
@@ -262,7 +262,7 @@ class Vane:
         return load_model_from_file(file_name, MetaListSchema())
 
     def perform_action(self, action="scan", url=None, database_path=None, popular=False, vulnerable=False,
-                       passive=False, proxy=None, verify_ssl=True, ca_certificate_file=None):
+                       passive=False, proxy=None, verify_ssl=True, ca_certificate_file=None, **kwargs):
         if action == "scan":
             if url is None:
                 raise ValueError("Target url required.")

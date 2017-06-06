@@ -36,7 +36,9 @@ parser.add_argument('--no_ssl_validation', dest='verify_ssl', action='store_fals
 parser.add_argument('--ca_cert', dest='ca_certificate_file', help='The ca certificate file of the proxy used for the '
                                                                   'scan. Required if scanning an https website over a '
                                                                   'proxy and verifying ssl authentication.')
+parser.add_argument('--output-format', dest='output_format', default='json', help='Format for the scan output ("pretty" '
+                                                                                'or "json"), default is json')
 args = parser.parse_args()
 
-vane = Vane()
+vane = Vane(output_format=vars(args)['output_format'])
 vane.perform_action(**vars(args))
