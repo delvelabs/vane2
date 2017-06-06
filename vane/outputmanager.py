@@ -23,7 +23,7 @@ import termcolor
 
 class OutputManager:
 
-    def __init__(self, output_format="json"):
+    def __init__(self, output_format="pretty"):
         self.output_format = output_format
         self.data = {}
 
@@ -102,31 +102,30 @@ class OutputManager:
     def _to_pretty_output(self, data):
         output = ""
         if "wordpress" in data:
-            output += self.print_component(data["wordpress"])
+            output += self._format_component(data["wordpress"])
         if "plugins" in data:
-            output += self._format_line("Plugins:", color="blue", bold=True)
-            output += self._format_components(data["plugins"])
+            output += self._format_components(data["plugins"], "Plugins")
         if "themes" in data:
-            output += self._format_line("Themes:", color="blue", bold=True)
-            output += self._format_components(data["themes"])
+            output += self._format_components(data["themes"], "Themes")
         if "general_log" in data:
-            output += self._format_line("General Log:", color="blue", bold=True)
             output += self._format_log(data["general_log"])
         return output
 
-    def _format_components(self, components):
+    def _format_components(self, components, component_group_name):
         output = ""
+        output += self._format_line("%s:" % component_group_name, color="blue", bold=True)
         for component in components:
-            output += self.print_component(component)
+            output += self._format_component(component)
         return output
 
     def _format_log(self, log):
         output = ""
+        output += self._format_line("General Log:", color="blue", bold=True)
         for message in log:
             output += self._format_line(message)
         return output
 
-    def print_component(self, component):
+    def _format_component(self, component):
         string = "{0} version {1}\turl: {2}".format(component['name'], component['version'], component['url'])
         output = self._format_line(string, color="green", bold=True)
 
@@ -134,8 +133,9 @@ class OutputManager:
             output += self._format_line("Vulnerabilities:", color="red", bold=True)
             for vulnerability in component["vulnerabilities"]:
                 output += self._format_vulnerability_to_pretty_output(vulnerability)
-        output += "\n"
-        return output
+        else:
+            output += "No known vulnerabilities\n"
+        return output + "\n"
 
     def _format_vulnerability_to_pretty_output(self, vulnerability):
         formatted_vulnerability = ""
@@ -155,10 +155,10 @@ class OutputManager:
             references = vulnerability["references"]
             formatted_vulnerability += self._format_line("References:")
             for reference in references:
-                formatted_vulnerability += self.print_vulnerability_reference(reference, indent_level=1)
+                formatted_vulnerability += self._format_vulnerability_reference(reference, indent_level=1)
         return formatted_vulnerability
 
-    def print_vulnerability_reference(self, reference, indent_level):
+    def _format_vulnerability_reference(self, reference, indent_level):
         formatted_reference = ""
         if reference["type"] == "other":
             formatted_reference += self._format_line(reference["url"], indent_level)
