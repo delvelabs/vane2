@@ -23,21 +23,14 @@ import termcolor
 
 class OutputManager:
 
-    def __init__(self, output_format="pretty"):
-        self.output_format = output_format
+    def __init__(self):
         self.data = {}
-
-    def set_output_format(self, output_format):
-        self.output_format = output_format
 
     def log_message(self, message):
         self._add_data("general_log", message)
 
-    def _format(self, data):
-        if self.output_format == "json":
-            return json.dumps(data, indent=4)
-        if self.output_format == "pretty":
-            return self._to_pretty_output(data)
+    def format(self, data):
+        raise NotImplementedError()
 
     def set_wordpress_version(self, version, meta):
         wordpress_dict = OrderedDict([("version", version)])
@@ -60,7 +53,7 @@ class OutputManager:
             self._add_data("vulnerabilities", vulnerability, component_dict)
 
     def flush(self):
-        print(self._format(self.data))
+        print(self.format(self.data))
 
     def _add_data(self, key, value, container=None):
         if container is None:
@@ -99,7 +92,16 @@ class OutputManager:
         if meta.url is not None:
             component_dict["url"] = meta.url
 
-    def _to_pretty_output(self, data):
+
+class JsonOutput(OutputManager):
+
+    def format(self, data):
+        return json.dumps(data, indent=4)
+
+
+class PrettyOutput(OutputManager):
+
+    def format(self, data):
         output = ""
         if "wordpress" in data:
             output += self._format_component(data["wordpress"])
@@ -132,12 +134,12 @@ class OutputManager:
         if "vulnerabilities" in component:
             output += self._format_line("Vulnerabilities:", color="red", bold=True)
             for vulnerability in component["vulnerabilities"]:
-                output += self._format_vulnerability_to_pretty_output(vulnerability)
+                output += self._format_vulnerability(vulnerability)
         else:
             output += "No known vulnerabilities\n"
         return output + "\n"
 
-    def _format_vulnerability_to_pretty_output(self, vulnerability):
+    def _format_vulnerability(self, vulnerability):
         formatted_vulnerability = ""
         if "title" in vulnerability:
             formatted_vulnerability += self._format_line(vulnerability['title'], color="yellow", bold=True)
@@ -174,7 +176,7 @@ class OutputManager:
             if bold:
                 attrs = ["bold"]
             else:
-                attrs=[]
+                attrs= []
             if highlight_color:
                 value = termcolor.colored(value, color, highlight_color, attrs=attrs)
             else:
