@@ -65,13 +65,12 @@ class TestOutputManager(TestCase):
                                                                {'key': "plugin1", 'version': "4.7.2"}])
 
     def test_add_themes_append_theme_to_theme_list(self):
-        output_manager = OutputManager()
-        output_manager.data["themes"] = [{'key': "theme0", 'version': "1.2.3"}]
+        self.output_manager.data["themes"] = [{'key': "theme0", 'version': "1.2.3"}]
 
-        output_manager.add_theme("theme1", "6.1", None)
+        self.output_manager.add_theme("theme1", "6.1", None)
 
-        self.assertEqual(output_manager.data["themes"], [{'key': "theme0", 'version': "1.2.3"},
-                                                         {'key': "theme1", 'version': "6.1"}])
+        self.assertEqual(self.output_manager.data["themes"], [{'key': "theme0", 'version': "1.2.3"},
+                                                              {'key': "theme1", 'version': "6.1"}])
 
     def test_add_component_merge_meta_name_and_url_with_component(self):
         self.output_manager._add_component("plugins", "plugins/my-plugin", "1.2", self.fake_meta)
