@@ -38,11 +38,11 @@ parser.add_argument('--ca-cert', dest='ca_certificate_file', help='The ca certif
                                                                   'proxy and verifying ssl authentication.')
 parser.add_argument('--auto-update-frequency', dest='auto_update_frequency',
                     help='The delay in days between two auto updates of the database (default is 7 days)', default=7)
-
 parser.add_argument('--no-update', dest='no_update', help="Don't attempt a data update. Program terminated if files are"
                                                           " missing or no database is found, ", action='store_true')
-
+parser.add_argument('--output-format', dest='output_format', default='pretty', help='Format for the scan output("pretty'
+                                                                                    '" or "json"), default is pretty')
 args = parser.parse_args()
 
-vane = Vane()
+vane = Vane(args.output_format)
 vane.perform_action(**vars(args))

@@ -32,7 +32,7 @@ from .filefetcher import FileFetcher
 from .vulnerabilitylister import VulnerabilityLister
 from .passivepluginsfinder import PassivePluginsFinder
 from .passivethemesfinder import PassiveThemesFinder
-from .outputmanager import OutputManager
+from .outputmanager import PrettyOutput, JsonOutput
 
 from os.path import join
 
@@ -42,9 +42,9 @@ from aiohttp import ClientSession, ClientError
 
 class Vane:
 
-    def __init__(self):
+    def __init__(self, output_format="pretty"):
         self.database = None
-        self.output_manager = OutputManager()
+        self.output_manager = JsonOutput() if output_format == "json" else PrettyOutput()
 
     def initialize_hammertime(self, proxy=None, verify_ssl=True, ca_certificate_file=None):
         loop = custom_event_loop()
@@ -291,7 +291,7 @@ class Vane:
 
     def perform_action(self, action="scan", url=None, database_path=".", popular=False, vulnerable=False,
                        passive=False, proxy=None, verify_ssl=True, ca_certificate_file=None, auto_update_frequency=7,
-                       no_update=False):
+                       no_update=False, **kwargs):
         loop = custom_event_loop()
         if action == "scan":
             if url is None:

@@ -18,20 +18,19 @@
 
 import json
 from collections import OrderedDict
+import termcolor
 
 
 class OutputManager:
 
-    def __init__(self, output_format="json"):
-        self.output_format = output_format
+    def __init__(self):
         self.data = {}
 
     def log_message(self, message):
         self._add_data("general_log", message)
 
-    def _format(self, data):
-        if self.output_format == "json":
-            return json.dumps(data, indent=4)
+    def format(self, data):
+        raise NotImplementedError()
 
     def set_wordpress_version(self, version, meta):
         wordpress_dict = OrderedDict([("version", version)])
@@ -54,7 +53,7 @@ class OutputManager:
             self._add_data("vulnerabilities", vulnerability, component_dict)
 
     def flush(self):
-        print(self._format(self.data))
+        print(self.format(self.data))
 
     def _add_data(self, key, value, container=None):
         if container is None:
@@ -92,3 +91,94 @@ class OutputManager:
             component_dict.move_to_end("name", False)
         if meta.url is not None:
             component_dict["url"] = meta.url
+
+
+class JsonOutput(OutputManager):
+
+    def format(self, data):
+        return json.dumps(data, indent=4)
+
+
+class PrettyOutput(OutputManager):
+
+    def format(self, data):
+        output = ""
+        if "wordpress" in data:
+            output += self._format_component(data["wordpress"])
+        if "plugins" in data:
+            output += self._format_components(data["plugins"], "Plugins")
+        if "themes" in data:
+            output += self._format_components(data["themes"], "Themes")
+        if "general_log" in data:
+            output += self._format_log(data["general_log"])
+        return output
+
+    def _format_components(self, components, component_group_name):
+        output = ""
+        output += self._format_line("%s:" % component_group_name, color="blue", bold=True)
+        for component in components:
+            output += self._format_component(component)
+        return output
+
+    def _format_log(self, log):
+        output = ""
+        output += self._format_line("General Log:", color="blue", bold=True)
+        for message in log:
+            output += self._format_line(message)
+        return output
+
+    def _format_component(self, component):
+        string = "{0} version {1}\turl: {2}".format(component['name'], component['version'], component['url'])
+        output = self._format_line(string, color="green", bold=True)
+
+        if "vulnerabilities" in component:
+            output += self._format_line("Vulnerabilities:", color="red", bold=True)
+            for vulnerability in component["vulnerabilities"]:
+                output += self._format_vulnerability(vulnerability)
+        else:
+            output += "No known vulnerabilities\n"
+        return output + "\n"
+
+    def _format_vulnerability(self, vulnerability):
+        formatted_vulnerability = ""
+        if "title" in vulnerability:
+            formatted_vulnerability += self._format_line(vulnerability['title'], color="yellow", bold=True)
+        else:
+            formatted_vulnerability += self._format_line(vulnerability['id'])
+        if "description" in vulnerability:
+            formatted_vulnerability += self._format_line(vulnerability['description'])
+        if "affected_versions" in vulnerability:
+            versions = vulnerability["affected_versions"][0]
+            if "introduced_in" in versions:
+                formatted_vulnerability += self._format_line("Introduced in: %s" % versions["introduced_in"])
+            if "fixed_in" in versions:
+                formatted_vulnerability += self._format_line("Fixed in: %s" % versions["fixed_in"])
+        if "references" in vulnerability:
+            references = vulnerability["references"]
+            formatted_vulnerability += self._format_line("References:")
+            for reference in references:
+                formatted_vulnerability += self._format_vulnerability_reference(reference, indent_level=1)
+        return formatted_vulnerability
+
+    def _format_vulnerability_reference(self, reference, indent_level):
+        formatted_reference = ""
+        if reference["type"] == "other":
+            formatted_reference += self._format_line(reference["url"], indent_level)
+        else:
+            ref = "{0}: {1}".format(reference["type"], reference["id"])
+            if "url" in reference:
+                ref += " url: %s" % reference["url"]
+            formatted_reference += self._format_line(ref, indent_level)
+        return formatted_reference
+
+    def _format_line(self, value, indent_level=0, color=None, highlight_color=None, bold=False):
+        if color:
+            if bold:
+                attrs = ["bold"]
+            else:
+                attrs= []
+            if highlight_color:
+                value = termcolor.colored(value, color, highlight_color, attrs=attrs)
+            else:
+                value = termcolor.colored(value, color, attrs=attrs)
+        return "{0}{1}\n".format("\t" * indent_level, value)
