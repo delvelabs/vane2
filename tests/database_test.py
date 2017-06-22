@@ -21,7 +21,6 @@ from vane.database import Database
 from aiohttp.test_utils import make_mocked_coro
 from fixtures import async_test, AsyncContextManagerMock
 from datetime import datetime
-from freezegun import freeze_time
 from aiohttp import ClientError
 
 
@@ -380,14 +379,18 @@ class TestDatabase(TestCase):
 
         self.assertEqual("2.1", latest_version)
 
-    @freeze_time("2017-05-29")
+
     def test_get_days_since_last_update_return_time_in_days_between_now_and_database_folder_modification_time(self):
+        try:
+            from freezegun import freeze_time
+        except ImportError:
+            self.skipTest("freezegun is required.")
         database = Database(None)
         stat_result = MagicMock()
         stat_result.st_mtime = datetime(2017, 5, 24).timestamp()
         os_stat = MagicMock(return_value=stat_result)
 
-        with patch('vane.database.stat', os_stat):
+        with patch('vane.database.stat', os_stat), freeze_time("2017-05-29"):
             days_since_last_update = database._get_days_since_last_update("path")
 
             self.assertEqual(days_since_last_update, 5)
