@@ -5,13 +5,13 @@
         {
             "key": "themes/theme0",
             "producer": "unittest",
+            "hash_algo": "SHA256",
             "files": [
                 {
                     "path": "wp-content/themes/theme0/readme.txt",
                     "signatures": [
                         {
-                            "hash": "1",
-                            "algo": "SHA256"
+                            "hash": "1"
                         }
                     ]
                 },
@@ -19,8 +19,7 @@
                     "path": "wp-content/themes/theme0/style.css",
                     "signatures": [
                         {
-                            "hash": "2",
-                            "algo": "SHA256"
+                            "hash": "2"
                         }
                     ]
                 }
@@ -29,13 +28,13 @@
         {
             "key": "themes/theme1",
             "producer": "unittest",
+            "hash_algo": "SHA256",
             "files": [
                 {
                     "path": "wp-content/themes/theme1/readme.txt",
                     "signatures": [
                         {
-                            "hash": "3",
-                            "algo": "SHA256"
+                            "hash": "3"
                         }
                     ]
                 },
@@ -43,8 +42,7 @@
                     "path": "wp-content/themes/theme1/style.css",
                     "signatures": [
                         {
-                            "hash": "4",
-                            "algo": "SHA256"
+                            "hash": "4"
                         }
                     ]
                 }

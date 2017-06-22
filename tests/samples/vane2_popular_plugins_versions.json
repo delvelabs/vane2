@@ -5,6 +5,7 @@
         {
             "key": "plugins/my-plugin",
             "producer": "unittest",
+            "hash_algo": "SHA256",
             "files": [
                 {
                     "path": "wp-content/plugins/my-plugin/readme.txt"

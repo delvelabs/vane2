@@ -5,6 +5,7 @@
         {
             "key": "plugins/hack-me-plugin",
             "producer": "unittest",
+            "hash_algo": "SHA256",
             "files": [
                 {
                     "path": "wp-content/plugins/hack-me-plugin/readme.html"

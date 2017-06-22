@@ -34,7 +34,7 @@ class FileFetcher:
         hammertime_requests = []
         for file in file_list.files:
             url = urljoin(self.url, file.path)
-            arguments = {'file_path': file.path, 'hash_algo': file.signatures[0].algo}
+            arguments = {'file_path': file.path, 'hash_algo': file_list.hash_algo}
             hammertime_requests.append(self.hammertime.request(url, arguments=arguments))
         return self.hammertime.loop.create_task(self._request_files(key, hammertime_requests))
 

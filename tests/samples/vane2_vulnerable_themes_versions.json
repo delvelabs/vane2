@@ -1,6 +1,7 @@
 {
     "key": "vulnerable_themes",
     "producer": "unittest",
+    "hash_algo": "SHA256",
     "file_lists":[
         {
             "key": "themes/vuln-theme",

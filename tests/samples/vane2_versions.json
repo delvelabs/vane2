@@ -1,18 +1,17 @@
 {
   "key": "wordpress",
   "producer": "unittest",
+  "hash_algo": "SHA256",
   "files": [
     {
       "path": "readme.html",
       "signatures": [
         {
           "hash": "1234",
-          "algo": "SHA256",
           "versions": ["1.0"]
         },
         {
           "hash": "2345",
-          "algo": "SHA256",
           "versions": ["2.0"]
         }
       ]
@@ -22,7 +21,6 @@
       "signatures": [
         {
           "hash": "4321",
-          "algo": "SHA256",
           "versions": ["1.0", "2.0"]
         }
       ]

@@ -28,7 +28,7 @@ from fixtures import async_test
 class TestFileFetcher(TestCase):
 
     def setUp(self):
-        signatures = [FileSignature(algo="SHA256", hash="hash")]
+        signatures = [FileSignature(hash="hash")]
         self.plugin_key = "my-plugin"
         self.files_to_fetch = FileList(key=self.plugin_key, producer="", files=[
                                         File(path="wp-content/plugins/my-plugin/script.js", signatures=signatures),

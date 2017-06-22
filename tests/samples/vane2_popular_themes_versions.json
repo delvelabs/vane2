@@ -5,6 +5,7 @@
         {
             "key": "themes/my-theme",
             "producer": "unittest",
+            "hash_algo": "SHA256",
             "files": [
                 {
                     "path": "wp-content/themes/my-theme/readme.txt"
