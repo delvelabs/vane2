@@ -92,8 +92,6 @@ class Vane:
 
         except ValueError as error:
             self.output_manager.log_message(str(error))
-        finally:
-            await self.hammertime.close()
 
         self.output_manager.log_message("scan done")
 
@@ -292,18 +290,14 @@ class Vane:
         file_name = join(input_path, "vane2_%s_meta.json" % key)
         return load_model_from_file(file_name, MetaListSchema())
 
-    def close(self):
-        loop = self.hammertime.loop
-        asyncio.ensure_future(self.hammertime.close(), loop=loop)
-        pending_tasks = asyncio.Task.all_tasks(loop=loop)
-        for task in pending_tasks:
-            task.cancel()
+    def close(self, loop):
+        loop.run_until_complete(self.hammertime.close())
+        loop.close()
 
     def perform_action(self, action="scan", url=None, database_path=".", popular=False, vulnerable=False,
                        passive=False, proxy=None, verify_ssl=True, ca_certificate_file=None, auto_update_frequency=7,
                        no_update=False, **kwargs):
         loop = custom_event_loop()
-        loop.add_signal_handler(signal.SIGINT, self.close)
         if action == "scan":
             if url is None:
                 raise ValueError("Target url required.")
@@ -317,6 +311,6 @@ class Vane:
                     self.output_manager.log_message("Scan interrupted.")
         elif action == "import_data":
             loop.run_until_complete(self._load_database(loop, database_path, Database.ALWAYS_CHECK_FOR_UPDATE))
-        loop.stop()
-        loop.close()
+
+        self.close(loop)
         self.output_manager.flush()
