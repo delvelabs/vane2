@@ -17,7 +17,8 @@
 
 
 from unittest import TestCase
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+from collections import OrderedDict
 
 from vane.outputmanager import OutputManager, PrettyOutput
 from openwebvulndb.common.models import Meta
@@ -62,7 +63,8 @@ class TestOutputManager(TestCase):
         self.output_manager.add_plugin("plugin1", "4.7.2", None)
 
         self.assertEqual(self.output_manager.data["plugins"], [{'key': "plugin0", 'version': "2.1"},
-                                                               {'key': "plugin1", 'version': "4.7.2"}])
+                                                               {'key': "plugin1", 'version': "4.7.2", "name": "plugin1",
+                                                                "url": None}])
 
     def test_add_themes_append_theme_to_theme_list(self):
         self.output_manager.data["themes"] = [{'key': "theme0", 'version': "1.2.3"}]
@@ -70,7 +72,8 @@ class TestOutputManager(TestCase):
         self.output_manager.add_theme("theme1", "6.1", None)
 
         self.assertEqual(self.output_manager.data["themes"], [{'key': "theme0", 'version': "1.2.3"},
-                                                              {'key': "theme1", 'version': "6.1"}])
+                                                              {'key': "theme1", 'version': "6.1", "name": "theme1",
+                                                               "url": None}])
 
     def test_add_component_merge_meta_name_and_url_with_component(self):
         self.output_manager._add_component("plugins", "plugins/my-plugin", "1.2", self.fake_meta)
@@ -81,6 +84,25 @@ class TestOutputManager(TestCase):
                                                                 "url": self.fake_meta.url}])
         self.assertEqual(self.output_manager.data["themes"], [{"key": "themes/my-theme", "version": "2.0",
                                                                "name": self.fake_meta.name, "url": self.fake_meta.url}])
+
+    def test_add_component_set_default_values_for_meta_if_no_meta(self):
+        self.output_manager._add_component("plugins", "plugins/my-plugin", "1.2", None)
+
+        self.assertEqual(self.output_manager.data["plugins"], [{"key": "plugins/my-plugin", "version": "1.2",
+                                                                "name": "my-plugin", "url": None}])
+
+    def test_add_meta_to_component_set_default_value_for_missing_meta(self):
+        component0 = OrderedDict([("key", "plugins/plugin")])
+        meta0 = Meta(key="plugins/plugin", name="Plugin")
+        component1 = OrderedDict([("key", "themes/theme")])
+        meta1 = Meta(key="themes/theme", url="http://www.theme.example")
+
+        self.output_manager._add_meta_to_component(component0, meta0)
+        self.output_manager._add_meta_to_component(component1, meta1)
+
+        self.assertEqual(component0["url"], None)
+        self.assertEqual(component1["name"], "theme")
+
 
     def test_add_vulnerability_add_vulnerability_to_vuln_list_of_key(self):
         self.output_manager.add_plugin("plugins/my-plugin", "1.0", None)
@@ -114,10 +136,10 @@ class TestOutputManager(TestCase):
         theme1 = self.output_manager._get_component_dictionary("themes/theme1")
         wordpress = self.output_manager._get_component_dictionary("wordpress")
 
-        self.assertEqual(plugin0, {"key": "plugins/plugin0", "version": "2.0"})
-        self.assertEqual(plugin1, {"key": "plugins/plugin1", "version": "1.5"})
-        self.assertEqual(theme0, {"key": "themes/theme0", "version": "4.5"})
-        self.assertEqual(theme1, {"key": "themes/theme1", "version": "3.2.1"})
+        self.assertEqual(plugin0, {"key": "plugins/plugin0", "version": "2.0", "name": "plugin0", "url": None})
+        self.assertEqual(plugin1, {"key": "plugins/plugin1", "version": "1.5", "name": "plugin1", "url": None})
+        self.assertEqual(theme0, {"key": "themes/theme0", "version": "4.5", "name": "theme0", "url": None})
+        self.assertEqual(theme1, {"key": "themes/theme1", "version": "3.2.1", "name": "theme1", "url": None})
         self.assertEqual(wordpress, {"version": "4.2.2"})
 
     def test_format_raise_not_implemented_exception(self):
@@ -283,6 +305,13 @@ class TestPrettyOutput(TestCase):
         output = self.pretty_output._format_components(self.pretty_output.data["plugins"], "Plugins")
 
         self.assertIn("No known vulnerabilities", output)
+
+    def test_format_component_dont_add_url_if_url_is_none(self):
+        self.pretty_output.add_plugin("plugins/plugin", "1.0", Meta(key="plugins/plugin", name="Plugin"))
+
+        output = self.pretty_output._format_components(self.pretty_output.data["plugins"], "Plugins")
+
+        self.assertIn("Plugin version 1.0", output)
 
 
 def fake_colored(text, *args, **kwargs):

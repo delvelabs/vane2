@@ -83,14 +83,18 @@ class OutputManager:
         component_dict = OrderedDict([('key', component_key), ('version', version or "No version found")])
         if meta is not None:
             self._add_meta_to_component(component_dict, meta)
+        else:
+            component_dict["name"] = self._create_component_name_from_key(component_key)
+            component_dict["url"] = None
         self._add_data(key, component_dict)
 
     def _add_meta_to_component(self, component_dict, meta):
-        if meta.name is not None:
-            component_dict["name"] = meta.name
-            component_dict.move_to_end("name", False)
-        if meta.url is not None:
-            component_dict["url"] = meta.url
+        component_dict["name"] = meta.name or self._create_component_name_from_key(component_dict["key"])
+        component_dict.move_to_end("name", False)
+        component_dict["url"] = meta.url
+
+    def _create_component_name_from_key(self, component_key):
+        return component_key.split("/")[-1]
 
 
 class JsonOutput(OutputManager):
@@ -128,7 +132,9 @@ class PrettyOutput(OutputManager):
         return output
 
     def _format_component(self, component):
-        string = "{0} version {1}\turl: {2}".format(component['name'], component['version'], component['url'])
+        string = "{0} version {1}".format(component['name'], component['version'])
+        if component['url'] is not None:
+            string += "\turl: %s" % component['url']
         output = self._format_line(string, color="green", bold=True)
 
         if "vulnerabilities" in component:
