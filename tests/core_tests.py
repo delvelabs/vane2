@@ -25,6 +25,7 @@ from hammertime.ruleset import HammerTimeException
 from vane.outputmanager import OutputManager
 from fixtures import async_test
 from aiohttp import ClientError
+import asyncio
 
 
 @patch("vane.core.load_model_from_file", MagicMock(return_value=(MagicMock(), "errors")))
@@ -82,7 +83,6 @@ class TestVane(TestCase):
 
         self.vane.active_plugin_enumeration.assert_not_called()
         self.vane.active_theme_enumeration.assert_not_called()
-        self.vane.hammertime.close.assert_called_once_with()
 
     @async_test()
     async def test_scan_target_log_message_if_scan_aborted(self):
@@ -388,3 +388,23 @@ class TestVane(TestCase):
         response_list = await self.vane._get_files_for_version_identification(target_url)
 
         self.assertIn(file_response, response_list)
+
+    def test_log_message_and_call_close_before_exiting_if_scan_cancelled(self):
+        self.vane.identify_target_version = make_mocked_coro(raise_exception=asyncio.CancelledError)
+        with loop_context() as loop:
+            with patch("vane.core.custom_event_loop", MagicMock(return_value=loop)):
+
+                self.vane.perform_action("scan", "http://localhost/")
+
+                self.vane.output_manager.log_message.assert_any_call("Scan interrupted.")
+                self.assertTrue(loop.is_closed())
+                self.vane.output_manager.flush.assert_called_once_with()
+
+    def test_close(self):
+        with loop_context() as loop:
+            self.vane.hammertime.loop = loop
+
+            self.vane.close(loop)
+
+            self.vane.hammertime.close.assert_called_once_with()
+            self.assertTrue(loop.is_closed())

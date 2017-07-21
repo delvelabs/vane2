@@ -38,6 +38,8 @@ from os.path import join
 
 from .database import Database
 from aiohttp import ClientSession, ClientError
+import signal
+import asyncio
 
 
 class Vane:
@@ -90,7 +92,6 @@ class Vane:
 
         except ValueError as error:
             self.output_manager.log_message(str(error))
-        await self.hammertime.close()
 
         self.output_manager.log_message("scan done")
 
@@ -289,6 +290,10 @@ class Vane:
         file_name = join(input_path, "vane2_%s_meta.json" % key)
         return load_model_from_file(file_name, MetaListSchema())
 
+    def close(self, loop):
+        loop.run_until_complete(self.hammertime.close())
+        loop.close()
+
     def perform_action(self, action="scan", url=None, database_path=".", popular=False, vulnerable=False,
                        passive=False, proxy=None, verify_ssl=True, ca_certificate_file=None, auto_update_frequency=7,
                        no_update=False, **kwargs):
@@ -299,8 +304,13 @@ class Vane:
             loop.run_until_complete(self._load_database(loop, database_path, int(auto_update_frequency), no_update))
             if self.database.database_directory is not None:
                 self.initialize_hammertime(proxy=proxy, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
-                loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
-                                                         passive_only=passive))
+                try:
+                    loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
+                                                             passive_only=passive))
+                except asyncio.CancelledError:
+                    self.output_manager.log_message("Scan interrupted.")
         elif action == "import_data":
             loop.run_until_complete(self._load_database(loop, database_path, Database.ALWAYS_CHECK_FOR_UPDATE))
+
+        self.close(loop)
         self.output_manager.flush()
