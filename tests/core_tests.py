@@ -49,7 +49,7 @@ class TestVane(TestCase):
 
     def test_perform_action_flush_output(self):
         with patch("vane.core.custom_event_loop", MagicMock()):
-            self.vane.perform_action(action="scan", url="test", verify_ssl=False)
+            self.vane.perform_action(action="no_action", url="test", verify_ssl=False)
 
             self.vane.output_manager.flush.assert_called_once_with()
 
