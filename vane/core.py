@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from hammertime import HammerTime
-from hammertime.rules import RejectStatusCode
+from hammertime.rules import RejectStatusCode, DynamicTimeout
 from hammertime.ruleset import HammerTimeException
 from hammertime.engine.aiohttp import AioHttpEngine
 from hammertime.config import custom_event_loop
@@ -58,8 +58,8 @@ class Vane:
         self.config_hammertime()
 
     def config_hammertime(self):
-        self.hammertime.heuristics.add_multiple([RetryOnErrors(range(502, 503)), RejectStatusCode(range(400, 600)),
-                                                 HashResponse()])
+        self.hammertime.heuristics.add_multiple([DynamicTimeout(0.05, 2, 3), RetryOnErrors(range(502, 503)),
+                                                 RejectStatusCode(range(400, 600)), HashResponse()])
 
     def set_proxy(self, proxy_address):
         self.hammertime.set_proxy(proxy_address)
