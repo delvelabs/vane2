@@ -311,7 +311,7 @@ class Vane:
                                                              passive_only=passive))
                 except asyncio.CancelledError:
                     self.output_manager.log_message("Scan interrupted.")
-        elif action == "import_data":
+        elif action == "import-data":
             loop.run_until_complete(self._load_database(loop, database_path, Database.ALWAYS_CHECK_FOR_UPDATE))
 
         self.close(loop)

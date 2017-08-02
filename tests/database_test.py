@@ -284,7 +284,7 @@ class TestDatabase(TestCase):
 
         await self.database.download_data_latest_release("path")
 
-        self.database.aiohttp_session.get.assert_called_once_with(ANY, headers={'accept': "application/octet-stream"})
+        self.database.aiohttp_session.get.assert_called_once_with(ANY, headers={'Accept': "application/octet-stream"})
 
     @async_test()
     async def test_download_database_cleanup_archive_file_after_extraction(self):

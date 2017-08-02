@@ -97,7 +97,7 @@ class Database:
         for asset in latest_release['assets']:
             if asset['name'] == archive_filename:
                 asset_url = asset['url']
-        headers = {'accept': "application/octet-stream"}
+        headers = {'Accept': "application/octet-stream"}
         async with self.aiohttp_session.get(asset_url, headers=headers) as response:
             assert response.status == 200
             data = await response.read()
