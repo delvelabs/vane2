@@ -206,7 +206,6 @@ class Vane:
     def passive_plugin_enumeration(self, html_page, meta_list):
         passive_plugins_finder = PassivePluginsFinder(meta_list)
         plugin_keys = passive_plugins_finder.list_plugins(html_page)
-        return {"plugins/wordpress-seo": "1.2.3", "plugins/akismet": "10.1.2"}
         return plugin_keys
 
     def passive_theme_enumeration(self, hammertime_response, meta_list):
