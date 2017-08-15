@@ -89,6 +89,7 @@ class OutputManager:
                 self._add_meta_to_component(component_dict, meta)
             else:
                 component_dict["name"] = self._create_component_name_from_key(component_key)
+                component_dict.move_to_end("name", False)
                 component_dict["url"] = None
             self._add_data(key, component_dict)
         else:

@@ -26,6 +26,7 @@ from vane.outputmanager import OutputManager
 from fixtures import async_test
 from aiohttp import ClientError
 import asyncio
+from collections import OrderedDict
 
 
 @patch("vane.core.load_model_from_file", MagicMock(return_value=(MagicMock(), "errors")))
@@ -207,7 +208,7 @@ class TestVane(TestCase):
     async def test_plugin_enumeration_merge_active_and_passive_detection_results(self):
         self.vane.active_plugin_enumeration = make_mocked_coro(return_value={"plugins/plugin0": "1.2",
                                                                              "plugins/plugin1": "3.2.1"})
-        self.vane.passive_plugin_enumeration = MagicMock(return_value={"plugins/plugin2" : "4.3.1",
+        self.vane.passive_plugin_enumeration = MagicMock(return_value={"plugins/plugin2": "4.3.1",
                                                                        "plugins/plugin1": None})
         self.vane.hammertime.request = make_mocked_coro(return_value=MagicMock())
 
@@ -238,23 +239,34 @@ class TestVane(TestCase):
         plugins_data = self.vane.output_manager.data["plugins"]
         plugin0_data = [plugin_dict for plugin_dict in plugins_data if plugin_dict["key"] == "plugins/plugin0"][0]
         plugin2_data = [plugin_dict for plugin_dict in plugins_data if plugin_dict["key"] == "plugins/plugin2"][0]
+        self.assertEqual(len(plugins_data), 3)  # make sure plugins are not added twice when found two or more times.
         self.assertEqual(plugin0_data["version"], "4.3.1")
         self.assertEqual(plugin2_data["version"], "1.2.4")
 
     @async_test()
-    async def test_plugin_enumeration_only_log_plugins_found_in_passive_scan_not_log_by_active_scan(self):
+    async def test_plugin_enumeration_log_plugins_found_in_passive_scan(self):
         self.vane.active_plugin_enumeration = make_mocked_coro(return_value={"plugins/plugin0": "1.2",
                                                                              "plugins/plugin1": "3.2.1"})
         self.vane.passive_plugin_enumeration = MagicMock(return_value={"plugins/plugin2": None,
-                                                                       "plugins/plugin1": None})
+                                                                       "plugins/plugin1": "3.2.1"})
         self.vane.hammertime.request = make_mocked_coro(return_value=MagicMock())
+        self.vane.output_manager = OutputManager()
+        self.vane.output_manager.add_plugin("plugins/plugin0", "1.2", None)
+        self.vane.output_manager.add_plugin("plugins/plugin1", "3.2.1", None)
+        fake_meta_list = MagicMock()
+        fake_meta_list.get_meta.return_value = None
+        self.vane._load_meta_list = MagicMock(return_value=(fake_meta_list, None))
 
         await self.vane.plugin_enumeration("target", True, True, "path")
 
-        call_args = self.vane.output_manager.add_plugin.call_args
-        self.assertEqual(len(self.vane.output_manager.add_plugin.mock_calls), 1)
-        self.assertEqual(call_args[0][0], "plugins/plugin2")
-        self.assertIsNone(call_args[0][1])
+        plugins_log = self.vane.output_manager.data["plugins"]
+        self.assertEqual(len(plugins_log), 3)
+        self.assertEqual(plugins_log[0], OrderedDict([('name', "plugin0"), ('key', "plugins/plugin0"),
+                                                     ('version', "1.2"), ('url', None)]))
+        self.assertEqual(plugins_log[1], OrderedDict([('name', "plugin1"), ('key', "plugins/plugin1"),
+                                                     ('version', "3.2.1"), ('url', None)]))
+        self.assertEqual(plugins_log[2], OrderedDict([('name', "plugin2"), ('key', "plugins/plugin2"),
+                                                     ('version', "No version found"), ('url', None)]))
 
     def test_passive_theme_enumeration_return_set_of_theme_keys(self):
         fake_theme_finder = MagicMock()

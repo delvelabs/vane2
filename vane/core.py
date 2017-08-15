@@ -138,8 +138,7 @@ class Vane:
                 self.output_manager.add_plugin(plugin_key, version, meta)
             elif version is not None:
                 plugins_version[plugin_key] = version
-                meta = meta_list.get_meta(plugin_key)
-                self.output_manager.add_plugin(plugin_key, version, meta)
+                self.output_manager.add_plugin(plugin_key, version, None)
         return plugins_version
 
     async def theme_enumeration(self, url, popular, vulnerable, input_path, passive_only=False):
@@ -207,6 +206,7 @@ class Vane:
     def passive_plugin_enumeration(self, html_page, meta_list):
         passive_plugins_finder = PassivePluginsFinder(meta_list)
         plugin_keys = passive_plugins_finder.list_plugins(html_page)
+        return {"plugins/wordpress-seo": "1.2.3", "plugins/akismet": "10.1.2"}
         return plugin_keys
 
     def passive_theme_enumeration(self, hammertime_response, meta_list):
