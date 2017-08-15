@@ -225,8 +225,10 @@ class TestVane(TestCase):
                                                                        "plugins/plugin1": None,
                                                                        "plugins/plugin2": "1.2.4"})
         self.vane.hammertime.request = make_mocked_coro(return_value=MagicMock())
-
         self.vane.output_manager = OutputManager()
+        self.vane.output_manager.add_plugin("plugins/plugin0", None, None)
+        self.vane.output_manager.add_plugin("plugins/plugin1", "3.2.1", None)
+        self.vane.output_manager.add_plugin("plugins/plugin2", "1.2.3", None)
 
         plugins_version = await self.vane.plugin_enumeration("target", True, True, "path")
 
