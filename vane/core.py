@@ -138,8 +138,7 @@ class Vane:
                 self.output_manager.add_plugin(plugin_key, version, meta)
             elif version is not None:
                 plugins_version[plugin_key] = version
-                meta = meta_list.get_meta(plugin_key)
-                self.output_manager.add_plugin(plugin_key, version, meta)
+                self.output_manager.add_plugin(plugin_key, version, None)
         return plugins_version
 
     async def theme_enumeration(self, url, popular, vulnerable, input_path, passive_only=False):

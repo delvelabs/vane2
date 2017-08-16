@@ -80,13 +80,30 @@ class OutputManager:
         return None
 
     def _add_component(self, key, component_key, version, meta):
-        component_dict = OrderedDict([('key', component_key), ('version', version or "No version found")])
-        if meta is not None:
-            self._add_meta_to_component(component_dict, meta)
+        component_dict = None
+        if key in self.data:
+            component_dict = self._get_dictionary_with_key_value_pair_in_list('key', component_key, self.data[key])
+        if component_dict is None:
+            component_dict = OrderedDict([('key', component_key), ('version', version or "No version found")])
+            if meta is not None:
+                self._add_meta_to_component(component_dict, meta)
+            else:
+                component_dict["name"] = self._create_component_name_from_key(component_key)
+                component_dict.move_to_end("name", False)
+                component_dict["url"] = None
+            self._add_data(key, component_dict)
         else:
-            component_dict["name"] = self._create_component_name_from_key(component_key)
-            component_dict["url"] = None
-        self._add_data(key, component_dict)
+            self._modify_existing_component(component_dict, version, meta)
+
+    def _modify_existing_component(self, component, version, meta):
+        def apply_value(key, value):
+            if value is not None:
+                component[key] = value
+
+        apply_value('version', version)
+        if meta is not None:
+            apply_value('name', meta.name)
+            apply_value('url', meta.url)
 
     def _add_meta_to_component(self, component_dict, meta):
         component_dict["name"] = meta.name or self._create_component_name_from_key(component_dict["key"])
