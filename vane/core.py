@@ -15,8 +15,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
+from aiohttp import ClientSession, ClientError
+import asyncio
+from os.path import join
+
 from hammertime import HammerTime
-from hammertime.rules import RejectStatusCode, DynamicTimeout
+from hammertime.rules import RejectStatusCode, DynamicTimeout, DetectSoft404
 from hammertime.ruleset import HammerTimeException
 from hammertime.engine.aiohttp import AioHttpEngine
 from hammertime.config import custom_event_loop
@@ -33,13 +38,7 @@ from .vulnerabilitylister import VulnerabilityLister
 from .passivepluginsfinder import PassivePluginsFinder
 from .passivethemesfinder import PassiveThemesFinder
 from .outputmanager import PrettyOutput, JsonOutput
-
-from os.path import join
-
 from .database import Database
-from aiohttp import ClientSession, ClientError
-import signal
-import asyncio
 
 
 class Vane:
@@ -59,8 +58,11 @@ class Vane:
         self.config_hammertime()
 
     def config_hammertime(self):
-        self.hammertime.heuristics.add_multiple([DynamicTimeout(0.05, 2, 3), RetryOnErrors(range(502, 503)),
-                                                 RejectStatusCode(range(400, 600)), HashResponse()])
+        heuristics = [DynamicTimeout(0.05, 2, 3), RetryOnErrors(range(502, 503))]
+        soft_404 = DetectSoft404()
+        soft_404.child_heuristics.add_multiple(heuristics)
+        heuristics.extend([RejectStatusCode(range(400, 600)), soft_404, HashResponse()])
+        self.hammertime.heuristics.add_multiple(heuristics)
 
     def set_proxy(self, proxy_address):
         self.hammertime.set_proxy(proxy_address)
