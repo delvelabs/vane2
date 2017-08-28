@@ -91,6 +91,19 @@ class TestOutputManager(TestCase):
         self.assertEqual(self.output_manager.data["plugins"], [{"key": "plugins/my-plugin", "version": "1.2",
                                                                 "name": "my-plugin", "url": None}])
 
+    def test_add_component_merge_component_with_existing_component_if_same_key(self):
+        self.output_manager._add_component("plugins", "plugins/my-plugin", None, self.fake_meta)
+        self.output_manager._add_component("themes", "themes/my-theme", None, self.fake_meta)
+
+        self.output_manager._add_component("plugins", "plugins/my-plugin", "2.1.2", None)
+        self.output_manager._add_component("themes", "themes/my-theme", "1.2.1", None)
+
+        self.assertEqual(self.output_manager.data["plugins"], [{"key": "plugins/my-plugin", "version": "2.1.2",
+                                                                "name": self.fake_meta.name, "url": self.fake_meta.url}
+                                                               ])
+        self.assertEqual(self.output_manager.data["themes"], [{"key": "themes/my-theme", "version": "1.2.1",
+                                                               "name": self.fake_meta.name, "url": self.fake_meta.url}])
+
     def test_add_meta_to_component_set_default_value_for_missing_meta(self):
         component0 = OrderedDict([("key", "plugins/plugin")])
         meta0 = Meta(key="plugins/plugin", name="Plugin")
@@ -102,7 +115,6 @@ class TestOutputManager(TestCase):
 
         self.assertEqual(component0["url"], None)
         self.assertEqual(component1["name"], "theme")
-
 
     def test_add_vulnerability_add_vulnerability_to_vuln_list_of_key(self):
         self.output_manager.add_plugin("plugins/my-plugin", "1.0", None)
