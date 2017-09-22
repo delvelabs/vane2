@@ -17,17 +17,18 @@
 
 from unittest import TestCase
 from unittest.mock import MagicMock, patch, call, ANY
-from vane.core import Vane
 from aiohttp.test_utils import make_mocked_coro, loop_context
-from openwebvulndb.common.models import VulnerabilityList, Vulnerability
 from hammertime.http import Entry
 from hammertime.ruleset import HammerTimeException
-from vane.outputmanager import OutputManager
-from fixtures import async_test, html_file_to_hammertime_response
 from aiohttp import ClientError
 import asyncio
 from collections import OrderedDict
 from os.path import join, dirname
+
+from vane.core import Vane
+from openwebvulndb.common.models import VulnerabilityList, Vulnerability
+from vane.outputmanager import OutputManager
+from fixtures import async_test, html_file_to_hammertime_response
 
 
 @patch("vane.core.load_model_from_file", MagicMock(return_value=(MagicMock(), "errors")))
@@ -114,9 +115,10 @@ class TestVane(TestCase):
         self.assertTrue(await self.vane.is_wordpress("http://example.com/"))
 
     @async_test()
-    async def test_is_wordpress_return_true_if_url_with_wp_content_in_home_page_body(self):
+    async def test_is_wordpress_return_true_if_url_with_wp_content_in_homepage(self):
         entry = MagicMock()
         entry.response = html_file_to_hammertime_response(join(dirname(__file__), "samples/delvelabs_homepage.html"))
+        entry.response.headers = {"link": "http://example.com/url/unrelated/to_wordpress"}
         self.vane.hammertime.request = make_mocked_coro(return_value=entry)
 
         self.assertTrue(await self.vane.is_wordpress("http://example.com/"))

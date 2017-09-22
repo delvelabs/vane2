@@ -20,19 +20,19 @@ from aiohttp import ClientSession, ClientError
 import asyncio
 from os.path import join
 import re
-
 from hammertime import HammerTime
 from hammertime.rules import RejectStatusCode, DynamicTimeout, DetectSoft404
 from hammertime.ruleset import HammerTimeException
 from hammertime.engine.aiohttp import AioHttpEngine
 from hammertime.config import custom_event_loop
+from openwebvulndb.common.schemas import FileListSchema, VulnerabilityListGroupSchema, VulnerabilitySchema, \
+    MetaListSchema
+from openwebvulndb.common.serialize import clean_walk
+
 from .versionidentification import VersionIdentification
 from .hash import HashResponse
 from .activecomponentfinder import ActiveComponentFinder
 from .retryonerrors import RetryOnErrors
-from openwebvulndb.common.schemas import FileListSchema, VulnerabilityListGroupSchema, VulnerabilitySchema, \
-    MetaListSchema
-from openwebvulndb.common.serialize import clean_walk
 from .utils import load_model_from_file, validate_url, normalize_url
 from .filefetcher import FileFetcher
 from .vulnerabilitylister import VulnerabilityLister
@@ -105,7 +105,7 @@ class Vane:
         entry = await self.hammertime.request(url)
         headers = entry.response.headers
         try:
-            if "wp-json" in headers["link"]:
+            if re.search("/wp-json/", headers["link"]):
                 return True
         except KeyError:
             pass
