@@ -19,6 +19,7 @@
 from aiohttp import ClientSession, ClientError
 import asyncio
 from os.path import join
+import re
 
 from hammertime import HammerTime
 from hammertime.rules import RejectStatusCode, DynamicTimeout, DetectSoft404
@@ -80,6 +81,8 @@ class Vane:
         input_path = self.database.database_directory
 
         try:
+            if not await self.is_wordpress(url):
+                raise ValueError("target is not a valid Wordpress site")
             wordpress_version = await self.identify_target_version(url, input_path)
             plugins_version = await self.plugin_enumeration(url, popular, vulnerable, input_path,
                                                             passive_only=passive_only)
@@ -97,6 +100,16 @@ class Vane:
             self.output_manager.log_message(str(error))
 
         self.output_manager.log_message("scan done")
+
+    async def is_wordpress(self, url):
+        entry = await self.hammertime.request(url)
+        headers = entry.response.headers
+        try:
+            if "wp-json" in headers["link"]:
+                return True
+        except KeyError:
+            pass
+        return re.search("/wp-content/", entry.response.content)
 
     async def identify_target_version(self, url, input_path):
         self.output_manager.log_message("Identifying Wordpress version for %s" % url)
