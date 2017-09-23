@@ -139,7 +139,7 @@ class TestVersionIdentification(TestCase):
         login_page1 = html_file_to_hammertime_response(join(dirname(__file__), "samples/canola_login.html"))
         homepage0_versions = {"4.7.5"}
         login_page0_versions = {"4.7.5"}
-        homepage1_versions = {"4.2.2", "1.11.2", "1.2.1"}
+        homepage1_versions = {"4.2.2", "1.11.2", "1.2.1", "3.2"}
         login_page1_versions = {"4.2.2"}
 
         homepage0_result = self.version_identification._find_versions_in_file(homepage0)

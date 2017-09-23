@@ -20,6 +20,9 @@ from openwebvulndb.common.version import VersionCompare
 import re
 
 
+version_pattern = re.compile("(?<=ver=)\d+\.\d+(?:\.\d+)?")
+
+
 class VersionIdentification:
 
     def identify_version(self, fetched_files, version_identification_file_list, files_exposing_version=None):
@@ -49,6 +52,7 @@ class VersionIdentification:
                     possible_versions &= set(versions)
                 else:
                     possible_versions = set(versions)
+                print("With {}, possible versions are now: {}".format(file, possible_versions))
         return possible_versions
 
     def _get_possible_versions_for_fetched_file(self, fetched_file, file_list):
@@ -73,6 +77,4 @@ class VersionIdentification:
         return versions_from_files
 
     def _find_versions_in_file(self, file_response):
-        version_string_list = re.findall("ver=\d+\.\d+(?:\.\d+)", file_response.content)
-        version_set = set(re.sub("ver=", "", version_string) for version_string in version_string_list)
-        return version_set
+        return set(version_pattern.findall(file_response.content))
