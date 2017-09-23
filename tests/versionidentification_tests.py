@@ -17,10 +17,12 @@
 
 from unittest import TestCase
 from unittest.mock import MagicMock, call
-from vane.versionidentification import VersionIdentification
-from openwebvulndb.common.models import FileSignature, File, FileList
-from vane.filefetcher import FetchedFile
+import re
 from os.path import join, dirname
+from openwebvulndb.common.models import FileSignature, File, FileList
+
+from vane.versionidentification import VersionIdentification
+from vane.filefetcher import FetchedFile
 from fixtures import html_file_to_hammertime_response
 
 
@@ -134,7 +136,7 @@ class TestVersionIdentification(TestCase):
 
     def test_find_versions_in_file_return_set_of_strings_that_match_version_pattern(self):
         homepage0 = html_file_to_hammertime_response(join(dirname(__file__), "samples/delvelabs_homepage.html"))
-        homepage1 = html_file_to_hammertime_response(join(dirname(__file__), "samples/canola_homepage.html"))
+        homepage1 = html_file_to_hammertime_response(join(dirname(__file__), "samples/sample_homepage.html"))
         login_page0 = html_file_to_hammertime_response(join(dirname(__file__), "samples/delvelabs_login.html"))
         login_page1 = html_file_to_hammertime_response(join(dirname(__file__), "samples/canola_login.html"))
         homepage0_versions = {"4.7.5"}
@@ -151,3 +153,16 @@ class TestVersionIdentification(TestCase):
         self.assertEqual(login_page0_versions, login_page0_result)
         self.assertEqual(homepage1_versions, homepage1_result)
         self.assertEqual(login_page1_versions, login_page1_result)
+
+    def test_find_versions_in_file_confirm_version_with_generator_meta_tag_if_present(self):
+        """Some wordpress sites have the tag <meta name="generator" content="WordPress X.Y.Z" />"""
+        homepage0 = html_file_to_hammertime_response(join(dirname(__file__), "samples/delvelabs_homepage.html"))
+        homepage1 = html_file_to_hammertime_response(join(dirname(__file__), "samples/canola_homepage.html"))
+        homepage0_versions = {"4.7.5"}
+        homepage1_versions = {"4.2.2"}
+
+        homepage0_result = self.version_identification._find_versions_in_file(homepage0)
+        homepage1_result = self.version_identification._find_versions_in_file(homepage1)
+
+        self.assertEqual(homepage0_versions, homepage0_result)
+        self.assertEqual(homepage1_versions, homepage1_result)

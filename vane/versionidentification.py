@@ -21,6 +21,7 @@ import re
 
 
 version_pattern = re.compile("(?<=ver=)\d+\.\d+(?:\.\d+)?")
+generator_version_pattern = re.compile('(?<=<meta name="generator" content="WordPress )\d+\.\d+(?:\.\d+)?')
 
 
 class VersionIdentification:
@@ -77,4 +78,7 @@ class VersionIdentification:
         return versions_from_files
 
     def _find_versions_in_file(self, file_response):
+        generator_version = generator_version_pattern.search(file_response.content)
+        if generator_version is not None:
+            return {generator_version.group()}
         return set(version_pattern.findall(file_response.content))
