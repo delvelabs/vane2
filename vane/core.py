@@ -19,19 +19,20 @@
 from aiohttp import ClientSession, ClientError
 import asyncio
 from os.path import join
-
+import re
 from hammertime import HammerTime
 from hammertime.rules import RejectStatusCode, DynamicTimeout, DetectSoft404
 from hammertime.ruleset import HammerTimeException
 from hammertime.engine.aiohttp import AioHttpEngine
 from hammertime.config import custom_event_loop
+from openwebvulndb.common.schemas import FileListSchema, VulnerabilityListGroupSchema, VulnerabilitySchema, \
+    MetaListSchema
+from openwebvulndb.common.serialize import clean_walk
+
 from .versionidentification import VersionIdentification
 from .hash import HashResponse
 from .activecomponentfinder import ActiveComponentFinder
 from .retryonerrors import RetryOnErrors
-from openwebvulndb.common.schemas import FileListSchema, VulnerabilityListGroupSchema, VulnerabilitySchema, \
-    MetaListSchema
-from openwebvulndb.common.serialize import clean_walk
 from .utils import load_model_from_file, validate_url, normalize_url
 from .filefetcher import FileFetcher
 from .vulnerabilitylister import VulnerabilityLister
@@ -80,6 +81,8 @@ class Vane:
         input_path = self.database.database_directory
 
         try:
+            if not await self.is_wordpress(url):
+                raise ValueError("target is not a valid Wordpress site")
             wordpress_version = await self.identify_target_version(url, input_path)
             plugins_version = await self.plugin_enumeration(url, popular, vulnerable, input_path,
                                                             passive_only=passive_only)
@@ -97,6 +100,16 @@ class Vane:
             self.output_manager.log_message(str(error))
 
         self.output_manager.log_message("scan done")
+
+    async def is_wordpress(self, url):
+        entry = await self.hammertime.request(url)
+        headers = entry.response.headers
+        try:
+            if re.search("/wp-json/", headers["link"]):
+                return True
+        except KeyError:
+            pass
+        return re.search("/wp-content/", entry.response.content)
 
     async def identify_target_version(self, url, input_path):
         self.output_manager.log_message("Identifying Wordpress version for %s" % url)

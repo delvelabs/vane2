@@ -17,16 +17,18 @@
 
 from unittest import TestCase
 from unittest.mock import MagicMock, patch, call, ANY
-from vane.core import Vane
 from aiohttp.test_utils import make_mocked_coro, loop_context
-from openwebvulndb.common.models import VulnerabilityList, Vulnerability
 from hammertime.http import Entry
 from hammertime.ruleset import HammerTimeException
-from vane.outputmanager import OutputManager
-from fixtures import async_test
 from aiohttp import ClientError
 import asyncio
 from collections import OrderedDict
+from os.path import join, dirname
+
+from vane.core import Vane
+from openwebvulndb.common.models import VulnerabilityList, Vulnerability
+from vane.outputmanager import OutputManager
+from fixtures import async_test, html_file_to_hammertime_response
 
 
 @patch("vane.core.load_model_from_file", MagicMock(return_value=(MagicMock(), "errors")))
@@ -74,21 +76,18 @@ class TestVane(TestCase):
             self.vane.scan_target.assert_not_called()
 
     @async_test()
-    async def test_scan_target_abort_after_version_identification_if_identification_fails(self):
-        self.vane.active_plugin_enumeration = make_mocked_coro()
-        self.vane.active_theme_enumeration = make_mocked_coro()
-        self.vane.identify_target_version = make_mocked_coro(raise_exception=
-                                                             ValueError("target is not a valid Wordpress site."))
+    async def test_scan_target_abort_if_target_is_not_wordpress(self):
+        self.vane.is_wordpress = make_mocked_coro(return_value=False)
+        self.vane.identify_target_version = make_mocked_coro()
 
         await self.vane.scan_target("http://www.test.com/", True, True)
 
-        self.vane.active_plugin_enumeration.assert_not_called()
-        self.vane.active_theme_enumeration.assert_not_called()
+        self.vane.identify_target_version.assert_not_called()
 
     @async_test()
     async def test_scan_target_log_message_if_scan_aborted(self):
         exception = ValueError("target is not a valid Wordpress site.")
-        self.vane.identify_target_version = make_mocked_coro(raise_exception=exception)
+        self.vane.is_wordpress = make_mocked_coro(raise_exception=exception)
 
         await self.vane.scan_target("http://www.test.com/", True, True)
 
@@ -108,14 +107,30 @@ class TestVane(TestCase):
         self.vane.hammertime.close.assert_called_once_with()
 
     @async_test()
-    async def test_identify_target_version_raise_value_error_if_version_identification_return_no_fetched_files(self):
-        fake_fetcher = MagicMock()
-        fake_fetcher.request_files = make_mocked_coro(return_value=("key", []))
-        fake_fetcher_factory = MagicMock()
-        fake_fetcher_factory.return_value = fake_fetcher
-        with patch("vane.core.FileFetcher", fake_fetcher_factory):
-            with self.assertRaises(ValueError):
-                await self.vane.identify_target_version("url", "input path")
+    async def test_is_wordpress_return_true_if_link_to_wp_json_in_http_headers(self):
+        entry = MagicMock()
+        entry.response.headers = {"link": "<http://example.com/index.php/wp-json/>"}
+        self.vane.hammertime.request = make_mocked_coro(return_value=entry)
+
+        self.assertTrue(await self.vane.is_wordpress("http://example.com/"))
+
+    @async_test()
+    async def test_is_wordpress_return_true_if_url_with_wp_content_in_homepage(self):
+        entry = MagicMock()
+        entry.response = html_file_to_hammertime_response(join(dirname(__file__), "samples/delvelabs_homepage.html"))
+        entry.response.headers = {"link": "http://example.com/url/unrelated/to_wordpress"}
+        self.vane.hammertime.request = make_mocked_coro(return_value=entry)
+
+        self.assertTrue(await self.vane.is_wordpress("http://example.com/"))
+
+    @async_test()
+    async def test_is_wordpress_return_false_if_not_wordpress(self):
+        entry = MagicMock()
+        entry.response.content = "not a wordpress homepage"
+        entry.response.headers = {"link": "http://example.com/url/unrelated/to_wordpress"}
+        self.vane.hammertime.request = make_mocked_coro(return_value=entry)
+
+        self.assertFalse(await self.vane.is_wordpress("http://example.com/"))
 
     @async_test()
     async def test_identify_target_version_request_files_that_expose_version(self):
@@ -314,6 +329,7 @@ class TestVane(TestCase):
 
     @async_test()
     async def test_scan_target_only_use_passive_detection_if_passive_parameter_is_true(self):
+        self.vane.is_wordpress = make_mocked_coro(return_value=True)
         self.vane.identify_target_version = make_mocked_coro()
         self.vane.active_plugin_enumeration = make_mocked_coro()
         self.vane.passive_plugin_enumeration = MagicMock(return_value={})
