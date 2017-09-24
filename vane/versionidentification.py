@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from openwebvulndb.common.version import VersionCompare
-
+from collections import Counter
 import re
 
 
@@ -45,16 +45,17 @@ class VersionIdentification:
         return sorted_versions[0]
 
     def _get_possible_versions(self, fetched_files, file_list):
-        possible_versions = set()
+        possible_versions = Counter()
         for file in fetched_files:
             versions = self._get_possible_versions_for_fetched_file(file, file_list)
             if versions is not None:
-                if len(possible_versions) > 0:
-                    possible_versions &= set(versions)
-                else:
-                    possible_versions = set(versions)
-                print("With {}, possible versions are now: {}".format(file, possible_versions))
-        return possible_versions
+                possible_versions.update(versions)
+        file_count_per_version = possible_versions.most_common()
+        if len(file_count_per_version) == 0:
+            return {}
+        _, highest_file_count = file_count_per_version[0]
+        versions = {version for version, file_count in file_count_per_version if file_count == highest_file_count}
+        return versions
 
     def _get_possible_versions_for_fetched_file(self, fetched_file, file_list):
         file = self._get_file_from_file_list(fetched_file.path, file_list)
