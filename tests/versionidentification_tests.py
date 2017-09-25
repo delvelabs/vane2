@@ -73,6 +73,19 @@ class TestVersionIdentification(TestCase):
 
         self.assertEqual(version, "1.0")
 
+    def test_identify_version_not_affected_if_one_file_has_no_common_version_with_others(self):
+        login_js_file = File(path="login.js", signatures=[FileSignature(hash="11111", versions=["1.0"])])
+        file_no_common_version = File(path="test.html", signatures=[FileSignature(hash="22222", versions=["1.5"])])
+
+        self.file_list.files.extend([login_js_file, file_no_common_version])
+        fetched_login = FetchedFile(path="login.js", hash="11111")
+        fetched_file_no_common_version = FetchedFile(path="test.html", hash="22222")
+        fetched_files = [fetched_login, self.style_css_fetched_file, self.readme_fetched_file,
+                         fetched_file_no_common_version]
+
+        version = self.version_identification.identify_version(fetched_files, self.file_list)
+        self.assertEqual(version, "1.0")
+
     def test_identify_version_use_exposed_version_in_source_files_to_choose_between_multiple_possible_versions(self):
         self.version_identification._get_possible_versions = MagicMock(return_value={"4.7.1", "4.7.2", "4.7.3"})
         source_files = ["homepage.html", "wp-login.php"]
