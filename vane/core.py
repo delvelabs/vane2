@@ -59,7 +59,7 @@ class Vane:
         self.config_hammertime()
 
     def config_hammertime(self):
-        heuristics = [DynamicTimeout(0.05, 2, 3), RetryOnErrors(range(502, 503))]
+        heuristics = [DynamicTimeout(0.05, 2), RetryOnErrors(range(502, 503))]
         soft_404 = DetectSoft404()
         soft_404.child_heuristics.add_multiple(heuristics)
         heuristics.extend([RejectStatusCode(range(400, 600)), soft_404, HashResponse()])

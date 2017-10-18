@@ -17,7 +17,6 @@
 
 from unittest import TestCase
 from unittest.mock import MagicMock, call
-import re
 from os.path import join, dirname
 from openwebvulndb.common.models import FileSignature, File, FileList
 
