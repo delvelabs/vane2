@@ -102,14 +102,17 @@ class Vane:
         self.output_manager.log_message("scan done")
 
     async def is_wordpress(self, url):
-        entry = await self.hammertime.request(url)
-        headers = entry.response.headers
         try:
-            if re.search("/wp-json/", headers["link"]):
-                return True
-        except KeyError:
-            pass
-        return re.search("/wp-content/", entry.response.content)
+            entry = await self.hammertime.request(url)
+            headers = entry.response.headers
+            try:
+                if re.search("/wp-json/", headers["link"]):
+                    return True
+            except KeyError:
+                pass
+            return re.search("/wp-content/", entry.response.content)
+        except HammerTimeException:
+            return False
 
     async def identify_target_version(self, url, input_path):
         self.output_manager.log_message("Identifying Wordpress version for %s" % url)
