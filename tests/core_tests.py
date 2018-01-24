@@ -58,6 +58,7 @@ class TestVane(TestCase):
 
     def test_perform_action_call_initialize_hammertime(self):
         self.vane.initialize_hammertime = MagicMock()
+        self.vane.scan_target = MagicMock()
 
         with patch("vane.core.custom_event_loop", MagicMock()):
             self.vane.perform_action(url="target", proxy="http://127.0.0.1:8080", verify_ssl=False,
@@ -420,7 +421,7 @@ class TestVane(TestCase):
         self.assertIn(file_response, response_list)
 
     def test_log_message_and_call_close_before_exiting_if_scan_cancelled(self):
-        self.vane.identify_target_version = make_mocked_coro(raise_exception=asyncio.CancelledError)
+        self.vane.scan_target = make_mocked_coro(raise_exception=asyncio.CancelledError)
         with loop_context() as loop:
             with patch("vane.core.custom_event_loop", MagicMock(return_value=loop)):
 
