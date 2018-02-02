@@ -21,8 +21,9 @@ import asyncio
 from os.path import join
 import re
 from hammertime import HammerTime
-from hammertime.rules import RejectStatusCode, DynamicTimeout, DetectSoft404
-from hammertime.ruleset import HammerTimeException
+from hammertime.rules import RejectStatusCode, DynamicTimeout, DetectSoft404, DeadHostDetection
+from hammertime.rules.deadhostdetection import OfflineHostException
+from hammertime.ruleset import HammerTimeException, RejectRequest, StopRequest
 from hammertime.engine.aiohttp import AioHttpEngine
 from hammertime.config import custom_event_loop
 from openwebvulndb.common.schemas import FileListSchema, VulnerabilityListGroupSchema, VulnerabilitySchema, \
@@ -62,7 +63,7 @@ class Vane:
         heuristics = [DynamicTimeout(0.05, 2), RetryOnErrors(range(502, 503))]
         soft_404 = DetectSoft404()
         soft_404.child_heuristics.add_multiple(heuristics)
-        heuristics.extend([RejectStatusCode(range(400, 600)), soft_404, HashResponse()])
+        heuristics.extend([RejectStatusCode(range(400, 600)), soft_404, HashResponse(), DeadHostDetection()])
         self.hammertime.heuristics.add_multiple(heuristics)
 
     def set_proxy(self, proxy_address):
@@ -98,6 +99,8 @@ class Vane:
 
         except ValueError as error:
             self.output_manager.log_message(str(error))
+        except OfflineHostException:
+            self.output_manager.log_message("%s seems to be offline, aborting scan" % url)
 
         self.output_manager.log_message("scan done")
 
@@ -111,8 +114,10 @@ class Vane:
             except KeyError:
                 pass
             return re.search("/wp-content/", entry.response.content)
-        except HammerTimeException:
+        except RejectRequest:
             return False
+        except StopRequest:
+            raise OfflineHostException()
 
     async def identify_target_version(self, url, input_path):
         self.output_manager.log_message("Identifying Wordpress version for %s" % url)

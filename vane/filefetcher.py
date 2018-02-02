@@ -18,6 +18,7 @@
 import asyncio
 from collections import namedtuple
 from hammertime.ruleset import StopRequest, RejectRequest
+from hammertime.rules.deadhostdetection import OfflineHostException
 from urllib.parse import urljoin
 
 
@@ -46,6 +47,8 @@ class FileFetcher:
                 entry = await future
                 if entry is not None and hasattr(entry.result, "hash"):
                     fetched_files.append(FetchedFile(path=entry.arguments["file_path"], hash=entry.result.hash))
+            except OfflineHostException:
+                raise
             except (RejectRequest, StopRequest):
                 pass
         return key, fetched_files

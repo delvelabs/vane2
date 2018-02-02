@@ -20,6 +20,7 @@ from unittest.mock import MagicMock, patch, call, ANY
 from aiohttp.test_utils import make_mocked_coro, loop_context
 from hammertime.http import Entry
 from hammertime.ruleset import HammerTimeException
+from hammertime.rules.deadhostdetection import OfflineHostException
 from aiohttp import ClientError
 import asyncio
 from collections import OrderedDict
@@ -106,6 +107,18 @@ class TestVane(TestCase):
         self.vane.active_theme_enumeration.assert_not_called()
         self.vane.identify_target_version.assert_not_called()
         self.vane.hammertime.close.assert_called_once_with()
+
+    @async_test()
+    async def test_scan_target_log_message_and_abort_scan_if_host_is_dead(self):
+        self.vane.is_wordpress = make_mocked_coro(return_value=True)
+        self.vane.identify_target_version = make_mocked_coro(raise_exception=OfflineHostException())
+        self.vane.plugin_enumeration = make_mocked_coro()
+        host = "http://www.test.com/"
+
+        await self.vane.scan_target(host, True, True)
+
+        self.vane.output_manager.log_message.assert_any_call("%s seems to be offline, aborting scan" % host)
+        self.vane.plugin_enumeration.assert_not_called()  # Should not proceed to next step.
 
     @async_test()
     async def test_is_wordpress_return_true_if_link_to_wp_json_in_http_headers(self):
