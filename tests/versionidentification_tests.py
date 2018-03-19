@@ -178,3 +178,11 @@ class TestVersionIdentification(TestCase):
 
         self.assertEqual(homepage0_versions, homepage0_result)
         self.assertEqual(homepage1_versions, homepage1_result)
+
+    def test_find_versions_in_file_find_version_in_wp_links_opml_php_file(self):
+        file = html_file_to_hammertime_response(join(dirname(__file__), "samples/wp-links-opml.php"))
+        version_exposed = {"4.7.5"}
+
+        found_version = self.version_identification._find_versions_in_file(file)
+
+        self.assertEqual(version_exposed, found_version)

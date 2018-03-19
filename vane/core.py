@@ -237,7 +237,7 @@ class Vane:
         return theme_keys
 
     async def _get_files_for_version_identification(self, url):
-        files_path = ["wp-login.php"]
+        files_path = ["wp-login.php", "wp-links-opml.php"]
         file_response_list = []
         try:
             homepage_response = await self._request_target_home_page(url)

@@ -408,7 +408,8 @@ class TestVane(TestCase):
 
         response_list = await self.vane._get_files_for_version_identification(target_url)
 
-        self.vane.hammertime.request.assert_called_once_with(target_url + "wp-login.php")
+        expected_calls = [call(target_url + "wp-login.php"), call(target_url + "wp-links-opml.php")]
+        self.vane.hammertime.request.assert_has_calls(expected_calls)
         self.assertIn(file_entry.response, response_list)
 
     @async_test()

@@ -22,6 +22,7 @@ import re
 
 version_pattern = re.compile("(?<=ver=)\d+\.\d+(?:\.\d+)?")
 generator_version_pattern = re.compile('(?<=<meta name="generator" content="WordPress )\d+\.\d+(?:\.\d+)?')
+wp_links_opml_exposed_version_pattern = re.compile('(?<=<!-- generator="WordPress/)\d+\.\d+(?:\.\d+)?')
 
 
 class VersionIdentification:
@@ -82,4 +83,7 @@ class VersionIdentification:
         generator_version = generator_version_pattern.search(file_response.content)
         if generator_version is not None:
             return {generator_version.group()}
+        wp_links_opml_version = wp_links_opml_exposed_version_pattern.search(file_response.content)
+        if wp_links_opml_version is not None:
+            return {wp_links_opml_version.group()}
         return set(version_pattern.findall(file_response.content))
