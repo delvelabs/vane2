@@ -18,6 +18,7 @@
 from openwebvulndb.common.version import VersionCompare
 from collections import Counter
 import re
+from packaging import version
 
 
 version_pattern = re.compile("(?<=ver=)\d+\.\d+(?:\.\d+)?")
@@ -27,19 +28,44 @@ wp_links_opml_exposed_version_pattern = re.compile('(?<=<!-- generator="WordPres
 
 class VersionIdentification:
 
+    def __init__(self):
+        self.fetched_files_confidence = 100
+
     def identify_version(self, fetched_files, version_identification_file_list, files_exposing_version=None):
         possible_versions = self._get_possible_versions(fetched_files, version_identification_file_list)
 
-        if files_exposing_version and len(possible_versions) > 1:
+        if files_exposing_version:
             versions = self.find_versions_in_source_files(files_exposing_version)
-            if len(versions & possible_versions) > 0:
-                possible_versions &= versions
+            return self.get_most_reliable_version(fetched_files_versions=possible_versions,
+                                                  source_files_versions=versions)
+        else:
+            return self.get_most_reliable_version(fetched_files_versions=possible_versions)
 
-        if len(possible_versions) > 1:
-            return self._get_lowest_version(possible_versions)
-        elif len(possible_versions) == 1:
-            return possible_versions.pop()
-        return None
+    def set_confidence_level_of_fetched_files(self, confidence_level):
+        self.fetched_files_confidence = confidence_level
+
+    def get_most_reliable_version(self, *, fetched_files_versions=None, source_files_versions=None):
+        if fetched_files_versions and source_files_versions:
+            common_versions = fetched_files_versions & source_files_versions
+            if len(common_versions) > 0:
+                return self._get_lowest_version(common_versions)
+            else:
+                if self.fetched_files_confidence == 100:
+                    return self._get_lowest_version(fetched_files_versions)
+                else:
+                    versions = self._get_versions_with_same_minor(source_files_versions, fetched_files_versions)
+                    if len(versions) > 0:
+                        return self._get_lowest_version(versions)
+                    else:
+                        versions = self._get_versions_with_same_major(source_files_versions, fetched_files_versions)
+                        if len(versions) > 0:
+                            return self._get_lowest_version(versions)
+                        else:
+                            return None
+        elif fetched_files_versions:
+            return self._get_lowest_version(fetched_files_versions)
+        elif source_files_versions:
+            return self._get_lowest_version(source_files_versions)
 
     def _get_lowest_version(self, versions):
         sorted_versions = VersionCompare.sorted(versions)
@@ -87,3 +113,26 @@ class VersionIdentification:
         if wp_links_opml_version is not None:
             return {wp_links_opml_version.group()}
         return set(version_pattern.findall(file_response.content))
+
+    def _get_versions_with_same_major(self, version_set, other_version_set):
+        versions = set()
+        for version in version_set:
+            for _version in other_version_set:
+                if self._is_same_major(version, _version):
+                    versions.add(version)
+        return versions
+
+    def _get_versions_with_same_minor(self, version_set, other_version_set):
+        versions = set()
+        for version in version_set:
+            for _version in other_version_set:
+                if self._is_same_minor(version, _version):
+                    versions.add(version)
+        return versions
+
+    def _is_same_major(self, version0, version1):
+        return version.parse(version0)._version.release[0] == version.parse(version1)._version.release[0]
+
+    def _is_same_minor(self, version0, version1):
+        if self._is_same_major(version0, version1):
+            return version.parse(version0)._version.release[1] == version.parse(version1)._version.release[1]

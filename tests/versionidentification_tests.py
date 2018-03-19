@@ -96,33 +96,74 @@ class TestVersionIdentification(TestCase):
         self.assertEqual(version, "4.7.2")
         self.version_identification.find_versions_in_source_files.assert_called_once_with(source_files)
 
-    def test_identify_version_ignore_version_from_source_files_if_no_version_in_common(self):
-        self.version_identification._get_possible_versions = MagicMock(return_value={"4.7.1", "4.7.2", "4.7.3"})
-        source_files = ["homepage.html", "wp-login.php"]
-        self.version_identification.find_versions_in_source_files = MagicMock(return_value={"3.1.2", "6.7.3", "1.2.3"})
-
-        version = self.version_identification.identify_version("fetched_files", "identification_files",
-                                                               files_exposing_version=source_files)
-
-        self.assertEqual(version, "4.7.1")
-        self.version_identification.find_versions_in_source_files.assert_called_once_with(source_files)
-
-    def test_identify_version_return_lowest_version_if_cant_identify_precise_version(self):
-        style_css_signature = FileSignature(hash=self.style_css_fetched_file.hash, versions=["2.0.0", "2.0.1"])
-        style_css_file = File(path="style.css", signatures=[style_css_signature])
-
-        file_list = FileList(producer="unittest", key="wordpress", files=[style_css_file])
-
-        version = self.version_identification.identify_version([self.style_css_fetched_file], file_list)
-
-        self.assertEqual(version, "2.0.0")
-
     def test_identify_version_return_none_if_no_version_found(self):
         file_list = FileList(producer="unittest", key="wordpress", files=[self.style_css_file])
 
         version = self.version_identification.identify_version([self.readme_fetched_file], file_list)
 
         self.assertIsNone(version)
+
+    def test_get_most_reliable_version_return_input_version_if_only_one_version(self):
+        version = self.version_identification.get_most_reliable_version(fetched_files_versions={"4.9.4"})
+        self.assertEqual(version, "4.9.4")
+
+    def test_get_most_reliable_version_return_lowest_version_if_more_than_one_version_from_single_source(self):
+        versions = {"4.9.3", "4.9.2", "4.9.4"}
+
+        best_version0 = self.version_identification.get_most_reliable_version(fetched_files_versions=versions)
+        best_version1 = self.version_identification.get_most_reliable_version(source_files_versions=versions)
+
+        self.assertEqual(best_version0, "4.9.2")
+        self.assertEqual(best_version1, "4.9.2")
+
+    def test_get_most_reliable_version_return_lowest_common_version_if_using_two_sources_and_one_source_has_more_than_one_version(self):
+        versions_from_fetched_files = {"4.9.3", "4.9.2", "4.9.4"}
+        versions_from_source_files = {"4.9.3", "4.9.2", "4.9.1"}
+
+        best_version = self.version_identification.get_most_reliable_version(
+            fetched_files_versions=versions_from_fetched_files, source_files_versions=versions_from_source_files)
+
+        self.assertEqual(best_version, "4.9.2")
+
+    def test_get_most_reliable_version_use_only_fetched_files_version_if_source_files_versions_has_no_version_in_common_and_confidence_level_is_100(self):
+        versions_from_fetched_files = {"4.9.3", "4.9.2", "4.9.4"}
+        versions_from_source_files = {"4.9.0", "4.9.1"}
+        self.version_identification.set_confidence_level_of_fetched_files(100)
+
+        best_version = self.version_identification.get_most_reliable_version(
+            fetched_files_versions=versions_from_fetched_files, source_files_versions=versions_from_source_files)
+
+        self.assertEqual(best_version, "4.9.2")
+
+    def test_get_most_reliable_version_use_lowest_source_files_versions_with_same_minor_if_no_version_in_common_and_confidence_level_is_not_100(self):
+        versions_from_fetched_files = {"4.9.3", "4.9.2", "4.9.4"}
+        versions_from_source_files = {"4.9.0", "4.9.1"}
+        self.version_identification.set_confidence_level_of_fetched_files(86)
+
+        best_version = self.version_identification.get_most_reliable_version(
+            fetched_files_versions=versions_from_fetched_files, source_files_versions=versions_from_source_files)
+
+        self.assertEqual(best_version, "4.9.0")
+
+    def test_get_most_reliable_version_use_source_files_versions_with_same_major_if_no_version_with_common_minor(self):
+        versions_from_fetched_files = {"4.9.3", "4.9.2", "4.9.4"}
+        versions_from_source_files = {"4.8.0", "4.8.1"}
+        self.version_identification.set_confidence_level_of_fetched_files(51)
+
+        best_version = self.version_identification.get_most_reliable_version(
+            fetched_files_versions=versions_from_fetched_files, source_files_versions=versions_from_source_files)
+
+        self.assertEqual(best_version, "4.8.0")
+
+    def test_get_most_reliable_version_return_none_if_no_version_with_common_major(self):
+        versions_from_fetched_files = {"4.9.3", "4.9.2", "4.9.4"}
+        versions_from_source_files = {"3.8.1", "3.9.0"}
+        self.version_identification.set_confidence_level_of_fetched_files(51)
+
+        best_version = self.version_identification.get_most_reliable_version(
+            fetched_files_versions=versions_from_fetched_files, source_files_versions=versions_from_source_files)
+
+        self.assertEqual(best_version, None)
 
     def test_get_lowest_version(self):
         versions = ["1.3.0", "1.3.1", "4.7.0", "2.7.6", "1.0.12"]
