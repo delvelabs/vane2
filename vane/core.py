@@ -136,6 +136,10 @@ class Vane:
         if len(fetched_files) == 0:
             raise ValueError("target is not a valid Wordpress site")
         files_with_version = await self._get_files_for_version_identification(url)
+        timeout_file_count = file_fetcher.get_timeouts()
+        total_file_count = len(file_list.files)
+        confidence_level_of_fetched_files = (total_file_count - timeout_file_count) / total_file_count
+        version_identifier.set_confidence_level_of_fetched_files(confidence_level_of_fetched_files)
         version = version_identifier.identify_version(fetched_files, file_list, files_with_version)
         self.output_manager.set_wordpress_version(version, meta_list.get_meta("wordpress"))
         return {'wordpress': version}
