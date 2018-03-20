@@ -195,11 +195,13 @@ class TestVane(TestCase):
         fake_list_vuln = MagicMock()
 
         with patch("vane.vulnerabilitylister.VulnerabilityLister.list_vulnerabilities", fake_list_vuln):
-            self.vane.list_component_vulnerabilities(components_version, vuln_list_group)
+            self.vane.list_component_vulnerabilities(components_version, vuln_list_group, no_version_match_all=True)
 
-            fake_list_vuln.assert_has_calls([call("1.2.3", plugin0_vuln_list), call("1.4.0", plugin1_vuln_list),
-                                             call("3.2.1", theme0_vuln_list), call("6.9", theme1_vuln_list)],
-                                            any_order=True)
+            calls = [call("1.2.3", plugin0_vuln_list, no_version_match_all=True),
+                     call("1.4.0", plugin1_vuln_list, no_version_match_all=True),
+                     call("3.2.1", theme0_vuln_list, no_version_match_all=True),
+                     call("6.9", theme1_vuln_list, no_version_match_all=True)]
+            fake_list_vuln.assert_has_calls(calls, any_order=True)
 
     def test_list_component_vulnerabilitites_skip_component_with_no_vulnerability(self):
         components_version = {'plugin0': "1.2.3"}
@@ -210,7 +212,7 @@ class TestVane(TestCase):
         fake_list_vuln = MagicMock()
 
         with patch("vane.vulnerabilitylister.VulnerabilityLister.list_vulnerabilities", fake_list_vuln):
-            self.vane.list_component_vulnerabilities(components_version, vuln_list_group)
+            self.vane.list_component_vulnerabilities(components_version, vuln_list_group, no_version_match_all=True)
 
             fake_list_vuln.assert_not_called()
 
@@ -221,11 +223,12 @@ class TestVane(TestCase):
         vuln_list_group = MagicMock()
         vuln_list_group.vulnerability_lists = [plugin0_vuln_list, plugin1_vuln_list]
 
-        def fake_list_vuln(self, version, vuln_list):
+        def fake_list_vuln(self, version, vuln_list, no_version_match_all):
             return vuln_list.vulnerabilities
 
         with patch("vane.vulnerabilitylister.VulnerabilityLister.list_vulnerabilities", fake_list_vuln):
-            vulns = self.vane.list_component_vulnerabilities(components_version, vuln_list_group)
+            vulns = self.vane.list_component_vulnerabilities(components_version, vuln_list_group,
+                                                             no_version_match_all=True)
 
             self.assertEqual(plugin0_vuln_list.vulnerabilities, vulns['plugin0'])
             self.assertEqual(plugin1_vuln_list.vulnerabilities, vulns['plugin1'])

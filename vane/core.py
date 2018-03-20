@@ -96,9 +96,9 @@ class Vane:
             file_name = join(input_path, "vane2_vulnerability_database.json")
             vulnerability_list_group, errors = load_model_from_file(file_name, VulnerabilityListGroupSchema())
 
-            self.list_component_vulnerabilities(wordpress_version, vulnerability_list_group)
-            self.list_component_vulnerabilities(plugins_version, vulnerability_list_group)
-            self.list_component_vulnerabilities(theme_versions, vulnerability_list_group)
+            self.list_component_vulnerabilities(wordpress_version, vulnerability_list_group, no_version_match_all=False)
+            self.list_component_vulnerabilities(plugins_version, vulnerability_list_group, no_version_match_all=True)
+            self.list_component_vulnerabilities(theme_versions, vulnerability_list_group, no_version_match_all=True)
 
         except ValueError as error:
             self.output_manager.log_message(str(error))
@@ -263,13 +263,14 @@ class Vane:
         except HammerTimeException:
             raise
 
-    def list_component_vulnerabilities(self, components_version, vulnerability_list_group):
+    def list_component_vulnerabilities(self, components_version, vulnerability_list_group, no_version_match_all):
         vulnerability_lister = VulnerabilityLister()
         components_vulnerabilities = {}
         for key, version in components_version.items():
             vulnerability_list = self._get_vulnerability_list_for_key(key, vulnerability_list_group)
             if vulnerability_list is not None:
-                vulnerabilities = vulnerability_lister.list_vulnerabilities(version, vulnerability_list)
+                vulnerabilities = vulnerability_lister.list_vulnerabilities(version, vulnerability_list,
+                                                                            no_version_match_all=no_version_match_all)
                 components_vulnerabilities[key] = vulnerabilities
                 self._log_vulnerabilities(key, vulnerabilities)
         return components_vulnerabilities
