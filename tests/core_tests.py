@@ -150,43 +150,35 @@ class TestVane(TestCase):
     async def test_identify_target_version_request_files_that_expose_version(self):
         fake_fetcher = MagicMock()
         fake_fetcher.request_files = make_mocked_coro(return_value=("key", ["files"]))
-        fake_fetcher_factory = MagicMock(return_value=fake_fetcher)
         self.vane._get_files_for_version_identification = make_mocked_coro()
-        with patch("vane.core.FileFetcher", fake_fetcher_factory), patch("vane.core.VersionIdentification", MagicMock):
 
-            await self.vane.identify_target_version("url", "input path")
+        await self.vane.identify_target_version("url", "input path", fake_fetcher, MagicMock())
 
-            self.vane._get_files_for_version_identification.assert_called_once_with("url")
+        self.vane._get_files_for_version_identification.assert_called_once_with("url")
 
     @async_test()
     async def test_identify_target_version_calls_identify_version_with_files_that_expose_version(self):
         fake_fetcher = MagicMock()
         fake_fetcher.request_files = make_mocked_coro(return_value=("key", ["files"]))
-        fake_fetcher_factory = MagicMock(return_value=fake_fetcher)
         version_identification = MagicMock()
-        version_identification_factory = MagicMock(return_value=version_identification)
         self.vane._get_files_for_version_identification = make_mocked_coro(return_value=["file0", "file1"])
-        with patch("vane.core.FileFetcher", fake_fetcher_factory), patch("vane.core.VersionIdentification",
-                                                                         version_identification_factory):
-            await self.vane.identify_target_version("url", "input path")
 
-            version_identification.identify_version.assert_called_once_with(["files"], ANY, ["file0", "file1"])
+        await self.vane.identify_target_version("url", "input path", fake_fetcher, version_identification)
+
+        version_identification.identify_version.assert_called_once_with(["files"], ANY, ["file0", "file1"])
 
     @async_test()
     async def test_identify_target_version_set_confidence_level_of_version_found_in_fetched_files(self):
         fake_fetcher = MagicMock()
         fake_fetcher.request_files = make_mocked_coro(return_value=("key", ["files"]))
         fake_fetcher.get_timeouts.return_value = 15
-        fake_fetcher_factory = MagicMock(return_value=fake_fetcher)
         version_identification = MagicMock()
-        version_identification_factory = MagicMock(return_value=version_identification)
         loaded_files = MagicMock(), []
         loaded_files[0].files = [i for i in range(20)]  # emulate a file list with 20 files
         self.vane._get_files_for_version_identification = make_mocked_coro(return_value=["file0", "file1"])
-        with patch("vane.core.FileFetcher", fake_fetcher_factory), \
-             patch("vane.core.VersionIdentification", version_identification_factory), \
-             patch("vane.core.load_model_from_file", MagicMock(return_value=loaded_files)):
-            await self.vane.identify_target_version("url", "input path")
+
+        with patch("vane.core.load_model_from_file", MagicMock(return_value=loaded_files)):
+            await self.vane.identify_target_version("url", "input path", fake_fetcher, version_identification)
 
             # confidence level is (total files - files that timed out) / total files.
             version_identification.set_confidence_level_of_fetched_files.assert_called_once_with(5 / 20)
