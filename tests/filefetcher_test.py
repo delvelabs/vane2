@@ -73,7 +73,7 @@ class TestFileFetcher(TestCase):
 
         await asyncio.wait_for(requests, None, loop=loop)
 
-        self.assertEqual(self.fetcher.get_timeouts(), len(self.files_to_fetch.files))
+        self.assertEqual(self.fetcher.timeouts, len(self.files_to_fetch.files))
 
     @async_test()
     async def test_fetcher_awaiting_requests_dont_increase_timeout_count_on_reject_request(self, loop):
@@ -84,7 +84,7 @@ class TestFileFetcher(TestCase):
 
         await asyncio.wait_for(requests, None, loop=loop)
 
-        self.assertEqual(self.fetcher.get_timeouts(), 0)
+        self.assertEqual(self.fetcher.timeouts, 0)
 
     @async_test()
     async def test_request_files_reset_timeout_count(self, loop):
@@ -94,7 +94,7 @@ class TestFileFetcher(TestCase):
 
         self.fetcher.request_files(self.plugin_key, self.files_to_fetch)
 
-        self.assertEqual(self.fetcher.get_timeouts(), 0)
+        self.assertEqual(self.fetcher.timeouts, 0)
 
     @async_test()
     async def test_awaiting_requests_ignore_file_if_no_hash(self, loop):

@@ -56,6 +56,3 @@ class FileFetcher:
             except RejectRequest:
                 pass
         return key, fetched_files
-
-    def get_timeouts(self):
-        return self.timeouts

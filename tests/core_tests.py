@@ -171,7 +171,7 @@ class TestVane(TestCase):
     async def test_identify_target_version_set_confidence_level_of_version_found_in_fetched_files(self):
         fake_fetcher = MagicMock()
         fake_fetcher.request_files = make_mocked_coro(return_value=("key", ["files"]))
-        fake_fetcher.get_timeouts.return_value = 15
+        fake_fetcher.timeouts = 15
         version_identification = MagicMock()
         loaded_files = MagicMock(), []
         loaded_files[0].files = [i for i in range(20)]  # emulate a file list with 20 files
