@@ -84,9 +84,10 @@ class Vane:
         try:
             if not await self.is_wordpress(url):
                 raise ValueError("target is not a valid Wordpress site")
-            version_identifier = VersionIdentification()
-            file_fetcher = FileFetcher(self.hammertime, url)
-            wordpress_version = await self.identify_target_version(url, input_path, file_fetcher, version_identifier)
+
+            wordpress_version = await self.identify_target_version(url, input_path,
+                                                                   file_fetcher=FileFetcher(self.hammertime, url),
+                                                                   version_identifier=VersionIdentification())
 
             plugins_version = await self.plugin_enumeration(url, popular, vulnerable, input_path,
                                                             passive_only=passive_only)
@@ -122,7 +123,7 @@ class Vane:
         except StopRequest:
             raise OfflineHostException()
 
-    async def identify_target_version(self, url, input_path, file_fetcher, version_identifier):
+    async def identify_target_version(self, url, input_path, *, file_fetcher, version_identifier):
         self.output_manager.log_message("Identifying Wordpress version for %s" % url)
 
         # TODO put in _load_database?
