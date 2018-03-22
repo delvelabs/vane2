@@ -30,8 +30,10 @@ class FileFetcher:
     def __init__(self, hammertime, url):
         self.hammertime = hammertime
         self.url = url
+        self.timeouts = 0
 
     def request_files(self, key, file_list):
+        self.timeouts = 0
         hammertime_requests = []
         for file in file_list.files:
             url = urljoin(self.url, file.path)
@@ -49,6 +51,8 @@ class FileFetcher:
                     fetched_files.append(FetchedFile(path=entry.arguments["file_path"], hash=entry.result.hash))
             except OfflineHostException:
                 raise
-            except (RejectRequest, StopRequest):
+            except StopRequest:
+                self.timeouts += 1
+            except RejectRequest:
                 pass
         return key, fetched_files

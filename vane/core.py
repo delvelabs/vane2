@@ -84,7 +84,11 @@ class Vane:
         try:
             if not await self.is_wordpress(url):
                 raise ValueError("target is not a valid Wordpress site")
-            wordpress_version = await self.identify_target_version(url, input_path)
+
+            wordpress_version = await self.identify_target_version(url, input_path,
+                                                                   file_fetcher=FileFetcher(self.hammertime, url),
+                                                                   version_identifier=VersionIdentification())
+
             plugins_version = await self.plugin_enumeration(url, popular, vulnerable, input_path,
                                                             passive_only=passive_only)
             theme_versions = await self.theme_enumeration(url, popular, vulnerable, input_path,
@@ -93,9 +97,9 @@ class Vane:
             file_name = join(input_path, "vane2_vulnerability_database.json")
             vulnerability_list_group, errors = load_model_from_file(file_name, VulnerabilityListGroupSchema())
 
-            self.list_component_vulnerabilities(wordpress_version, vulnerability_list_group)
-            self.list_component_vulnerabilities(plugins_version, vulnerability_list_group)
-            self.list_component_vulnerabilities(theme_versions, vulnerability_list_group)
+            self.list_component_vulnerabilities(wordpress_version, vulnerability_list_group, no_version_match_all=False)
+            self.list_component_vulnerabilities(plugins_version, vulnerability_list_group, no_version_match_all=True)
+            self.list_component_vulnerabilities(theme_versions, vulnerability_list_group, no_version_match_all=True)
 
         except ValueError as error:
             self.output_manager.log_message(str(error))
@@ -119,11 +123,8 @@ class Vane:
         except StopRequest:
             raise OfflineHostException()
 
-    async def identify_target_version(self, url, input_path):
+    async def identify_target_version(self, url, input_path, *, file_fetcher, version_identifier):
         self.output_manager.log_message("Identifying Wordpress version for %s" % url)
-
-        version_identifier = VersionIdentification()
-        file_fetcher = FileFetcher(self.hammertime, url)
 
         # TODO put in _load_database?
         file_name = join(input_path, "vane2_wordpress_versions.json")
@@ -136,6 +137,10 @@ class Vane:
         if len(fetched_files) == 0:
             raise ValueError("target is not a valid Wordpress site")
         files_with_version = await self._get_files_for_version_identification(url)
+        timeout_file_count = file_fetcher.timeouts
+        total_file_count = len(file_list.files)
+        confidence_level_of_fetched_files = (total_file_count - timeout_file_count) / total_file_count
+        version_identifier.set_confidence_level_of_fetched_files(confidence_level_of_fetched_files)
         version = version_identifier.identify_version(fetched_files, file_list, files_with_version)
         self.output_manager.set_wordpress_version(version, meta_list.get_meta("wordpress"))
         return {'wordpress': version}
@@ -237,7 +242,7 @@ class Vane:
         return theme_keys
 
     async def _get_files_for_version_identification(self, url):
-        files_path = ["wp-login.php"]
+        files_path = ["wp-login.php", "wp-links-opml.php"]
         file_response_list = []
         try:
             homepage_response = await self._request_target_home_page(url)
@@ -259,13 +264,14 @@ class Vane:
         except HammerTimeException:
             raise
 
-    def list_component_vulnerabilities(self, components_version, vulnerability_list_group):
+    def list_component_vulnerabilities(self, components_version, vulnerability_list_group, no_version_match_all):
         vulnerability_lister = VulnerabilityLister()
         components_vulnerabilities = {}
         for key, version in components_version.items():
             vulnerability_list = self._get_vulnerability_list_for_key(key, vulnerability_list_group)
             if vulnerability_list is not None:
-                vulnerabilities = vulnerability_lister.list_vulnerabilities(version, vulnerability_list)
+                vulnerabilities = vulnerability_lister.list_vulnerabilities(version, vulnerability_list,
+                                                                            no_version_match_all=no_version_match_all)
                 components_vulnerabilities[key] = vulnerabilities
                 self._log_vulnerabilities(key, vulnerabilities)
         return components_vulnerabilities

@@ -21,7 +21,7 @@ from hammertime.core import HammerTime
 from aiohttp.test_utils import make_mocked_coro
 import asyncio
 from openwebvulndb.common.models import File, FileSignature, FileList
-from hammertime.ruleset import StopRequest
+from hammertime.ruleset import StopRequest, RejectRequest
 from fixtures import async_test
 
 
@@ -63,6 +63,38 @@ class TestFileFetcher(TestCase):
             await asyncio.wait_for(requests, None, loop=loop)
         except StopRequest:
             self.fail("Timeout error raised.")
+
+    @async_test()
+    async def test_fetcher_increase_timeout_count_on_stop_request(self, loop):
+        self._setup_async_test(loop)
+        self.hammertime.request_engine.perform = make_mocked_coro(raise_exception=StopRequest())
+
+        requests = self.fetcher.request_files(self.plugin_key, self.files_to_fetch)
+
+        await asyncio.wait_for(requests, None, loop=loop)
+
+        self.assertEqual(self.fetcher.timeouts, len(self.files_to_fetch.files))
+
+    @async_test()
+    async def test_fetcher_awaiting_requests_dont_increase_timeout_count_on_reject_request(self, loop):
+        self._setup_async_test(loop)
+        self.hammertime.request_engine.perform = make_mocked_coro(raise_exception=RejectRequest())
+
+        requests = self.fetcher.request_files(self.plugin_key, self.files_to_fetch)
+
+        await asyncio.wait_for(requests, None, loop=loop)
+
+        self.assertEqual(self.fetcher.timeouts, 0)
+
+    @async_test()
+    async def test_request_files_reset_timeout_count(self, loop):
+        self._setup_async_test(loop)
+        self.hammertime.request_engine.perform = self.fake_perform
+        self.fetcher.timeouts = 10
+
+        self.fetcher.request_files(self.plugin_key, self.files_to_fetch)
+
+        self.assertEqual(self.fetcher.timeouts, 0)
 
     @async_test()
     async def test_awaiting_requests_ignore_file_if_no_hash(self, loop):
