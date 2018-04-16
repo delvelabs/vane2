@@ -36,8 +36,9 @@ from fixtures import async_test, html_file_to_hammertime_response
 class TestVane(TestCase):
 
     def setUp(self):
-        with patch("vane.core.HammerTime", MagicMock()):
+        with patch("vane.core.HammerTime"):
             self.vane = Vane()
+            self.vane.config_hammertime = MagicMock()
             with patch("vane.core.custom_event_loop", MagicMock()):
                 self.vane.initialize_hammertime()
             self.vane.hammertime.close = make_mocked_coro()

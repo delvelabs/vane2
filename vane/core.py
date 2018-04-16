@@ -60,11 +60,12 @@ class Vane:
         self.config_hammertime()
 
     def config_hammertime(self):
-        heuristics = [DynamicTimeout(0.05, 2), RetryOnErrors(range(502, 503))]
+        global_heuristics = [DynamicTimeout(0.05, 2), RetryOnErrors(range(502, 503))]
         soft_404 = DetectSoft404()
-        soft_404.child_heuristics.add_multiple(heuristics)
-        heuristics.extend([RejectStatusCode(range(400, 600)), soft_404, HashResponse(), DeadHostDetection()])
+        heuristics = [RejectStatusCode(range(400, 600)), soft_404, HashResponse(), DeadHostDetection()]
+        self.hammertime.heuristics.add_multiple(global_heuristics)
         self.hammertime.heuristics.add_multiple(heuristics)
+        soft_404.child_heuristics.add_multiple(global_heuristics)
 
     def set_proxy(self, proxy_address):
         self.hammertime.set_proxy(proxy_address)
