@@ -24,7 +24,9 @@ from packaging.version import parse
 from datetime import datetime
 from aiohttp import ClientError
 
-vane2_data_directory_pattern = re.compile("vane2_data_\d+\.\d+$")
+
+version_pattern = "\d{4}-\d\d-\d\d"
+vane2_data_directory_pattern = re.compile("vane2_data_%s$" % version_pattern)
 
 
 class Database:
@@ -144,12 +146,13 @@ class Database:
         return database_directory_list
 
     def _get_latest_installed_version(self, installed_directory_list):
+        dateformat = "%Y-%m-%d"
         versions = []
-        version_pattern = re.compile("\d+\.\d+")
+        version_regex = re.compile(version_pattern)
         for directory in installed_directory_list:
-            versions.append(version_pattern.search(directory).group())
-        sorted_versions = VersionCompare.sorted(versions)
-        return sorted_versions[-1]
+            versions.append(datetime.strptime(version_regex.search(directory).group(), dateformat))
+        latest = max(versions)
+        return latest.strftime(dateformat)
 
     def _get_days_since_last_update(self, vane_data_path):
         vane_data_directory = self._get_database_directory(vane_data_path)

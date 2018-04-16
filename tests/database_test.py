@@ -55,7 +55,7 @@ class TestDatabase(TestCase):
 
     @async_test()
     async def test_load_database_dont_call_is_update_required_and_dont_download_update_if_no_update_is_true(self):
-        self.database.current_version = "1.0"
+        self.database.current_version = "2018-04-15"
         self.database._is_database_present = MagicMock(return_value=True)
         self.database.is_update_required = make_mocked_coro(return_value=True)
         self.database.download_data_latest_release = make_mocked_coro()
@@ -80,41 +80,41 @@ class TestDatabase(TestCase):
     async def test_load_database_set_database_directory(self):
         self.database.download_data_latest_release = make_mocked_coro()
         self.database.is_update_required = make_mocked_coro(return_value=False)
-        self.database.current_version = "1.2"
+        self.database.current_version = "2018-04-15"
         self.database._is_database_present = MagicMock(return_value=True)
 
         await self.database.load_data("/path/to/database")
 
-        self.assertEqual(self.database.database_directory, "/path/to/database/vane2_data_1.2")
+        self.assertEqual(self.database.database_directory, "/path/to/database/vane2_data_2018-04-15")
 
     @async_test()
     async def test_load_database_fallback_to_older_version_for_database_directory_if_download_failed(self):
         self.database.download_data_latest_release = make_mocked_coro(raise_exception=ClientError())
         self.database._is_database_present = MagicMock(return_value=True)
         self.database.is_update_required = make_mocked_coro(return_value=True)
-        self.database.current_version = "1.2"
+        self.database.current_version = "2018-04-15"
 
         with self.assertRaises(ClientError):
             await self.database.load_data("/path/to/database")
 
-        self.assertEqual(self.database.database_directory, "/path/to/database/vane2_data_1.2")
+        self.assertEqual(self.database.database_directory, "/path/to/database/vane2_data_2018-04-15")
 
     @async_test()
     async def test_load_database_fallback_to_older_version_for_database_directory_if_is_update_required_failed(self):
         self.database.is_update_required = make_mocked_coro(raise_exception=ClientError())
-        self.database.current_version = "1.2"
+        self.database.current_version = "2018-04-15"
         self.database._is_database_present = MagicMock(return_value=True)
 
         with self.assertRaises(ClientError):
             await self.database.load_data("/path/to/database")
 
-        self.assertEqual(self.database.database_directory, "/path/to/database/vane2_data_1.2")
+        self.assertEqual(self.database.database_directory, "/path/to/database/vane2_data_2018-04-15")
 
     @async_test()
     async def test_load_database_log_message_if_download_successful(self):
         self.database.is_update_required = make_mocked_coro(return_value=True)
         self.database.download_data_latest_release = make_mocked_coro()
-        self.database.current_version = "1.2"
+        self.database.current_version = "2018-04-15"
         self.database._is_database_present = MagicMock(return_value=True)
 
         await self.database.load_data("/path/to/database")
@@ -124,34 +124,34 @@ class TestDatabase(TestCase):
     @async_test()
     async def test_is_update_required_return_true_if_installed_version_is_not_latest_version(self):
         self.database.auto_update_frequency = Database.ALWAYS_CHECK_FOR_UPDATE
-        self.database.current_version = "1.0"
-        self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '2.0'})
+        self.database.current_version = "2018-04-15"
+        self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '2018-06-10'})
 
         self.assertTrue(await self.database.is_update_required("path"))
 
     @async_test()
     async def test_is_update_required_log_message_if_new_version_available(self):
-        self.database.current_version = "1.0"
+        self.database.current_version = "2018-04-15"
         self.database.auto_update_frequency = Database.ALWAYS_CHECK_FOR_UPDATE
-        self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '2.0'})
+        self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '2018-05-03'})
 
         await self.database.is_update_required("path")
 
-        self.database.output_manager.log_message.assert_called_once_with("New database version available: 2.0")
+        self.database.output_manager.log_message.assert_called_once_with("New database version available: 2018-05-03")
 
     @async_test()
     async def test_is_update_required_return_false_if_current_version_is_latest_version(self):
-        self.database.current_version = "1.0"
+        self.database.current_version = "2018-05-03"
         self.database.auto_update_frequency = Database.ALWAYS_CHECK_FOR_UPDATE
-        self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '1.0'})
+        self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '2018-05-03'})
 
         self.assertFalse(await self.database.is_update_required("path"))
 
     @async_test()
     async def test_is_update_required_check_for_new_version_if_last_update_older_than_auto_update_frequency(self):
         self.database._get_days_since_last_update = MagicMock(return_value=self.database.auto_update_frequency + 1)
-        self.database.current_version = "1.0"
-        self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '2.0'})
+        self.database.current_version = "2018-03-18"
+        self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '2018-05-03'})
 
         await self.database.is_update_required("path")
 
@@ -160,8 +160,8 @@ class TestDatabase(TestCase):
     @async_test()
     async def test_is_update_required_log_message_if_current_version_is_up_to_date(self):
         self.database.auto_update_frequency = Database.ALWAYS_CHECK_FOR_UPDATE
-        self.database.current_version = "2.0"
-        self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '2.0'})
+        self.database.current_version = "2018-05-03"
+        self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '2018-05-03'})
 
         await self.database.is_update_required("path")
 
@@ -169,9 +169,9 @@ class TestDatabase(TestCase):
 
     @async_test()
     async def test_is_update_required_dont_check_for_new_version_if_last_update_newer_than_auto_update_frequency(self):
-        self.database._get_current_version = MagicMock(return_value="1.0")
+        self.database._get_current_version = MagicMock(return_value="2018-05-03")
         self.database._missing_files = MagicMock(return_value=False)
-        self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '2.0'})
+        self.database.get_latest_release = make_mocked_coro(return_value={'tag_name': '2018-10-03'})
         self.database._get_days_since_last_update(self.database.auto_update_frequency - 1)
 
         await self.database.is_update_required("path")
@@ -187,7 +187,7 @@ class TestDatabase(TestCase):
         self.assertIsNone(self.database.current_version)
 
     def test_is_database_present_set_current_version_to_none_and_return_false_if_files_missing(self):
-        self.database._get_current_version = MagicMock(return_value="1.2")
+        self.database._get_current_version = MagicMock(return_value="2018-05-03")
         self.database._missing_files = MagicMock(return_value=True)
 
         database_present = self.database._is_database_present("/path/to/database")
@@ -196,13 +196,13 @@ class TestDatabase(TestCase):
         self.assertIsNone(self.database.current_version)
 
     def test_is_database_present_set_current_version_and_return_true_if_database_found_and_no_files_missing(self):
-        self.database._get_current_version = MagicMock(return_value="1.2")
+        self.database._get_current_version = MagicMock(return_value="2018-05-03")
         self.database._missing_files = MagicMock(return_value=False)
 
         database_present = self.database._is_database_present("/path/to/database")
 
         self.assertTrue(database_present)
-        self.assertEqual(self.database.current_version, "1.2")
+        self.assertEqual(self.database.current_version, "2018-05-03")
 
     def test_is_database_present_log_message_if_data_folder_not_found(self):
         self.database._get_current_version = MagicMock(return_value=None)
@@ -214,19 +214,19 @@ class TestDatabase(TestCase):
     def test_missing_files_look_for_required_files_in_database_directory(self):
         self.database.required_files = ['vane2_wordpress_meta.json', 'vane2_wordpress_versions.json']
         isfile = MagicMock()
-        self.database.current_version = "1.2"
+        self.database.current_version = "2018-05-03"
 
         with patch("vane.database.path.isfile", isfile):
             self.database._missing_files("/path/to/database")
             calls = isfile.call_args_list
             for call, file in zip(calls, self.database.required_files):
                 args, kwargs = call
-                self.assertIn("/path/to/database/vane2_data_1.2/%s" % file, args)
+                self.assertIn("/path/to/database/vane2_data_2018-05-03/%s" % file, args)
 
     def test_missing_files_return_false_if_no_file_missing(self):
         self.database.required_files = ['vane2_wordpress_meta.json', 'vane2_wordpress_versions.json']
         isfile = MagicMock(return_value=True)
-        self.database.current_version = "1.2"
+        self.database.current_version = "2018-05-03"
 
         with patch("vane.database.path.isfile", isfile):
             self.assertFalse(self.database._missing_files("/path/to/database"))
@@ -234,7 +234,7 @@ class TestDatabase(TestCase):
     def test_missing_files_return_true_if_files_missing(self):
         self.database.required_files = ['vane2_wordpress_meta.json', 'vane2_wordpress_versions.json']
         isfile = MagicMock(return_value=False)
-        self.database.current_version = "1.2"
+        self.database.current_version = "2018-05-03"
 
         with patch("vane.database.path.isfile", isfile):
             self.assertTrue(self.database._missing_files("/path/to/database"))
@@ -242,7 +242,7 @@ class TestDatabase(TestCase):
     def test_missing_files_log_missing_files(self):
         self.database.required_files = ["file.txt"]
         isfile = MagicMock(return_value=False)
-        self.database.current_version = "1.2"
+        self.database.current_version = "2018-05-03"
 
         with patch("vane.database.path.isfile", isfile):
             self.database._missing_files("/path/to/database")
@@ -251,7 +251,7 @@ class TestDatabase(TestCase):
 
     @async_test()
     async def test_download_database_request_vane_data_of_latest_release(self):
-        self.database.get_latest_release = make_mocked_coro(return_value={"tag_name": "2.0", "assets": [
+        self.database.get_latest_release = make_mocked_coro(return_value={"tag_name": "2018-05-03", "assets": [
             {'name': "vane2_data.tar.gz", 'url': "http://api_url/releases/assets/1"},
             {'name': "other_asset", 'url': "http://api_url/releases/assets/2"}]})
 
@@ -261,25 +261,25 @@ class TestDatabase(TestCase):
 
     @async_test()
     async def test_download_database_log_message_with_latest_version_before_download(self):
-        self.database.get_latest_release = make_mocked_coro(return_value={"tag_name": "2.0", "assets": [
+        self.database.get_latest_release = make_mocked_coro(return_value={"tag_name": "2018-05-03", "assets": [
             {'name': "vane2_data.tar.gz", 'url': "http://api_url/releases/assets/1"}]})
 
         await self.database.download_data_latest_release("path")
 
-        self.database.output_manager.log_message.assert_called_once_with("Downloading database version 2.0")
+        self.database.output_manager.log_message.assert_called_once_with("Downloading database version 2018-05-03")
 
     @async_test()
     async def test_download_database_set_current_version_attribute_to_latest_version(self):
-        self.database.get_latest_release = make_mocked_coro(return_value={"tag_name": "1.5", "assets": [
+        self.database.get_latest_release = make_mocked_coro(return_value={"tag_name": "2018-05-03", "assets": [
             {'name': "vane2_data.tar.gz", 'url': "http://api_url/releases/assets/1"}]})
 
         await self.database.download_data_latest_release("path")
 
-        self.assertEqual(self.database.current_version, "1.5")
+        self.assertEqual(self.database.current_version, "2018-05-03")
 
     @async_test()
     async def test_download_database_set_accept_header_of_request(self):
-        self.database.get_latest_release = make_mocked_coro(return_value={"tag_name": "2.0", "assets": [
+        self.database.get_latest_release = make_mocked_coro(return_value={"tag_name": "2018-05-03", "assets": [
             {'name': "vane2_data.tar.gz", 'url': "http://api_url/releases/assets/1"}]})
 
         await self.database.download_data_latest_release("path")
@@ -288,7 +288,7 @@ class TestDatabase(TestCase):
 
     @async_test()
     async def test_download_database_cleanup_archive_file_after_extraction(self):
-        self.database.get_latest_release = make_mocked_coro(return_value={"tag_name": "2.0", "assets": [
+        self.database.get_latest_release = make_mocked_coro(return_value={"tag_name": "2018-05-03", "assets": [
             {'name': "vane2_data.tar.gz", 'url': "http://api_url/releases/assets/1"}]})
 
         await self.database.download_data_latest_release("path")
@@ -306,7 +306,7 @@ class TestDatabase(TestCase):
     @async_test()
     async def test_get_latest_release_return_release(self):
         self.database.configure_update_repository("Owner", "database")
-        self.response.json = make_mocked_coro(return_value={'tag_name': '1.0', 'id': "12345", 'assets': []})
+        self.response.json = make_mocked_coro(return_value={'tag_name': '2018-05-03', 'id': "12345", 'assets': []})
 
         release = await self.database.get_latest_release()
 
@@ -314,11 +314,11 @@ class TestDatabase(TestCase):
 
     def test_get_data_filename_return_archive_name_for_latest_release(self):
         database = Database(None)
-        latest_release = {'tag_name': "1.0"}
+        latest_release = {'tag_name': "2018-05-03"}
 
         filename = database.get_data_archive_name(latest_release)
 
-        self.assertEqual(filename, "vane2_data_1.0.tar.gz")
+        self.assertEqual(filename, "vane2_data_2018-05-03.tar.gz")
 
     def test_get_current_version_call_list_all_installed_database_versions(self):
         self.database._list_all_installed_database_versions = MagicMock()
@@ -327,12 +327,12 @@ class TestDatabase(TestCase):
         self.database._list_all_installed_database_versions.assert_called_once_with("path/to/vane2/database")
 
     def test_get_current_version_latest_version_if_multiple_versions_are_found(self):
-        self.database._list_all_installed_database_versions = MagicMock(return_value=["vane2_data_1.0",
-                                                                                      "vane2_data_1.1"])
+        self.database._list_all_installed_database_versions = MagicMock(return_value=["vane2_data_2018-04-15",
+                                                                                      "vane2_data_2018-05-03"])
 
         version = self.database._get_current_version("path")
 
-        self.assertEqual(version, "1.1")
+        self.assertEqual(version, "2018-05-03")
 
     def test_get_current_version_return_none_if_no_database_found(self):
         self.database._list_all_installed_database_versions = MagicMock(return_value=[])
@@ -342,14 +342,14 @@ class TestDatabase(TestCase):
         self.assertIsNone(version)
 
     def test_get_current_version_return_version_if_database_found(self):
-        self.database._list_all_installed_database_versions = MagicMock(return_value=["vane2_data_1.2"])
+        self.database._list_all_installed_database_versions = MagicMock(return_value=["vane2_data_2018-05-03"])
 
         version = self.database._get_current_version("path")
 
-        self.assertEqual(version, "1.2")
+        self.assertEqual(version, "2018-05-03")
 
     def test_list_all_installed_database_versions_returns_database_directories_relative_names(self):
-        directory_list = ["vane2_data_1.2", "vane2_data_1.3", "vane2_data_1.5"]
+        directory_list = ["vane2_data_2018-05-03", "vane2_data_2018-06-12", "vane2_data_2018-07-06"]
         self.glob_mock.return_value = list("/absolute_path/" + directory for directory in directory_list)
         self.database._get_latest_installed_version = MagicMock()
 
@@ -363,21 +363,22 @@ class TestDatabase(TestCase):
         self.glob_mock.assert_called_once_with("path/to/vane2/database/vane2_data_*")
 
     def test_list_all_installed_database_versions_dont_return_targz_database_files(self):
-        directory_list = ["vane2_data_1.2", "vane2_data_1.2.tar.gz", "vane2_data_1.3.tar.gz"]
+        directory_list = ["vane2_data_2018-05-03", "vane2_data_2018-06-12.tar.gz",
+                          "vane2_data_2018-07-06.tar.gz"]
         self.glob_mock.return_value = directory_list
 
         database_directory_list = self.database._list_all_installed_database_versions("path/to/vane2/database")
 
-        self.assertIn("vane2_data_1.2", database_directory_list)
-        self.assertNotIn("vane2_data_1.2.tar.gz", database_directory_list)
-        self.assertNotIn("vane2_data_1.3.tar.gz", database_directory_list)
+        self.assertIn("vane2_data_2018-05-03", database_directory_list)
+        self.assertNotIn("vane2_data_2018-06-12.tar.gz", database_directory_list)
+        self.assertNotIn("vane2_data_2018-07-06.tar.gz", database_directory_list)
 
     def test_get_latest_installed_version_return_latest_version_from_directory_name(self):
-        database_directory = ["vane2_data_1.1", "vane2_data_1.2", "vane2_data_2.1"]
+        database_directory = ["vane2_data_2018-05-03", "vane2_data_2018-06-12", "vane2_data_2018-07-06"]
 
         latest_version = self.database._get_latest_installed_version(database_directory)
 
-        self.assertEqual("2.1", latest_version)
+        self.assertEqual("2018-07-06", latest_version)
 
 
     def test_get_days_since_last_update_return_time_in_days_between_now_and_database_folder_modification_time(self):
@@ -405,11 +406,11 @@ class TestDatabase(TestCase):
             fake_remove.assert_called_once_with("filename.tar.gz")
 
     def test_get_database_directory_return_database_directory_based_on_current_version(self):
-        self.database.current_version = "3.2"
+        self.database.current_version = "2018-07-06"
 
         path = self.database._get_database_directory("/path/to/database")
 
-        self.assertEqual(path, "/path/to/database/vane2_data_3.2")
+        self.assertEqual(path, "/path/to/database/vane2_data_2018-07-06")
 
     def test_get_database_directory_return_none_if_current_version_is_none(self):
         self.database.current_version = None
