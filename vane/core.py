@@ -60,11 +60,12 @@ class Vane:
         self.config_hammertime()
 
     def config_hammertime(self):
-        heuristics = [DynamicTimeout(0.05, 2), RetryOnErrors(range(502, 503))]
+        global_heuristics = [DynamicTimeout(0.05, 2), RetryOnErrors(range(502, 503))]
         soft_404 = DetectSoft404()
-        soft_404.child_heuristics.add_multiple(heuristics)
-        heuristics.extend([RejectStatusCode(range(400, 600)), soft_404, HashResponse(), DeadHostDetection()])
+        heuristics = [RejectStatusCode(range(400, 600)), soft_404, HashResponse(), DeadHostDetection()]
+        self.hammertime.heuristics.add_multiple(global_heuristics)
         self.hammertime.heuristics.add_multiple(heuristics)
+        soft_404.child_heuristics.add_multiple(global_heuristics)
 
     def set_proxy(self, proxy_address):
         self.hammertime.set_proxy(proxy_address)
@@ -303,8 +304,7 @@ class Vane:
     async def _load_database(self, loop, database_path, auto_update_frequency=7, no_update=False):
         async with ClientSession(loop=loop) as aiohttp_session:
             self.database = Database(self.output_manager, aiohttp_session, auto_update_frequency)
-            # TODO don't forget to change this to the real Vane data repository when it will exist.
-            self.database.configure_update_repository("NicolasAubry", "vane_data_test")
+            self.database.configure_update_repository("delvelabs", "vane2-data")
             try:
                 await self.database.load_data(database_path, no_update=no_update)
             except ClientError:

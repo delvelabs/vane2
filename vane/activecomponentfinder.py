@@ -15,6 +15,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
+import asyncio
+from hammertime.rules.deadhostdetection import OfflineHostException
 from openwebvulndb.common.schemas import FileListGroupSchema
 from os.path import join
 from .filefetcher import FileFetcher
@@ -27,7 +30,6 @@ class ActiveComponentFinder:
     def __init__(self, hammertime, target_url):
         self.loop = hammertime.loop
         self.file_fetcher = FileFetcher(hammertime, target_url)
-
         self.components_file_list_group = None
 
     def load_components_identification_file(self, file_path, component_base_key, popular, vulnerable):
@@ -93,15 +95,30 @@ class FoundComponentIterator:
         self.pending_tasks.remove(task)
         self.done.put_nowait(task)
 
+    async def cancel_pending_tasks(self):
+        for task in self.pending_tasks:
+            task.cancel()
+        if len(self.pending_tasks):
+            await asyncio.wait(self.pending_tasks)
+        while not self.done.empty():
+            task = self.done.get_nowait()
+            try:
+                task.result()
+            except:
+                pass
+
     async def __aiter__(self):
         return self
 
     async def __anext__(self):
-        while len(self.pending_tasks) > 0 or not self.done.empty():
-            future = await self.done.get()
-            component_key, fetched_files = await future
-            self._to_remove = future
-            if len(fetched_files) > 0:
-                return {'key': component_key, 'files': fetched_files}
-        else:
-            raise StopAsyncIteration
+        try:
+            while len(self.pending_tasks) > 0 or not self.done.empty():
+                future = await self.done.get()
+                component_key, fetched_files = await future
+                self._to_remove = future
+                if len(fetched_files) > 0:
+                    return {'key': component_key, 'files': fetched_files}
+        except OfflineHostException:
+            await self.cancel_pending_tasks()
+            raise
+        raise StopAsyncIteration
