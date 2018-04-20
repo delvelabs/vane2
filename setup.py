@@ -22,7 +22,7 @@ from vane.__version__ import __version__
 
 
 setup(
-    name='Vane2',
+    name='vane2',
     version=__version__,
     packages=find_packages(),
     package_data={'tachyon': ['data/*.json']},
