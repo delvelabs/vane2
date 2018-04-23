@@ -14,26 +14,3 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-
-
-from setuptools import setup, find_packages
-
-from vane.__version__ import __version__
-
-
-setup(
-    name='vane2',
-    version=__version__,
-    packages=find_packages(),
-    entry_points={
-        'console_scripts': [
-            'vane = vane.__main__:main'
-        ]
-    },
-    install_requires=[
-        'lxml>=4.0.0,<5.0.0',
-        'termcolor==1.1.0',
-        'hammertime-http>=0.4.0,<0.5.0',
-        'openwebvulndb-tools>=1.0.0,<2',
-    ],
-)

@@ -9,3 +9,6 @@ src/
 include/
 pip-selfcheck.json
 *data*
+dist/
+pyvenv.cfg
+vane2.egg-info/
