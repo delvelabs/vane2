@@ -44,5 +44,11 @@ parser.add_argument('--output-format', dest='output_format', default='pretty', h
                                                                                     '" or "json"), default is pretty')
 args = parser.parse_args()
 
-vane = Vane(args.output_format)
-vane.perform_action(**vars(args))
+
+def main():
+    vane = Vane(args.output_format)
+    vane.perform_action(**vars(args))
+
+
+if __name__ == '__main__':
+    main()

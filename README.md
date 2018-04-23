@@ -3,44 +3,58 @@ A WordPress vulnerability scanner
 
 ## Installation
 
+From pypy:
+
+```bash
+python -m venv .
+source bin/activate
+pip install vane2
+
+vane --help
+```
+
+From source:
+
 ```bash
 git clone https://github.com/delvelabs/vane2
 cd vane2
 python -m venv .
 source bin/activate
 pip install -r requirements.txt
+
+python -m vane --help
 ```
 
 ## Getting started
 
 Doing a standard scan:
 ```bash
-python -m vane scan --url http://example.com/
+vane scan --url http://example.com/
 ```
 
 Using a HTTP proxy for the scan (replace http://127.0.0.1:8080 with the proxy URL):
 ```bash
-python -m vane scan --url http://example.com/ --proxy http://127.0.0.1:8080
+vane scan --url http://example.com/ --proxy http://127.0.0.1:8080
 ```
 
 Printing output in JSON format:
 ```bash
-python -m vane scan --url http://example.com/ --output-format json
+vane scan --url http://example.com/ --output-format json
 ```
 
 Only check for popular plugins and themes:
 ```bash
-python -m vane scan --url http://example.com/ -p
+vane scan --url http://example.com/ -p
 ```
 
 Updating the database:
 ```bash
-python -m vane import-data
+vane import-data
 ```
 
 Printing help message:
 ```bash
-python -m vane --help
+vane --help
 ```
 
 ## Available options
