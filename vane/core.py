@@ -23,9 +23,11 @@ import re
 from hammertime import HammerTime
 from hammertime.rules import RejectStatusCode, DynamicTimeout, DetectSoft404, DeadHostDetection
 from hammertime.rules.deadhostdetection import OfflineHostException
+from hammertime.rules.waf import RejectWebApplicationFirewall
 from hammertime.ruleset import HammerTimeException, RejectRequest, StopRequest
 from hammertime.engine.aiohttp import AioHttpEngine
 from hammertime.config import custom_event_loop
+from hammertime.rules.sampling import ContentHashSampling, ContentSampling, ContentSimhashSampling
 from openwebvulndb.common.schemas import FileListSchema, VulnerabilityListGroupSchema, VulnerabilitySchema, \
     MetaListSchema
 from openwebvulndb.common.serialize import clean_walk
@@ -60,9 +62,12 @@ class Vane:
         self.config_hammertime()
 
     def config_hammertime(self):
-        global_heuristics = [DynamicTimeout(0.05, 2), RetryOnErrors(range(500, 503))]
+        global_heuristics = [DynamicTimeout(0.05, 2), RetryOnErrors(range(500, 503)),
+                             ContentHashSampling(), ContentSampling(), ContentSimhashSampling()]
         soft_404 = DetectSoft404()
-        heuristics = [DeadHostDetection(threshold=200), RejectStatusCode(range(400, 600)), soft_404, HashResponse()]
+        heuristics = [DeadHostDetection(threshold=200), RejectStatusCode(range(400, 600)),
+                      RejectWebApplicationFirewall(),
+                      soft_404, HashResponse()]
         self.hammertime.heuristics.add_multiple(global_heuristics)
         self.hammertime.heuristics.add_multiple(heuristics)
         soft_404.child_heuristics.add_multiple(global_heuristics)

@@ -1,4 +1,4 @@
 lxml==4.2.0
 termcolor==1.1.0
-hammertime-http==0.5.0
-openwebvulndb-tools==1.0.1
+hammertime-http==0.6.1
+openwebvulndb-tools==1.0.2
