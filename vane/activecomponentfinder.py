@@ -17,6 +17,7 @@
 
 
 import asyncio
+from hammertime.ruleset import RejectRequest, StopRequest
 from hammertime.rules.deadhostdetection import OfflineHostException
 from openwebvulndb.common.schemas import FileListGroupSchema
 from os.path import join
@@ -107,17 +108,21 @@ class FoundComponentIterator:
             except:
                 pass
 
-    async def __aiter__(self):
+    def __aiter__(self):
         return self
 
     async def __anext__(self):
         try:
             while len(self.pending_tasks) > 0 or not self.done.empty():
-                future = await self.done.get()
-                component_key, fetched_files = await future
-                self._to_remove = future
-                if len(fetched_files) > 0:
-                    return {'key': component_key, 'files': fetched_files}
+                try:
+                    future = await self.done.get()
+                    component_key, fetched_files = await future
+                    self._to_remove = future
+                    if len(fetched_files) > 0:
+                        return {'key': component_key, 'files': fetched_files}
+                except (RejectRequest, StopRequest):
+                    # Not fatal at all, just one of many
+                    pass
         except OfflineHostException:
             await self.cancel_pending_tasks()
             raise
