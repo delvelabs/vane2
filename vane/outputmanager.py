@@ -122,6 +122,22 @@ class JsonOutput(OutputManager):
 
 class PrettyOutput(OutputManager):
 
+    def log_message(self, message):
+        print("Log:", message)
+        super().log_message(message)
+
+    def set_wordpress_version(self, version, meta):
+        print("Finding:", "wordpress", version)
+        super().set_wordpress_version(version, meta)
+
+    def add_plugin(self, plugin, version, meta):
+        print("Finding:", plugin, version)
+        super().add_plugin(plugin, version, meta)
+
+    def add_theme(self, theme, version, meta):
+        print("Finding:", theme, version)
+        super().add_theme(theme, version, meta)
+
     def format(self, data):
         output = ""
         if "wordpress" in data:
@@ -199,7 +215,7 @@ class PrettyOutput(OutputManager):
             if bold:
                 attrs = ["bold"]
             else:
-                attrs= []
+                attrs = []
             if highlight_color:
                 value = termcolor.colored(value, color, highlight_color, attrs=attrs)
             else:
