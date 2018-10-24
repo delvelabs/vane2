@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/delvelabs/vane2.svg?branch=master)](https://travis-ci.org/delvelabs/vane2)
+[![PyPi](https://badge.fury.io/py/vane2.svg)](https://badge.fury.io/py/vane2)
+
 # Vane 2.0
 A WordPress vulnerability scanner
 
