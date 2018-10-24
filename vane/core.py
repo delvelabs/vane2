@@ -28,6 +28,7 @@ from hammertime.ruleset import HammerTimeException, RejectRequest, StopRequest
 from hammertime.engine.aiohttp import AioHttpEngine
 from hammertime.config import custom_event_loop
 from hammertime.rules.sampling import ContentHashSampling, ContentSampling, ContentSimhashSampling
+from hammertime.rules import RejectCatchAllRedirect, FollowRedirects
 from openwebvulndb.common.schemas import FileListSchema, VulnerabilityListGroupSchema, VulnerabilitySchema, \
     MetaListSchema
 from openwebvulndb.common.serialize import clean_walk
@@ -65,12 +66,15 @@ class Vane:
         global_heuristics = [DynamicTimeout(0.05, 2), RetryOnErrors(range(500, 503)),
                              ContentHashSampling(), ContentSampling(), ContentSimhashSampling()]
         soft_404 = DetectSoft404()
+        follow_redirects = FollowRedirects()
         heuristics = [DeadHostDetection(threshold=200), RejectStatusCode(range(400, 600)),
                       RejectWebApplicationFirewall(),
+                      RejectCatchAllRedirect(), follow_redirects,
                       soft_404, HashResponse()]
         self.hammertime.heuristics.add_multiple(global_heuristics)
         self.hammertime.heuristics.add_multiple(heuristics)
         soft_404.child_heuristics.add_multiple(global_heuristics)
+        follow_redirects.child_heuristics.add_multiple(global_heuristics)
 
     def set_proxy(self, proxy_address):
         self.hammertime.set_proxy(proxy_address)
