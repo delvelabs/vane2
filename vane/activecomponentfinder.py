@@ -123,7 +123,6 @@ class FoundComponentIterator:
                 await self.cancel_pending_tasks()
                 raise
             except (RejectRequest, StopRequest) as e:
-                print(e)
                 # Not fatal at all, just one of many
                 pass
         raise StopAsyncIteration
