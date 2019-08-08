@@ -15,14 +15,17 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+from os.path import dirname, join
 from unittest import TestCase
 from unittest.mock import MagicMock, call
-from openwebvulndb.common.models import File, FileList, FileSignature, FileListGroup
-from vane.activecomponentfinder import ActiveComponentFinder
-from os.path import dirname, join
+
 from hammertime.core import HammerTime
-from vane.filefetcher import FetchedFile
+from hammertime.rules.deadhostdetection import OfflineHostException
+from openwebvulndb.common.models import File, FileList, FileSignature, FileListGroup
+
 from fixtures import async_test
+from vane.activecomponentfinder import ActiveComponentFinder
+from vane.filefetcher import FetchedFile
 
 
 class TestActiveComponentFinder(TestCase):
@@ -155,6 +158,22 @@ class TestActiveComponentFinder(TestCase):
             self.assertTrue(component_dict['key'] == self.plugin0_file_list.key or
                             component_dict['key'] == self.plugin1_file_list.key)
             self.assertIn('files', component_dict)
+
+    @async_test()
+    async def test_enumerate_found_raise_if_host_is_offline(self, loop):
+
+        async def fake_perform(*args, **kwargs):
+            raise OfflineHostException()
+
+        hammertime = HammerTime(loop)
+        hammertime.request_engine = MagicMock()
+        hammertime.request_engine.perform = fake_perform
+        component_finder = ActiveComponentFinder(hammertime, self.target_url)
+        component_finder.components_file_list_group = self.plugin_list
+
+        with self.assertRaises(OfflineHostException):
+            async for _ in component_finder.enumerate_found():
+                pass
 
     def test_get_component_file_list(self):
         self.component_finder.components_file_list_group = self.plugin_list
