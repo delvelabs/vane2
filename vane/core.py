@@ -63,7 +63,7 @@ class Vane:
         self.config_hammertime()
 
     def config_hammertime(self):
-        global_heuristics = [DynamicTimeout(0.05, 2), RetryOnErrors(range(500, 503)),
+        global_heuristics = [DynamicTimeout(0.05, 2), RetryOnErrors(range(500, 503)), DeadHostDetection(threshold=200),
                              ContentHashSampling(), ContentSampling(), ContentSimhashSampling()]
         soft_404 = DetectSoft404()
         follow_redirects = FollowRedirects()
