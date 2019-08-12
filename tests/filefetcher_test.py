@@ -16,19 +16,20 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from unittest import TestCase
+from unittest.mock import ANY, MagicMock
 from vane.filefetcher import FileFetcher
 from hammertime.core import HammerTime
 from aiohttp.test_utils import make_mocked_coro
 import asyncio
 from openwebvulndb.common.models import File, FileSignature, FileList
 from hammertime.ruleset import StopRequest, RejectRequest
-from fixtures import async_test
+from fixtures import async_test, fake_future
 
 
 class TestFileFetcher(TestCase):
 
     def setUp(self):
-        signatures = [FileSignature(hash="hash")]
+        signatures = [FileSignature(hash="hash"), FileSignature(hash="another-hash")]
         self.plugin_key = "my-plugin"
         self.files_to_fetch = FileList(key=self.plugin_key, producer="", files=[
                                         File(path="wp-content/plugins/my-plugin/script.js", signatures=signatures),
@@ -51,6 +52,18 @@ class TestFileFetcher(TestCase):
         for file in fetched_files:
             self.assertIn(file.path, [file.path for file in self.files_to_fetch.files])
             self.assertEqual(file.hash, "fake-hash")
+
+    @async_test()
+    async def test_request_files_set_expected_hash_and_return_code_for_requests(self, loop):
+        self._setup_async_test(loop)
+        self.hammertime.request = MagicMock(return_value=fake_future(MagicMock(), loop=loop))
+
+        await self.fetcher.request_files(self.plugin_key, self.files_to_fetch)
+
+        expected_arguments = {"expected_hash": {"hash", "another-hash"}, "hash_algo": "SHA256",  "file_path": ANY,
+                              "expected_status_code": 200}
+        for args, kwargs in self.hammertime.request.call_args_list:
+            self.assertEqual(kwargs["arguments"], expected_arguments)
 
     @async_test()
     async def test_awaiting_requests_ignores_timeout_errors(self, loop):
