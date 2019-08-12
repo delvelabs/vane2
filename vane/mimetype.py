@@ -1,0 +1,35 @@
+# Vane 2.0: A web application vulnerability assessment tool.
+# Copyright (C) 2017-  Delve Labs inc.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+import mimetypes
+
+
+JS_TYPES = ("application/javascript", "text/javascript", "application/x-javascript")
+
+
+def convert_url_to_mimetype(url):
+    if not mimetypes.inited:
+        mimetypes.init()
+    type, encoding = mimetypes.guess_type(url)
+    return type
+
+
+def match(type0, type1):
+    if type0 in JS_TYPES and type1 in JS_TYPES:
+        return True
+    return type0.lower() == type1.lower()
