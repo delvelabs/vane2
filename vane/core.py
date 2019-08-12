@@ -67,10 +67,8 @@ class Vane:
                              ContentHashSampling(), ContentSampling(), ContentSimhashSampling()]
         soft_404 = DetectSoft404()
         follow_redirects = FollowRedirects()
-        heuristics = [DeadHostDetection(threshold=200), RejectStatusCode(range(400, 600)),
-                      RejectWebApplicationFirewall(),
-                      RejectCatchAllRedirect(), follow_redirects,
-                      soft_404, HashResponse()]
+        heuristics = [RejectStatusCode(range(400, 600)), RejectWebApplicationFirewall(), RejectCatchAllRedirect(),
+                      follow_redirects, soft_404, HashResponse()]
         self.hammertime.heuristics.add_multiple(global_heuristics)
         self.hammertime.heuristics.add_multiple(heuristics)
         soft_404.child_heuristics.add_multiple(global_heuristics)
