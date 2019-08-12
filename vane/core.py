@@ -67,13 +67,13 @@ class Vane:
                              ContentHashSampling(), ContentSampling(), ContentSimhashSampling()]
         soft_404 = DetectSoft404()
         follow_redirects = FollowRedirects()
-        heuristics = [DeadHostDetection(threshold=200), RejectStatusCode(range(400, 600)),
-                      RejectWebApplicationFirewall(),
-                      RejectCatchAllRedirect(), follow_redirects,
-                      soft_404, HashResponse()]
+        reject_error_code = RejectStatusCode(range(400, 600))
+        heuristics = [reject_error_code, RejectWebApplicationFirewall(), RejectCatchAllRedirect(),
+                      follow_redirects, soft_404, HashResponse()]
         self.hammertime.heuristics.add_multiple(global_heuristics)
         self.hammertime.heuristics.add_multiple(heuristics)
         soft_404.child_heuristics.add_multiple(global_heuristics)
+        follow_redirects.child_heuristics.add(reject_error_code)
         follow_redirects.child_heuristics.add_multiple(global_heuristics)
 
     def set_proxy(self, proxy_address):
