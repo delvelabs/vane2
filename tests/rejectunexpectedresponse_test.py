@@ -28,7 +28,7 @@ from vane.rejectunexpectedresponse import RejectUnexpectedResponse
 class TestRejectUnexpectedResponse(TestCase):
 
     @async_test()
-    async def test_on_request_successful_raise_reject_request_if_response_matches_none_of_the_expectations(self, loop):
+    async def test_on_request_successful_raise_reject_request_if_response_matches_none_of_the_expectations(self):
         expected_hash = {"123", "456"}
         expected_status_code = 200
         expected_mime_type = "image/png"
@@ -46,7 +46,7 @@ class TestRejectUnexpectedResponse(TestCase):
             await reject_response.on_request_successful(entry)
 
     @async_test()
-    async def test_on_request_successful_accept_request_if_response_matches_all_of_the_expectations(self, loop):
+    async def test_on_request_successful_accept_request_if_response_matches_all_of_the_expectations(self):
         content = "image data"
         expected_hash = hash_data(content.encode(), "sha256")
         expected_hash = {"123", "456", expected_hash}
@@ -65,7 +65,7 @@ class TestRejectUnexpectedResponse(TestCase):
         await reject_response.on_request_successful(entry)
 
     @async_test()
-    async def test_on_request_successful_use_first_response_code_for_match_if_redirect(self, loop):
+    async def test_on_request_successful_use_first_response_code_for_match_if_redirect(self):
         expected_status_code = 200
         expected_mime_type = "text/plain"
 
@@ -82,7 +82,7 @@ class TestRejectUnexpectedResponse(TestCase):
             await reject_response.on_request_successful(entry)
 
     @async_test()
-    async def test_on_request_successful_accept_request_if_response_hash_matches_expected_hash(self, loop):
+    async def test_on_request_successful_accept_request_if_response_hash_matches_expected_hash(self):
         content = "data"
         expected_hash = hash_data(content.encode(), "sha256")
         expected_status_code = 200
@@ -100,7 +100,7 @@ class TestRejectUnexpectedResponse(TestCase):
         await reject_response.on_request_successful(entry)
 
     @async_test()
-    async def test_on_request_successful_accept_request_if_code_and_content_type_match(self, loop):
+    async def test_on_request_successful_accept_request_if_code_and_content_type_match(self):
         expected_hash = "some-random-hash"
         expected_status_code = 200
         expected_mime_type = "text/html"
@@ -134,7 +134,7 @@ class TestRejectUnexpectedResponse(TestCase):
         await reject_response.on_request_successful(entry)
 
     @async_test()
-    async def test_on_request_successful_reject_request_if_hash_and_content_type_dont_match(self, loop):
+    async def test_on_request_successful_reject_request_if_hash_and_content_type_dont_match(self):
         expected_hash = hash_data(b"expected page", "sha256")
         expected_status_code = 200
         expected_mime_type = "application/javascript"
@@ -151,7 +151,7 @@ class TestRejectUnexpectedResponse(TestCase):
             await reject_response.on_request_successful(entry)
 
     @async_test()
-    async def test_on_request_successful_content_type_is_not_determinant_if_it_is_text_html(self, loop):
+    async def test_on_request_successful_content_type_is_not_determinant_if_it_is_text_html(self):
         expected_hash = hash_data(b"expected page", "sha256")
         expected_status_code = 200
         expected_mime_type = "text/html"
@@ -168,7 +168,7 @@ class TestRejectUnexpectedResponse(TestCase):
             await reject_response.on_request_successful(entry)
 
     @async_test()
-    async def test_on_request_successful_reject_request_if_hash_and_code_dont_match_and_content_type_is_not_set(self, loop):
+    async def test_on_request_successful_reject_request_if_hash_and_code_dont_match_and_content_type_is_not_set(self):
         expected_hash = hash_data(b"expected page", "sha256")
         expected_status_code = 200
         response = StaticResponse(200, headers={"content-type": "text/html"}, content="page not found")
@@ -184,7 +184,7 @@ class TestRejectUnexpectedResponse(TestCase):
             await reject_response.on_request_successful(entry)
 
     @async_test()
-    async def test_on_request_successful_ignore_encoding_for_mime_type_match(self, loop):
+    async def test_on_request_successful_ignore_encoding_for_mime_type_match(self):
         response = StaticResponse(200, headers={"content-type": "text/html; charset=utf-8"}, content="html content")
         entry = Entry.create("http://example.com/", response=response, arguments={"expected_mime_type": "text/html"})
         reject_response = RejectUnexpectedResponse()
@@ -192,7 +192,7 @@ class TestRejectUnexpectedResponse(TestCase):
         await reject_response.on_request_successful(entry)
 
     @async_test()
-    async def test_hash_of_empty_file_never_match(self, loop):
+    async def test_hash_of_empty_file_never_match(self):
         empty_file_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         expected_status_code = 200
         expected_mime_type = "image/png"
@@ -210,7 +210,7 @@ class TestRejectUnexpectedResponse(TestCase):
             await reject_response.on_request_successful(entry)
 
     @async_test()
-    async def test_on_request_successful_ignore_request_if_no_expected_hash(self, loop):
+    async def test_on_request_successful_ignore_request_if_no_expected_hash(self):
         expected_status_code = 200
         response = StaticResponse(200, headers={"content-type": "text/plain"}, content="page not found")
         arguments = {"expected_status_code": expected_status_code, "expected_mime_type": "image/png",
