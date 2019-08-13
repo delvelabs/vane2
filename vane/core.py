@@ -44,6 +44,8 @@ from .passivepluginsfinder import PassivePluginsFinder
 from .passivethemesfinder import PassiveThemesFinder
 from .outputmanager import PrettyOutput, JsonOutput
 from .database import Database
+from .setexpectedmimetype import SetExpectedMimeType
+from .rejectunexpectedresponse import RejectUnexpectedResponse
 
 
 class Vane:
@@ -69,7 +71,7 @@ class Vane:
         follow_redirects = FollowRedirects()
         reject_error_code = RejectStatusCode(range(400, 600))
         heuristics = [reject_error_code, RejectWebApplicationFirewall(), RejectCatchAllRedirect(),
-                      follow_redirects, soft_404, HashResponse()]
+                      follow_redirects, soft_404, HashResponse(), SetExpectedMimeType(), RejectUnexpectedResponse()]
         self.hammertime.heuristics.add_multiple(global_heuristics)
         self.hammertime.heuristics.add_multiple(heuristics)
         soft_404.child_heuristics.add_multiple(global_heuristics)
