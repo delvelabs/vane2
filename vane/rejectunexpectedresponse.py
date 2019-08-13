@@ -24,25 +24,24 @@ from .mimetype import match
 class RejectUnexpectedResponse:
 
     async def on_request_successful(self, entry):
-        if "expected_hash" not in entry.arguments:
-            return
         if len(entry.response.raw) == 0:
             raise RejectRequest("Response received didn't match the expectation for the request.")
-        status_code_match = None
-        mime_type_match = None
+
+        if "expected_hash" not in entry.arguments:
+            return
         if self._response_hash_matches_expected_hash(entry):
             return
-        if "expected_status_code" in entry.arguments:
-            status_code_match = self._status_code_match(entry)
+
         if "expected_mime_type" in entry.arguments:
             mime_type_match = self._mime_type_match_response(entry.arguments["expected_mime_type"], entry.response)
-            if mime_type_match is True and entry.arguments["expected_mime_type"] == "text/html":
-                mime_type_match = None
+            if mime_type_match and self._is_mime_type_significant(entry.arguments["expected_mime_type"]):
+                return
+            elif not mime_type_match:
+                raise RejectRequest("Response received didn't match the expectation for the request.")
 
-        if not mime_type_match and not status_code_match:
-            raise RejectRequest("Response received didn't match the expectation for the request.")
-        elif mime_type_match is None and status_code_match is False:
-            raise RejectRequest("Response received didn't match the expectation for the request.")
+        if "expected_status_code" in entry.arguments:
+            if not self._status_code_match(entry):
+                raise RejectRequest("Response received didn't match the expectation for the request.")
 
     def _response_hash_matches_expected_hash(self, entry):
         expected_hash = entry.arguments["expected_hash"]
@@ -60,3 +59,8 @@ class RejectUnexpectedResponse:
         else:
             status_code = entry.response.code
         return entry.arguments["expected_status_code"] == status_code
+
+    def _is_mime_type_significant(self, mime_type):
+        # Soft 404 and catch all redirect mostly have this type, so a match with this type is not a good indicator that
+        # we have received the page we are looking for.
+        return mime_type != "text/html"
