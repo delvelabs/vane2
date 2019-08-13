@@ -24,13 +24,14 @@ from .mimetype import match
 class RejectUnexpectedResponse:
 
     async def on_request_successful(self, entry):
+        if "expected_hash" not in entry.arguments:
+            return
+        if len(entry.response.raw) == 0:
+            raise RejectRequest("Response received didn't match the expectation for the request.")
         status_code_match = None
         mime_type_match = None
-        hash_match = None
-        if "expected_hash" in entry.arguments and hasattr(entry.result, "hash"):
-            hash_match = self._response_hash_matches_expected_hash(entry)
-            if hash_match:
-                return
+        if self._response_hash_matches_expected_hash(entry):
+            return
         if "expected_status_code" in entry.arguments:
             status_code_match = self._status_code_match(entry)
         if "expected_mime_type" in entry.arguments:
@@ -38,22 +39,15 @@ class RejectUnexpectedResponse:
             if mime_type_match is True and entry.arguments["expected_mime_type"] == "text/html":
                 mime_type_match = None
 
-        if hash_match is False:
-            if mime_type_match is False:
-                raise RejectRequest("Response received didn't match the expectation for the request.")
-            elif mime_type_match is None and status_code_match is False:
-                raise RejectRequest("Response received didn't match the expectation for the request.")
-        else:  # hash_match is None
-            if status_code_match is False and mime_type_match is False:
-                raise RejectRequest("Response received didn't match the expectation for the request.")
+        if not mime_type_match and not status_code_match:
+            raise RejectRequest("Response received didn't match the expectation for the request.")
+        elif mime_type_match is None and status_code_match is False:
+            raise RejectRequest("Response received didn't match the expectation for the request.")
 
     def _response_hash_matches_expected_hash(self, entry):
         expected_hash = entry.arguments["expected_hash"]
         expected_hash = {expected_hash} if isinstance(expected_hash, str) else expected_hash
-        if len(entry.response.raw) > 0:
-            return entry.result.hash in expected_hash
-        else:
-            return False
+        return entry.result.hash in expected_hash
 
     def _mime_type_match_response(self, expected, response):
         expected_type = expected.split(";")[0]

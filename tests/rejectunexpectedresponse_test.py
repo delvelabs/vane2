@@ -71,7 +71,7 @@ class TestRejectUnexpectedResponse(TestCase):
 
         response = StaticResponse(200, headers={"content-type": "text/html"}, content="not-the-expected-content")
         arguments = {"expected_mime_type": expected_mime_type, "expected_status_code": expected_status_code,
-                     "hash_algo": "sha256"}
+                     "hash_algo": "sha256", "expected_hash": "123"}
         entry = self.create_redirect("http://example.com/", final_response=response, arguments=arguments)
 
         hash_response = HashResponse()
@@ -103,12 +103,29 @@ class TestRejectUnexpectedResponse(TestCase):
     async def test_on_request_successful_accept_request_if_code_and_content_type_match(self, loop):
         expected_hash = "some-random-hash"
         expected_status_code = 200
+        expected_mime_type = "text/html"
+
+        response = StaticResponse(200, headers={"content-type": "text/html"}, content="not-the-expected-content")
+        arguments = {"expected_hash": expected_hash, "expected_mime_type": expected_mime_type,
+                     "expected_status_code": expected_status_code, "hash_algo": "sha256"}
+        entry = Entry.create("http://example.com/", response=response, arguments=arguments)
+
+        hash_response = HashResponse()
+        reject_response = RejectUnexpectedResponse()
+        await hash_response.after_response(entry)
+
+        await reject_response.on_request_successful(entry)
+
+    @async_test()
+    async def test_on_request_successful_accept_request_if_only_content_type_match_and_content_type_is_not_html(self):
+        expected_hash = "some-random-hash"
+        expected_status_code = 200
         expected_mime_type = "image/svg+xml"
 
         response = StaticResponse(200, headers={"content-type": "image/svg+xml"}, content="not-the-expected-content")
         arguments = {"expected_hash": expected_hash, "expected_mime_type": expected_mime_type,
                      "expected_status_code": expected_status_code, "hash_algo": "sha256"}
-        entry = Entry.create("http://example.com/", response=response, arguments=arguments)
+        entry = self.create_redirect("http://example.com/", final_response=response, arguments=arguments)
 
         hash_response = HashResponse()
         reject_response = RejectUnexpectedResponse()
@@ -124,7 +141,7 @@ class TestRejectUnexpectedResponse(TestCase):
         response = StaticResponse(200, headers={"content-type": "text/html"}, content="page not found")
         arguments = {"expected_hash": expected_hash, "expected_mime_type": expected_mime_type,
                      "expected_status_code": expected_status_code, "hash_algo": "sha256"}
-        entry = Entry.create("http://example.com/", response=response, arguments=arguments)
+        entry = self.create_redirect("http://example.com/", final_response=response, arguments=arguments)
 
         hash_response = HashResponse()
         reject_response = RejectUnexpectedResponse()
@@ -177,12 +194,11 @@ class TestRejectUnexpectedResponse(TestCase):
     @async_test()
     async def test_hash_of_empty_file_never_match(self, loop):
         empty_file_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-        expected_hash = {empty_file_hash}
         expected_status_code = 200
         expected_mime_type = "image/png"
 
         response = StaticResponse(200, headers={}, content="")
-        arguments = {"expected_hash": expected_hash, "expected_mime_type": expected_mime_type,
+        arguments = {"expected_hash": empty_file_hash, "expected_mime_type": expected_mime_type,
                      "expected_status_code": expected_status_code, "hash_algo": "sha256"}
         entry = Entry.create("http://example.com/", response=response, arguments=arguments)
 
@@ -192,6 +208,20 @@ class TestRejectUnexpectedResponse(TestCase):
 
         with self.assertRaises(RejectRequest):
             await reject_response.on_request_successful(entry)
+
+    @async_test()
+    async def test_on_request_successful_ignore_request_if_no_expected_hash(self, loop):
+        expected_status_code = 200
+        response = StaticResponse(200, headers={"content-type": "text/plain"}, content="page not found")
+        arguments = {"expected_status_code": expected_status_code, "expected_mime_type": "image/png",
+                     "hash_algo": "sha256"}
+        entry = self.create_redirect("http://example.com/", final_response=response, arguments=arguments)
+
+        hash_response = HashResponse()
+        reject_response = RejectUnexpectedResponse()
+        await hash_response.after_response(entry)
+
+        await reject_response.on_request_successful(entry)
 
     def create_redirect(self, url, final_response, arguments):
         initial_response = StaticResponse(302, headers={"location": "http://example.com/redirect"})
