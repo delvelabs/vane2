@@ -18,31 +18,51 @@
 
 from hammertime.ruleset import RejectRequest
 
+from .mimetype import match
+
 
 class RejectUnexpectedResponse:
 
-    async def after_response(self, entry):
-        expectation_count = 0
-        matching_expectation_count = 0
-        if "expected_status_code" in entry.arguments:
-            expectation_count += 1
-            if entry.arguments["expected_status_code"] == entry.response.code:
-                matching_expectation_count += 1
-        if "expected_mime_type" in entry.arguments:
-            expectation_count += 1
-            if self._mime_type_match_response(entry.arguments["expected_mime_type"], entry.response):
-                matching_expectation_count += 1
+    async def on_request_successful(self, entry):
+        status_code_match = None
+        mime_type_match = None
+        hash_match = None
         if "expected_hash" in entry.arguments and hasattr(entry.result, "hash"):
-            expectation_count += 1
-            expected_hash = entry.arguments["expected_hash"]
-            expected_hash = set(expected_hash) if isinstance(expected_hash, str) else expected_hash
-            if entry.result.hash in expected_hash:
-                matching_expectation_count += 1
+            hash_match = self._response_hash_matches_expected_hash(entry)
+            if hash_match:
+                return
+        if "expected_status_code" in entry.arguments:
+            status_code_match = self._status_code_match(entry)
+        if "expected_mime_type" in entry.arguments:
+            mime_type_match = self._mime_type_match_response(entry.arguments["expected_mime_type"], entry.response)
+            if mime_type_match is True and entry.arguments["expected_mime_type"] == "text/html":
+                mime_type_match = None
 
-        if expectation_count > 0 and matching_expectation_count == 0:
-            raise RejectRequest("Response received didn't match the expectation for the request.")
+        if hash_match is False:
+            if mime_type_match is False:
+                raise RejectRequest("Response received didn't match the expectation for the request.")
+            elif mime_type_match is None and status_code_match is False:
+                raise RejectRequest("Response received didn't match the expectation for the request.")
+        else:  # hash_match is None
+            if status_code_match is False and mime_type_match is False:
+                raise RejectRequest("Response received didn't match the expectation for the request.")
+
+    def _response_hash_matches_expected_hash(self, entry):
+        expected_hash = entry.arguments["expected_hash"]
+        expected_hash = {expected_hash} if isinstance(expected_hash, str) else expected_hash
+        if len(entry.response.raw) > 0:
+            return entry.result.hash in expected_hash
+        else:
+            return False
 
     def _mime_type_match_response(self, expected, response):
         expected_type = expected.split(";")[0]
         received_type = response.headers.get("content-type", "").split(";")[0]
-        return received_type == expected_type
+        return match(received_type, expected_type)
+
+    def _status_code_match(self, entry):
+        if len(entry.result.redirects) > 0:
+            status_code = entry.result.redirects[0].response.code
+        else:
+            status_code = entry.response.code
+        return entry.arguments["expected_status_code"] == status_code
