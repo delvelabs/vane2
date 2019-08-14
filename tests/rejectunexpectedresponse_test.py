@@ -218,4 +218,4 @@ class TestRejectUnexpectedResponse(TestCase):
 
     async def process_request(self, entry):
         hash_response = HashResponse()
-        await hash_response.after_response(entry)
+        await hash_response.on_request_successful(entry)

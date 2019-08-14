@@ -20,7 +20,7 @@ from openwebvulndb.common.hash import hash_data
 
 class HashResponse:
 
-    async def after_response(self, entry):
+    async def on_request_successful(self, entry):
         if not entry.response.truncated and entry.arguments is not None:
             try:
                 hash_algo = entry.arguments['hash_algo']
