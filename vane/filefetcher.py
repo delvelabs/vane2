@@ -37,7 +37,9 @@ class FileFetcher:
         hammertime_requests = []
         for file in file_list.files:
             url = urljoin(self.url, file.path)
-            arguments = {'file_path': file.path, 'hash_algo': file_list.hash_algo}
+            expected_hash = self._get_expected_hash(file)
+            arguments = {"file_path": file.path, "hash_algo": file_list.hash_algo, "expected_hash": expected_hash,
+                         "expected_status_code": 200}
             hammertime_requests.append(self.hammertime.request(url, arguments=arguments))
         return self.hammertime.loop.create_task(self._request_files(key, hammertime_requests))
 
@@ -56,3 +58,9 @@ class FileFetcher:
             except RejectRequest:
                 pass
         return key, fetched_files
+
+    def _get_expected_hash(self, file):
+        hash = set()
+        for signature in file.signatures:
+            hash.add(signature.hash)
+        return hash
