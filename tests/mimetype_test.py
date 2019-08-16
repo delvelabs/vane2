@@ -29,7 +29,7 @@ class TestConvertExtensionToMimeType(TestCase):
         self.assertEqual(convert_url_to_mimetype("http://example.com/test.jpeg"), "image/jpeg")
         self.assertEqual(convert_url_to_mimetype("http://example.com/test.css"), "text/css")
         self.assertEqual(convert_url_to_mimetype("http://example.com/test.js"), "application/javascript")
-        self.assertEqual(convert_url_to_mimetype("http://example.com/test.md"), "text/markdown")
+        self.assertEqual(convert_url_to_mimetype("http://example.com/test.json"), "application/json")
         self.assertEqual(convert_url_to_mimetype("http://example.com/test.html"), "text/html")
 
     def test_url_to_mimetype_conversion_is_case_insensitive(self):

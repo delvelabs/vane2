@@ -16,17 +16,37 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 
-import mimetypes
-
-
 JS_TYPES = ("application/javascript", "text/javascript", "application/x-javascript")
+
+MIMETYPE_MAPPING = {
+    "css": "text/css",
+    "csv": "text/csv",
+    "eot": "application/vnd.ms-fontobject",
+    "gif": "image/gif",
+    "htm": "text/html",
+    "html": "text/html",
+    "ico": "image/x-icon",
+    "jpeg": "image/jpeg",
+    "jpg": "image/jpeg",
+    "js": "application/javascript",
+    "json": "application/json",
+    "pdf": "application/pdf",
+    "png": "image/png",
+    "svg": "image/svg+xml",
+    "swf": "application/x-shockwave-flash",
+    "ttf": "font/ttf",
+    "txt": "text/plain",
+    "woff": "font/woff",
+    "woff2": "font/woff2",
+    "xml": "application/xml",
+    "zip": "application/zip",
+}
 
 
 def convert_url_to_mimetype(url):
-    if not mimetypes.inited:
-        mimetypes.init()
-    type, encoding = mimetypes.guess_type(url)
-    return type
+    extension = url.split(".")[-1]
+    extension = extension.lower()
+    return MIMETYPE_MAPPING.get(extension, None)
 
 
 def match(type0, type1):
