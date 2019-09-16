@@ -26,6 +26,7 @@ from hammertime.rules.deadhostdetection import OfflineHostException
 from hammertime.rules.waf import RejectWebApplicationFirewall
 from hammertime.ruleset import HammerTimeException, RejectRequest, StopRequest
 from hammertime.engine.aiohttp import AioHttpEngine
+from hammertime.engine.scaling import SlowStartPolicy, StaticPolicy
 from hammertime.config import custom_event_loop
 from hammertime.rules.sampling import ContentHashSampling, ContentSampling, ContentSimhashSampling
 from hammertime.rules import RejectCatchAllRedirect, FollowRedirects
@@ -55,13 +56,20 @@ class Vane:
         self.output_manager = JsonOutput() if output_format == "json" else PrettyOutput()
         self.hammertime = None
 
-    def initialize_hammertime(self, proxy=None, verify_ssl=True, ca_certificate_file=None):
+    def initialize_hammertime(self, proxy=None, verify_ssl=True, ca_certificate_file=None, concurrency=0):
         loop = custom_event_loop()
         if proxy is not None and verify_ssl and ca_certificate_file is None:
             self.output_manager.log_message("Verifying SSL authentication of the target over a proxy without providing "
                                             "a CA certificate. Scan may fail if target is a https website.")
+
+        scale_policy = SlowStartPolicy(initial=3)
+        if concurrency > 0:
+            self.output_manager.log_message("Static!")
+            scale_policy = StaticPolicy(concurrency)
+
         request_engine = AioHttpEngine(loop=loop, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
-        self.hammertime = HammerTime(loop=loop, retry_count=3, proxy=proxy, request_engine=request_engine)
+        self.hammertime = HammerTime(loop=loop, retry_count=3, proxy=proxy, request_engine=request_engine,
+                                     scale_policy=scale_policy)
         self.config_hammertime()
 
     def config_hammertime(self):
@@ -337,14 +345,15 @@ class Vane:
 
     def perform_action(self, action="scan", url=None, database_path=".", popular=False, vulnerable=False,
                        passive=False, proxy=None, verify_ssl=True, ca_certificate_file=None, auto_update_frequency=7,
-                       no_update=False, **kwargs):
+                       no_update=False, concurrency=0, **kwargs):
         loop = custom_event_loop()
         if action == "scan":
             if url is None:
                 raise ValueError("Target url required.")
             loop.run_until_complete(self._load_database(loop, database_path, int(auto_update_frequency), no_update))
             if self.database.database_directory is not None:
-                self.initialize_hammertime(proxy=proxy, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
+                self.initialize_hammertime(proxy=proxy, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file,
+                                           concurrency=int(concurrency))
                 try:
                     loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
                                                              passive_only=passive))

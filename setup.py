@@ -33,7 +33,7 @@ setup(
     install_requires=[
         'lxml>=4.0.0,<5.0.0',
         'termcolor==1.1.0',
-        'hammertime-http>=0.6.0,<0.7.0',
+        'hammertime-http>=0.7.0,<0.8.0',
         'openwebvulndb-tools>=1.0.0,<2',
     ],
 )

@@ -30,6 +30,8 @@ parser.add_argument('-v', dest="vulnerable", action='store_true',
                     help="Search for vulnerable themes/plugins. Can be combined with popular (-p)")
 parser.add_argument('--passive', dest='passive', action='store_true',
                     help="Only use passive detection for themes and plugins")
+parser.add_argument('--concurrency', dest='concurrency',
+                    help='Fix the concurrency to a set amount. 0 for dynamic.', default=0)
 parser.add_argument('--proxy', dest='proxy', help="Address of the HTTP proxy to be used by Vane")
 parser.add_argument('--no-ssl-validation', dest='verify_ssl', action='store_false', help="Don't perform ssl "
                                                                                          "authentication.")
