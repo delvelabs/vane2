@@ -36,47 +36,34 @@ from fixtures import async_test, html_file_to_hammertime_response
 class TestVane(TestCase):
 
     def setUp(self):
-        with patch("vane.core.HammerTime"):
-            self.vane = Vane()
-            self.vane.config_hammertime = MagicMock()
-            with patch("vane.core.custom_event_loop", MagicMock()):
-                self.vane.initialize_hammertime()
-            self.vane.hammertime.close = make_mocked_coro()
-        self.vane.output_manager = MagicMock()
-        self.vane.database = MagicMock()
-        self.vane.database.database_directory = "/path/to/database/vane2_data_1.0"
-        self.vane._load_database = make_mocked_coro()
+        self._vane = None
 
-    def test_perform_action_raise_exception_if_no_url_and_action_is_scan(self):
+    @property
+    def vane(self):
+        if self._vane is None:
+            self._vane = Vane()
+            self._vane.config_hammertime = MagicMock()
+            self._vane.initialize_hammertime(concurrency=1)
+            self._vane.hammertime.close = make_mocked_coro()
+            self._vane.output_manager = MagicMock()
+            self._vane.database = MagicMock()
+            self._vane.database.database_directory = "/path/to/database/vane2_data_1.0"
+            self._vane._load_database = make_mocked_coro()
+
+        return self._vane
+
+    @async_test()
+    async def test_perform_action_raise_exception_if_no_url_and_action_is_scan(self):
         with patch("vane.core.custom_event_loop", MagicMock()):
             with self.assertRaises(ValueError):
                 self.vane.perform_action(action="scan")
 
-    def test_perform_action_flush_output(self):
+    @async_test()
+    async def test_perform_action_flush_output(self):
         with patch("vane.core.custom_event_loop", MagicMock()):
             self.vane.perform_action(action="no_action", url="test", verify_ssl=False)
 
             self.vane.output_manager.flush.assert_called_once_with()
-
-    def test_perform_action_call_initialize_hammertime(self):
-        self.vane.initialize_hammertime = MagicMock()
-        self.vane.scan_target = MagicMock()
-
-        with patch("vane.core.custom_event_loop", MagicMock()):
-            self.vane.perform_action(url="target", proxy="http://127.0.0.1:8080", verify_ssl=False,
-                                     ca_certificate_file="file")
-
-            self.vane.initialize_hammertime.assert_called_once_with(proxy="http://127.0.0.1:8080", verify_ssl=False,
-                                                                    ca_certificate_file="file")
-
-    def test_perform_action_dont_start_scan_if_database_failed_to_download_and_no_older_database_present(self):
-        self.vane.database.database_directory = None
-        self.vane.database._load_data = make_mocked_coro(raise_exception=ClientError())
-        self.vane.scan_target = make_mocked_coro()
-        with loop_context()as loop, patch("vane.core.custom_event_loop", MagicMock(return_value=loop)):
-            self.vane.perform_action(action="scan", url="test", verify_ssl=False)
-
-            self.vane.scan_target.assert_not_called()
 
     @async_test()
     async def test_scan_target_abort_if_target_is_not_wordpress(self):
@@ -187,7 +174,8 @@ class TestVane(TestCase):
             # confidence level is (total files - files that timed out) / total files.
             version_identifier.set_confidence_level_of_fetched_files.assert_called_once_with(5 / 20)
 
-    def test_list_component_vulnerabilitites_call_list_vulnerabilities_for_each_component(self):
+    @async_test()
+    async def test_list_component_vulnerabilitites_call_list_vulnerabilities_for_each_component(self):
         components_version = {'plugin0': "1.2.3", 'theme0': "3.2.1", 'plugin1': "1.4.0", 'theme1': "6.9"}
         plugin0_vuln_list = VulnerabilityList(key="plugin0", producer="")
         plugin1_vuln_list = VulnerabilityList(key="plugin1", producer="")
@@ -207,7 +195,8 @@ class TestVane(TestCase):
                      call("6.9", theme1_vuln_list, no_version_match_all=True)]
             fake_list_vuln.assert_has_calls(calls, any_order=True)
 
-    def test_list_component_vulnerabilitites_skip_component_with_no_vulnerability(self):
+    @async_test()
+    async def test_list_component_vulnerabilitites_skip_component_with_no_vulnerability(self):
         components_version = {'plugin0': "1.2.3"}
         plugin1_vuln_list = VulnerabilityList(key="plugin1", producer="")
         vuln_list_group = MagicMock()
@@ -220,7 +209,8 @@ class TestVane(TestCase):
 
             fake_list_vuln.assert_not_called()
 
-    def test_list_component_vulnerabilitites_return_vulnerabilities_for_each_component(self):
+    @async_test()
+    async def test_list_component_vulnerabilitites_return_vulnerabilities_for_each_component(self):
         components_version = {'plugin0': "1.2.3", 'plugin1': "1.4.0"}
         plugin0_vuln_list = VulnerabilityList(key="plugin0", producer="", vulnerabilities=[Vulnerability(id="1234")])
         plugin1_vuln_list = VulnerabilityList(key="plugin1", producer="", vulnerabilities=[Vulnerability(id="2345")])
@@ -237,7 +227,8 @@ class TestVane(TestCase):
             self.assertEqual(plugin0_vuln_list.vulnerabilities, vulns['plugin0'])
             self.assertEqual(plugin1_vuln_list.vulnerabilities, vulns['plugin1'])
 
-    def test_passive_plugin_enumeration_return_dict_with_plugins_key_and_version(self):
+    @async_test()
+    async def test_passive_plugin_enumeration_return_dict_with_plugins_key_and_version(self):
         fake_plugin_finder = MagicMock()
         fake_plugin_finder.list_plugins.return_value = {"plugins/wp-postratings": None, "plugins/disqus-comment-system":
                                                         "1.0.2", "plugins/cyclone-slider-2": "2.9.1"}
@@ -315,7 +306,8 @@ class TestVane(TestCase):
         self.assertEqual(plugins_log[2], OrderedDict([('name', "plugin2"), ('key', "plugins/plugin2"),
                                                      ('version', "No version found"), ('url', None)]))
 
-    def test_passive_theme_enumeration_return_set_of_theme_keys(self):
+    @async_test()
+    async def test_passive_theme_enumeration_return_set_of_theme_keys(self):
         fake_theme_finder = MagicMock()
         fake_theme_finder.list_themes.return_value = {"themes/twentyseventeen", "themes/twentysixteen"}
 
@@ -354,10 +346,11 @@ class TestVane(TestCase):
         self.assertEqual(call_args[0][0], "themes/theme2")
         self.assertIsNone(call_args[0][1])
 
-    def test_set_proxy_set_hammertime_proxy(self):
+    @async_test()
+    async def test_set_proxy_set_hammertime_proxy(self):
         self.vane.set_proxy("http://127.0.0.1:8080")
 
-        self.vane.hammertime.set_proxy.assert_called_once_with("http://127.0.0.1:8080")
+        self.assertEqual(self.vane.hammertime.request_engine.request_engine.proxy, "http://127.0.0.1:8080")
 
     @async_test()
     async def test_scan_target_only_use_passive_detection_if_passive_parameter_is_true(self):
@@ -451,23 +444,3 @@ class TestVane(TestCase):
         response_list = await self.vane._get_files_for_version_identification(target_url)
 
         self.assertIn(file_response, response_list)
-
-    def test_log_message_and_call_close_before_exiting_if_scan_cancelled(self):
-        self.vane.scan_target = make_mocked_coro(raise_exception=asyncio.CancelledError)
-        with loop_context() as loop:
-            with patch("vane.core.custom_event_loop", MagicMock(return_value=loop)):
-
-                self.vane.perform_action("scan", "http://localhost/")
-
-                self.vane.output_manager.log_message.assert_any_call("Scan interrupted.")
-                self.assertTrue(loop.is_closed())
-                self.vane.output_manager.flush.assert_called_once_with()
-
-    def test_close(self):
-        with loop_context() as loop:
-            self.vane.hammertime.loop = loop
-
-            self.vane.close(loop)
-
-            self.vane.hammertime.close.assert_called_once_with()
-            self.assertTrue(loop.is_closed())

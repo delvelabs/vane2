@@ -41,6 +41,7 @@ def async_test():
                 injector = Injector(loop=loop,
                                     fake_future=lambda: fake_future)
                 asyncio.get_child_watcher().attach_loop(loop)
+                asyncio.set_event_loop(loop)
                 loop.run_until_complete(injector.call(f, *args, **kwargs))
         return wrapper
     return setup

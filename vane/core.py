@@ -64,7 +64,6 @@ class Vane:
 
         scale_policy = SlowStartPolicy(initial=3)
         if concurrency > 0:
-            self.output_manager.log_message("Static!")
             scale_policy = StaticPolicy(concurrency)
 
         request_engine = AioHttpEngine(loop=loop, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
