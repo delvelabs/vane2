@@ -33,6 +33,7 @@ parser.add_argument('--passive', dest='passive', action='store_true',
 parser.add_argument('--concurrency', dest='concurrency',
                     help='Fix the concurrency to a set amount. 0 for dynamic.', default=0)
 parser.add_argument('--proxy', dest='proxy', help="Address of the HTTP proxy to be used by Vane")
+parser.add_argument('--user_agent', dest='user_agent', help="Determines User-Agent header which is going to be used", default="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36")
 parser.add_argument('--no-ssl-validation', dest='verify_ssl', action='store_false', help="Don't perform ssl "
                                                                                          "authentication.")
 parser.add_argument('--ca-cert', dest='ca_certificate_file', help='The ca certificate file of the proxy used for the '

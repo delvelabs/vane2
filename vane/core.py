@@ -29,7 +29,7 @@ from hammertime.engine.aiohttp import AioHttpEngine
 from hammertime.engine.scaling import SlowStartPolicy, StaticPolicy
 from hammertime.config import custom_event_loop
 from hammertime.rules.sampling import ContentHashSampling, ContentSampling, ContentSimhashSampling
-from hammertime.rules import RejectCatchAllRedirect, FollowRedirects
+from hammertime.rules import RejectCatchAllRedirect, FollowRedirects, SetHeader
 from openwebvulndb.common.schemas import FileListSchema, VulnerabilityListGroupSchema, VulnerabilitySchema, \
     MetaListSchema
 from openwebvulndb.common.serialize import clean_walk
@@ -56,22 +56,21 @@ class Vane:
         self.output_manager = JsonOutput() if output_format == "json" else PrettyOutput()
         self.hammertime = None
 
-    def initialize_hammertime(self, proxy=None, verify_ssl=True, ca_certificate_file=None, concurrency=0):
+    def initialize_hammertime(self, user_agent, proxy=None, verify_ssl=True, ca_certificate_file=None, concurrency=0, ):
         loop = custom_event_loop()
         if proxy is not None and verify_ssl and ca_certificate_file is None:
             self.output_manager.log_message("Verifying SSL authentication of the target over a proxy without providing "
                                             "a CA certificate. Scan may fail if target is a https website.")
-
+        
         scale_policy = SlowStartPolicy(initial=3)
         if concurrency > 0:
             scale_policy = StaticPolicy(concurrency)
-
         request_engine = AioHttpEngine(loop=loop, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
         self.hammertime = HammerTime(loop=loop, retry_count=3, proxy=proxy, request_engine=request_engine,
                                      scale_policy=scale_policy)
-        self.config_hammertime()
+        self.config_hammertime(user_agent)
 
-    def config_hammertime(self):
+    def config_hammertime(self, user_agent):
         global_heuristics = [DynamicTimeout(0.05, 2), RetryOnErrors(range(500, 503)), DeadHostDetection(threshold=200),
                              ContentHashSampling(), ContentSampling(), ContentSimhashSampling()]
         soft_404 = DetectSoft404()
@@ -81,6 +80,8 @@ class Vane:
                       follow_redirects, soft_404, HashResponse(), SetExpectedMimeType(), RejectUnexpectedResponse()]
         self.hammertime.heuristics.add_multiple(global_heuristics)
         self.hammertime.heuristics.add_multiple(heuristics)
+        user_agent = [SetHeader("User-Agent", user_agent)]
+        self.hammertime.heuristics.add_multiple(user_agent)
         soft_404.child_heuristics.add_multiple(global_heuristics)
         follow_redirects.child_heuristics.add(reject_error_code)
         follow_redirects.child_heuristics.add_multiple(global_heuristics)
@@ -344,7 +345,7 @@ class Vane:
 
     def perform_action(self, action="scan", url=None, database_path=".", popular=False, vulnerable=False,
                        passive=False, proxy=None, verify_ssl=True, ca_certificate_file=None, auto_update_frequency=7,
-                       no_update=False, concurrency=0, **kwargs):
+                       no_update=False, concurrency=0, user_agent=None, **kwargs):
         loop = custom_event_loop()
         if action == "scan":
             if url is None:
@@ -352,7 +353,7 @@ class Vane:
             loop.run_until_complete(self._load_database(loop, database_path, int(auto_update_frequency), no_update))
             if self.database.database_directory is not None:
                 self.initialize_hammertime(proxy=proxy, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file,
-                                           concurrency=int(concurrency))
+                                           concurrency=int(concurrency), user_agent=user_agent)
                 try:
                     loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
                                                              passive_only=passive))
