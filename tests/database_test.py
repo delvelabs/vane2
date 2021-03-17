@@ -20,7 +20,7 @@ from unittest.mock import patch, MagicMock, ANY
 from vane.database import Database
 from aiohttp.test_utils import make_mocked_coro
 from fixtures import async_test, AsyncContextManagerMock
-from datetime import datetime
+from datetime import datetime, timezone
 from aiohttp import ClientError
 
 
@@ -386,9 +386,10 @@ class TestDatabase(TestCase):
             from freezegun import freeze_time
         except ImportError:
             self.skipTest("freezegun is required.")
+
         database = Database(None)
         stat_result = MagicMock()
-        stat_result.st_mtime = datetime(2017, 5, 24).timestamp()
+        stat_result.st_mtime = datetime(2017, 5, 24, tzinfo=timezone.utc).timestamp()
         os_stat = MagicMock(return_value=stat_result)
 
         with patch('vane.database.stat', os_stat), freeze_time("2017-05-29"):

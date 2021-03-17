@@ -53,10 +53,9 @@ def fake_future(result, loop):
     return f
 
 
-class AsyncContextManagerMock(MagicMock):
+class AsyncContextManagerMock:
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
         for key in ('aenter_return', 'aexit_return'):
             setattr(self, key,  kwargs[key] if key in kwargs else MagicMock())
