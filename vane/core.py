@@ -15,11 +15,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-
-from aiohttp import ClientSession, ClientError
-import asyncio
-from os.path import join
 import re
+import sys
+import asyncio
+from datetime import datetime, timedelta
+from os.path import join
+from aiohttp import ClientSession, ClientError
+
 from hammertime import HammerTime
 from hammertime.rules import RejectStatusCode, DynamicTimeout, DetectSoft404, DeadHostDetection
 from hammertime.rules.deadhostdetection import OfflineHostException
@@ -66,13 +68,14 @@ class Vane:
         if concurrency > 0:
             scale_policy = StaticPolicy(concurrency)
 
-        request_engine = AioHttpEngine(loop=loop, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file)
+        request_engine = AioHttpEngine(loop=loop, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file,
+                                       timeout=5.0)
         self.hammertime = HammerTime(loop=loop, retry_count=3, proxy=proxy, request_engine=request_engine,
                                      scale_policy=scale_policy)
         self.config_hammertime()
 
     def config_hammertime(self):
-        global_heuristics = [DynamicTimeout(0.05, 2), RetryOnErrors(range(500, 503)), DeadHostDetection(threshold=200),
+        global_heuristics = [DynamicTimeout(0.05, 5.0), RetryOnErrors(range(500, 503)), DeadHostDetection(threshold=200),
                              ContentHashSampling(), ContentSampling(), ContentSimhashSampling()]
         soft_404 = DetectSoft404()
         follow_redirects = FollowRedirects()
@@ -87,6 +90,38 @@ class Vane:
 
     def set_proxy(self, proxy_address):
         self.hammertime.set_proxy(proxy_address)
+
+    async def stat_on_input(self, hammertime):
+
+        def format_stats(stats):
+            message = "Statistics: Requested: {}; Completed: {}; Duration: {:.0f} s; Retries: {}; Request rate: {:.2f}"
+
+            policy = self.hammertime.request_engine.scale_policy
+            if isinstance(policy, SlowStartPolicy):
+                message += f"; Concurrency: {policy.semaphore.current}/{policy.semaphore.maximum}"
+            return message.format(stats.requested, stats.completed, stats.duration, stats.retries, stats.rate)
+
+
+        if sys.stdin is None or not sys.stdin.readable() or not sys.stdin.isatty():
+            return
+
+        loop = asyncio.get_event_loop()
+        reader = asyncio.StreamReader()
+        reader_protocol = asyncio.StreamReaderProtocol(reader)
+
+        await loop.connect_read_pipe(lambda: reader_protocol, sys.stdin)
+
+        expiry = datetime.now()
+        while True:
+            await reader.readline()
+
+            # Throttle stats printing
+            if expiry < datetime.now():
+                self.output_manager.log_message(format_stats(hammertime.stats))
+                expiry = datetime.now() + timedelta(seconds=2)
+
+            if sys.stdin.seekable():
+                sys.stdin.seek(-1, sys.SEEK_END)
 
     async def scan_target(self, url, popular, vulnerable, passive_only=False):
         self.output_manager.log_message("scanning %s" % url)
@@ -354,10 +389,13 @@ class Vane:
                 self.initialize_hammertime(proxy=proxy, verify_ssl=verify_ssl, ca_certificate_file=ca_certificate_file,
                                            concurrency=int(concurrency))
                 try:
+                    t = loop.create_task(self.stat_on_input(self.hammertime))
                     loop.run_until_complete(self.scan_target(url, popular=popular, vulnerable=vulnerable,
                                                              passive_only=passive))
                 except asyncio.CancelledError:
                     self.output_manager.log_message("Scan interrupted.")
+                finally:
+                    t.cancel()
         elif action == "import-data":
             loop.run_until_complete(self._load_database(loop, database_path, Database.ALWAYS_CHECK_FOR_UPDATE))
 

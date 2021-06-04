@@ -4,11 +4,14 @@ lib64
 man/*
 share/*
 *.pyc
+*.swp
 .idea/*
+.venv/
 src/
 include/
 pip-selfcheck.json
 *data*
 dist/
+build/
 pyvenv.cfg
 vane2.egg-info/
