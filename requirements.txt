@@ -1,4 +1,4 @@
-lxml==4.6.2
+lxml==4.9.1
 termcolor==1.1.0
 hammertime-http[simhash-py]>=0.8,<0.9
 openwebvulndb-tools>=1.1.0,<1.2
